@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <linearGradient id="circleBg" x1="60" y1="0" x2="60" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF7700" />
+      <stop offset="100%" stop-color="#D93B00" />
+    </linearGradient>
+    <linearGradient id="faceMask" x1="60" y1="35" x2="60" y2="95" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFAA33" />
+      <stop offset="100%" stop-color="#FF7700" />
+    </linearGradient>
+    <linearGradient id="beakGrad" x1="60" y1="55" x2="60" y2="85" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFF7D6" />
+      <stop offset="100%" stop-color="#FFE082" />
+    </linearGradient>
+  </defs>
+
+  <!-- PERFECT CIRCLE CONTAINER -->
+  <circle cx="60" cy="60" r="56" fill="url(#circleBg)" stroke="#B33000" stroke-width="4" />
+
+  <!-- CROWN FEATHERS -->
+  <path d="M60 22 C48 10 42 2 54 0 C62 8 62 16 60 22 Z" fill="#FF4400" />
+  <path d="M60 22 C58 10 58 0 70 0 C72 10 68 18 60 22 Z" fill="#FF6600" />
+  <path d="M60 22 C66 10 74 2 82 4 C78 12 72 18 60 22 Z" fill="#FF8800" />
+
+  <!-- FACE MASK INNER -->
+  <path d="M30 65 C30 45, 42 40, 60 40 C78 40, 90 45, 90 65 C90 85, 78 98, 60 98 C42 98, 30 85, 30 65 Z" fill="url(#faceMask)" />
+
+  <!-- EYES -->
+  <circle cx="44" cy="58" r="11" fill="#FFFFFF" stroke="#D93B00" stroke-width="1.8" />
+  <circle cx="44" cy="58" r="5.5" fill="#131F24" />
+  <circle cx="42" cy="56" r="2" fill="#FFFFFF" />
+
+  <circle cx="76" cy="58" r="11" fill="#FFFFFF" stroke="#D93B00" stroke-width="1.8" />
+  <circle cx="76" cy="58" r="5.5" fill="#131F24" />
+  <circle cx="74" cy="56" r="2" fill="#FFFFFF" />
+
+  <!-- BEAK -->
+  <path d="M51 56 C51 56, 60 52, 69 56 C71 70, 60 82, 60 82 C60 82, 49 70, 51 56 Z" fill="url(#beakGrad)" stroke="#D9A000" stroke-width="2" />
+</svg>
