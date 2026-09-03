@@ -1,0 +1,5 @@
+# TradePigeon 2.0 Robots.txt
+User-agent: *
+Allow: /
+
+Sitemap: https://tradepigeon.com/sitemap.xml
