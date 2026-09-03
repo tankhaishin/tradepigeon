@@ -1,4 +1,4 @@
-// GoodTrader 2.0 LocalStorage Persistence Manager
+// TradePigeon LocalStorage Persistence Manager
 
 const STORAGE_KEYS = {
   USER_STATS: 'goodtrader_user_stats',
@@ -9,19 +9,19 @@ const STORAGE_KEYS = {
   ONBOARDING_COMPLETED: 'goodtrader_onboarding_completed'
 };
 
-// Initial Default State
+// Initial Clean Production Default State
 export const DEFAULT_USER_STATS = {
-  streakDays: 14,
-  disciplinePoints: 3400,
+  streakDays: 1,
+  disciplinePoints: 100,
   hearts: 5,
   maxHearts: 5,
-  level: 4,
-  levelTitle: 'Disciplined Trader',
-  username: 'ApexTrader_99',
-  joinedDate: 'Aug 2026',
-  tradesLogged: 42,
-  overallWinRate: '68%',
-  totalProfit: '+$8,750.00'
+  level: 1,
+  levelTitle: 'Rookie Trader',
+  username: 'Disciplined_Trader',
+  joinedDate: 'Sep 2026',
+  tradesLogged: 0,
+  overallWinRate: '0%',
+  totalProfit: '$0.00'
 };
 
 export const loadStoredData = (key, fallback) => {
@@ -37,7 +37,7 @@ export const loadStoredData = (key, fallback) => {
     }
     return parsed;
   } catch (err) {
-    console.warn(`[GoodTrader Storage] Failed to load ${key}:`, err);
+    console.warn(`[TradePigeon Storage] Failed to load ${key}:`, err);
     return fallback;
   }
 };
@@ -49,35 +49,34 @@ export const saveStoredData = (key, value) => {
       window.dispatchEvent(new CustomEvent('goodtrader-storage-update', { detail: { key, value } }));
     }
   } catch (err) {
-    console.warn(`[GoodTrader Storage] Failed to save ${key}:`, err);
+    console.warn(`[TradePigeon Storage] Failed to save ${key}:`, err);
   }
 };
 
 export const subscribeToStorageUpdate = (callback) => {
-  if (typeof window === 'undefined') return () => {};
   const handler = (event) => {
     if (callback) callback(event.detail);
   };
-  window.addEventListener('goodtrader-storage-update', handler);
-  window.addEventListener('storage', handler);
+  if (typeof window !== 'undefined') {
+    window.addEventListener('goodtrader-storage-update', handler);
+  }
   return () => {
-    window.removeEventListener('goodtrader-storage-update', handler);
-    window.removeEventListener('storage', handler);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('goodtrader-storage-update', handler);
+    }
   };
 };
 
-export const sanitizeAccountBasketData = (accounts, baskets) => {
-  if (!Array.isArray(accounts) || accounts.length === 0) return accounts;
-  const validBasketNames = new Set((baskets || []).map(b => b.name));
-
-  return accounts.map(acc => {
-    // If account has an invalid, orphaned, or legacy basket name that doesn't exist in current baskets
-    if (!acc.basketName || !validBasketNames.has(acc.basketName)) {
-      const defaultBasket = (baskets && baskets[0] && baskets[0].name) ? baskets[0].name : 'Standard Risk (1.0%)';
-      return { ...acc, basketName: defaultBasket };
-    }
-    return acc;
-  });
+export const sanitizeAccountBasketData = (baskets = []) => {
+  if (!Array.isArray(baskets)) return [];
+  return baskets.map((b) => ({
+    id: b.id || 'default_basket',
+    name: b.name || 'Primary Risk Basket',
+    accountCount: b.accountCount || 1,
+    maxDrawdown: b.maxDrawdown || 500,
+    currentLoss: b.currentLoss || 0,
+    status: b.status || 'ACTIVE'
+  }));
 };
 
 export { STORAGE_KEYS };

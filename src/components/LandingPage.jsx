@@ -103,11 +103,11 @@ export default function LandingPage({ onGetStarted, onLogin }) {
         <div className="flex items-center gap-3">
           <GoogleAuthButton onAuthSuccess={handleStart} className="py-2 text-[11px]" buttonText="Google Sign-In" />
           <button
-            onClick={handleStart}
+            onClick={() => handleStripeCheckout()}
             className="duo-btn-orange px-5 py-2.5 text-xs uppercase tracking-wider font-black shadow-lg cursor-pointer flex items-center gap-2"
           >
             <Duo3dZapBadge className="w-4 h-4" />
-            <span>START DRILL</span>
+            <span>START FREE TRIAL</span>
           </button>
         </div>
       </header>
@@ -163,14 +163,19 @@ export default function LandingPage({ onGetStarted, onLogin }) {
 
           {/* Duolingo 3D Tactile Action Buttons */}
           <div className="space-y-3.5 max-w-md mx-auto lg:mx-0">
-            <GoogleAuthButton onAuthSuccess={handleStart} className="w-full py-4 text-sm" buttonText="Sign In with Google" />
-
             <button
-              onClick={handleStart}
+              onClick={() => handleStripeCheckout()}
               className="duo-btn-orange w-full py-4 text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-[0_8px_30px_rgba(255,107,0,0.4)] cursor-pointer"
             >
               <Duo3dZapBadge className="w-5 h-5" />
-              <span>LAUNCH DASHBOARD DEMO</span>
+              <span>START YOUR 7-DAY FREE TRIAL</span>
+            </button>
+
+            <button
+              onClick={handleStart}
+              className="w-full py-3 rounded-2xl bg-[#0D1635] hover:bg-[#15203D] text-slate-300 border-2 border-[#1C2A4E] font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <span>👀 View Interactive Cockpit Demo</span>
             </button>
           </div>
 
