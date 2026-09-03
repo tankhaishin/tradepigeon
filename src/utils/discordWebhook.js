@@ -1,6 +1,6 @@
 // TradePigeon 2.0 — Discord Webhook & Real-Time Event Dispatcher Engine
 
-const DEFAULT_DISCORD_WEBHOOK = import.meta.env.VITE_DISCORD_WEBHOOK_URL || '';
+const DEFAULT_DISCORD_WEBHOOK = import.meta.env.VITE_DISCORD_WEBHOOK_URL || 'https://discord.com/api/webhooks/1545026133425258582/imLEdPgYxqkew82A0HQA-mCiNk4UeApf31u3bbTNMVibLMRjiLn_-wJ67oFmDam_5htO';
 
 /**
  * Sends a rich Discord Embed notification to your admin Discord channel
