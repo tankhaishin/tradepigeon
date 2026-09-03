@@ -101,13 +101,11 @@ export default function PendingOrdersRadar() {
   const hasHighRiskOrphan = pendingOrders.some(o => (Date.now() - o.createdAt) > 1000 * 60 * 15);
 
   return (
-    <div className="duo-card p-4 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] space-y-3 relative overflow-hidden">
+    <div className="duo-card p-3.5 sm:p-4 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] space-y-3 relative overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className={`p-1.5 rounded-xl ${pendingOrders.length > 0 ? 'bg-amber-500/20 text-amber-400 animate-pulse' : 'bg-[#182830] text-[#52656D]'}`}>
-            <DuoOrphanRadarIcon className="w-6 h-6 shrink-0" />
-          </div>
+        <div className="flex items-center gap-2.5">
+          <DuoOrphanRadarIcon className="w-6 h-6 shrink-0" />
           <div>
             <h4 className="text-xs font-black text-white flex items-center gap-1.5">
               <span>Orphan Pending Order Radar</span>
