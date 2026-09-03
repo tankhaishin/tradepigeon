@@ -575,27 +575,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
           </div>
         </div>
 
-        {/* PROP TRADER DAILY LOSS LIMIT (DLL) PROXIMITY TELEMETRY GAUGE */}
-        <div className="p-4 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] space-y-2.5 shadow-md text-left">
-          <div className="flex items-center justify-between text-xs font-black">
-            <div className="flex items-center gap-2">
-              <ShieldAlert size={16} className="text-[#FF6B00]" />
-              <span className="text-white">Daily Loss Threshold Proximity</span>
-            </div>
-            <span className="text-[#1CB0F6] font-mono font-black">$425.00 / $1,000.00</span>
-          </div>
-          <div className="w-full h-3.5 rounded-full bg-[#142127] border border-[#20323D] overflow-hidden relative p-0.5">
-            <div 
-              className="h-full bg-gradient-to-r from-[#58CC02] via-[#FFC800] to-[#FF4B4B] rounded-full transition-all duration-500 shadow-sm" 
-              style={{ width: '42.5%' }} 
-            />
-          </div>
-          <div className="flex items-center justify-between text-[11px] font-bold text-[#94A3B8]">
-            <span className="text-slate-300">42.5% Daily Risk Allocated</span>
-            <span className="text-[#58CC02] font-black">+$575.00 Risk Buffer Safe</span>
-          </div>
-        </div>
-
         {/* ORPHAN PENDING ORDER RADAR */}
         <PendingOrdersRadar />
 
