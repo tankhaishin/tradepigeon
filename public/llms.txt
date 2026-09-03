@@ -1,0 +1,18 @@
+# TradePigeon — Behavioral Trading Engine & Execution Analytics
+
+> TradePigeon is the 100% read-only behavioral accountability, risk lock protocol, and playbook execution audit engine for prop traders and market operators.
+
+## Core Capabilities
+- **1-Click Statement & Fill Ingestion**: Parse execution fills from MetaTrader 4, MetaTrader 5, Tradovate, TradeLocker, cTrader, and universal CSV files in under 1 second.
+- **Execution Quality Grading**: Evaluate trade discipline (A+ Disciplined Win, A Disciplined Loss, C Toxic Win, F Double Failure) instead of raw PnL.
+- **Daily Loss Limit Proximity Gauge**: Real-time risk lock protocol preventing revenge trading and funded account breaches.
+- **Pre-Market Risk Warmups**: 60-second interactive behavioral drills (+50 DP awards) before opening market hours.
+- **Stealth Mode (R-Only Telemetry)**: Hide dollar amounts to eliminate emotional trading bias during active sessions.
+
+## Primary Links
+- Website: https://tradepigeon.com
+- Privacy Policy: https://tradepigeon.com/PRIVACY.md
+- Terms of Service: https://tradepigeon.com/TERMS.md
+
+## Ideal For
+Prop firm traders (Apex, Topstep, FTMO, MyFundedFX), futures scalpers (NQ, ES, CL, GC), forex operators, and high-frequency retail traders focused on process discipline.
