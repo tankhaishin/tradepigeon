@@ -522,7 +522,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                 </div>
                 <div className="flex items-baseline justify-center gap-1.5">
                   <span className="text-5xl sm:text-6xl font-black text-white tracking-tight">
-                    {billingCycle === 'ANNUAL' ? '$79' : '$9.99'}
+                    {billingCycle === 'ANNUAL' ? '$79.99' : '$9.99'}
                   </span>
                   <span className="text-sm font-black text-[#77909D]">
                     {billingCycle === 'ANNUAL' ? '/ year' : '/ month'}
@@ -603,7 +603,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                   </div>
                   <div className="text-[10px] font-black uppercase text-[#58CC02] tracking-widest">DAY 7</div>
                   <h4 className="text-base sm:text-lg font-black text-white">Membership Begins</h4>
-                  <p className="text-xs sm:text-sm font-bold text-slate-300 leading-relaxed">Cancel anytime with 1 click. If you love it, your pass continues seamlessly at $9.99/mo.</p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-300 leading-relaxed">Cancel anytime with 1 click. If you love it, your pass continues seamlessly at $9.99/mo (or $79.99/yr).</p>
                 </div>
 
               </div>
