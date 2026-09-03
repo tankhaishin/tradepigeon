@@ -48,7 +48,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
   const handleStripeCheckout = async (overrideCycle) => {
     soundFx.playSuccess();
     const cycle = overrideCycle || billingCycle;
-    const monthlyUrl = import.meta.env.VITE_STRIPE_MONTHLY_LINK || 'https://buy.stripe.com/eVqbJ3bm5aeu2Fx52B7ss02';
+    const monthlyUrl = import.meta.env.VITE_STRIPE_MONTHLY_LINK || 'https://buy.stripe.com/00w28t0HrfyO93VamV7ss01';
     const annualUrl = import.meta.env.VITE_STRIPE_ANNUAL_LINK || 'https://buy.stripe.com/eVqbJ3bm5aeu2Fx52B7ss02';
 
     const targetUrl = cycle === 'ANNUAL' ? annualUrl : (monthlyUrl || annualUrl);
