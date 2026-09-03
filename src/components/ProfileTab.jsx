@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { User, Flame, Gem, Heart, Calendar, ShieldCheck, Award, TrendingUp, CheckCircle2, AlertCircle, Cpu, RefreshCw, BarChart3, Activity, Sparkles } from 'lucide-react';
 import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoProfileIcon, DuoTrophyIcon } from './DuoIcons';
 import GoogleAuthButton from './GoogleAuthButton';
+import MobileAlertSettings from './MobileAlertSettings';
 import { soundFx } from '../utils/audioEngine';
 
 export default function ProfileTab() {
@@ -213,6 +214,11 @@ export default function ProfileTab() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* MOBILE PHONE PUSH NOTIFICATION SETTINGS */}
+          <div className="pt-4">
+            <MobileAlertSettings />
           </div>
         </div>
       )}

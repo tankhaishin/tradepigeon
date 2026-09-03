@@ -402,3 +402,18 @@ export function PigeonMissedTradeIcon({ className = "w-7 h-7" }) {
     </svg>
   );
 }
+
+export function PigeonOrphanRadarIcon({ className = "w-7 h-7" }) {
+  return (
+    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <circle cx="20" cy="20" r="16" fill="#142127" stroke="#FF6B00" strokeWidth="3" />
+      <circle cx="20" cy="20" r="11" stroke="#FF6B00" strokeWidth="2" strokeDasharray="3 3" opacity="0.6" />
+      <circle cx="20" cy="20" r="6" stroke="#FF6B00" strokeWidth="2" />
+      <circle cx="20" cy="20" r="2.5" fill="#00F0FF" />
+      <path d="M20 4V36M4 20H36" stroke="#FF6B00" strokeWidth="1.5" opacity="0.4" />
+      <path d="M20 20L31 9" stroke="#00F0FF" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M20 20L28 12" stroke="#00F0FF" strokeWidth="5" opacity="0.3" strokeLinecap="round" />
+      <circle cx="28" cy="12" r="3" fill="#FF4B4B" stroke="#FFFFFF" strokeWidth="1.5" />
+    </svg>
+  );
+}

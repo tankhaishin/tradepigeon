@@ -36,5 +36,6 @@ export {
   PigeonToxicWinIcon as DuoToxicWinIcon,
   PigeonToxicBeIcon as DuoToxicBeIcon,
   PigeonDoubleFailureIcon as DuoDoubleFailureIcon,
-  PigeonMissedTradeIcon as DuoMissedTradeIcon
+  PigeonMissedTradeIcon as DuoMissedTradeIcon,
+  PigeonOrphanRadarIcon as DuoOrphanRadarIcon
 } from './PigeonIcons';
