@@ -48,28 +48,11 @@ export default function LandingPage({ onGetStarted, onLogin }) {
   const handleStripeCheckout = async (overrideCycle) => {
     soundFx.playSuccess();
     const cycle = overrideCycle || billingCycle;
-    try {
-      const response = await fetch('http://localhost:3001/api/stripe/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          planId: cycle === 'ANNUAL' ? 'pro_annual' : 'pro_monthly',
-          planName: cycle === 'ANNUAL' ? 'TradePigeon Pro Pass (Annual)' : 'TradePigeon Pro Pass (Monthly)',
-          priceAmount: cycle === 'ANNUAL' ? 79 : 9.99,
-          successUrl: `${window.location.origin}/?payment=success`,
-          cancelUrl: `${window.location.origin}/?payment=cancelled`
-        })
-      });
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        onGetStarted();
-      }
-    } catch (err) {
-      console.warn('[Stripe Checkout Fallback]:', err);
-      onGetStarted();
-    }
+    const monthlyUrl = import.meta.env.VITE_STRIPE_MONTHLY_LINK || 'https://buy.stripe.com/eVqbJ3bm5aeu2Fx52B7ss02';
+    const annualUrl = import.meta.env.VITE_STRIPE_ANNUAL_LINK || 'https://buy.stripe.com/eVqbJ3bm5aeu2Fx52B7ss02';
+
+    const targetUrl = cycle === 'ANNUAL' ? annualUrl : (monthlyUrl || annualUrl);
+    window.location.href = targetUrl;
   };
 
   const handleQuadrantHover = (pose, speech) => {
