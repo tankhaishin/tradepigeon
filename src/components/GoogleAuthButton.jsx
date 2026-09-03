@@ -3,7 +3,15 @@ import { soundFx } from '../utils/audioEngine';
 import { loadStoredData, saveStoredData } from '../utils/storage';
 
 export default function GoogleAuthButton({ onAuthSuccess, className = '', buttonText = 'Sign in with Google' }) {
-  const [user, setUser] = useState(() => loadStoredData('goodtrader_google_user', null));
+  const [user, setUser] = useState(() => {
+    const saved = loadStoredData('goodtrader_google_user', null);
+    // Purge mock Alex Trader account from browser memory
+    if (saved && (saved.email === 'alex.trader@gmail.com' || saved.name === 'Alex Trader')) {
+      saveStoredData('goodtrader_google_user', null);
+      return null;
+    }
+    return saved;
+  });
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -33,7 +41,7 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
 
       const googleUser = {
         name: payload.name || 'Verified Trader',
-        email: payload.email || 'trader@tradepigeon.io',
+        email: payload.email || 'trader@tradepigeon.com',
         picture: payload.picture || '/parrot_logo.png',
         sub: payload.sub || Date.now().toString(),
         authenticatedAt: new Date().toISOString()
@@ -58,28 +66,12 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
       });
       window.google.accounts.id.prompt((notification) => {
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          // Fallback popup if One-Tap prompt is blocked or closed by browser
-          console.log('[GoogleAuth] Prompt not displayed, fallback trigger.');
+          console.log('[GoogleAuth] Prompt skipped or closed.');
         }
       });
     } else {
-      // Offline / Local fallback if no Client ID is provided
-      handleMockGoogleAuth();
+      alert('Google Client ID is initializing. Please ensure VITE_GOOGLE_CLIENT_ID is set in Vercel.');
     }
-  };
-
-  const handleMockGoogleAuth = () => {
-    soundFx.playSuccess();
-    const mockUser = {
-      name: 'Alex Trader',
-      email: 'alex.trader@gmail.com',
-      picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop',
-      sub: 'google_oauth_10928374',
-      authenticatedAt: new Date().toISOString()
-    };
-    saveStoredData('goodtrader_google_user', mockUser);
-    setUser(mockUser);
-    if (onAuthSuccess) onAuthSuccess(mockUser);
   };
 
   const handleSignOut = () => {
@@ -112,7 +104,7 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
     <button
       onClick={handleGoogleSignIn}
       className={`px-4 py-3 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 border-2 border-slate-300 border-b-4 border-b-slate-400 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 shadow-md active:scale-95 transition-all cursor-pointer ${className}`}
-      title="1-Tap Sign in with Google Account"
+      title="Sign in with Google Account"
     >
       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />

@@ -170,13 +170,6 @@ export default function LandingPage({ onGetStarted, onLogin }) {
               <Duo3dZapBadge className="w-5 h-5" />
               <span>START YOUR 7-DAY FREE TRIAL</span>
             </button>
-
-            <button
-              onClick={handleStart}
-              className="w-full py-3 rounded-2xl bg-[#0D1635] hover:bg-[#15203D] text-slate-300 border-2 border-[#1C2A4E] font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
-            >
-              <span>👀 View Interactive Cockpit Demo</span>
-            </button>
           </div>
 
           {/* Duolingo 3D Tactile Broker Badges */}
