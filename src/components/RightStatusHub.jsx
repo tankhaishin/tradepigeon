@@ -4,6 +4,7 @@ import { DuoLightningIcon, DuoIceIcon, DuoLockIcon, DuoChestIcon, DuoPlaneIcon, 
 import InteractiveParrotMascot from './InteractiveParrotMascot';
 import AiDebriefModal from './AiDebriefModal';
 import ManualTradeModal from './ManualTradeModal';
+import PendingOrdersRadar from './PendingOrdersRadar';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 
@@ -594,6 +595,9 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
             <span className="text-[#58CC02] font-black">+$575.00 Risk Buffer Safe</span>
           </div>
         </div>
+
+        {/* ORPHAN PENDING ORDER RADAR */}
+        <PendingOrdersRadar />
 
         {/* 2. TRADING STATUS 3-STATE SEGMENTED CONTROL */}
         <div className="p-3.5 rounded-2xl bg-[#142127] border-2 border-[#20323D] space-y-3 shadow-lg">
