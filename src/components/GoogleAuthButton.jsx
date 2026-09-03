@@ -5,16 +5,18 @@ import { loadStoredData, saveStoredData } from '../utils/storage';
 export default function GoogleAuthButton({ onAuthSuccess, className = '', buttonText = 'Sign in with Google' }) {
   const [user, setUser] = useState(() => loadStoredData('goodtrader_google_user', null));
 
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
   // Initialize Google Identity Services (GIS) Client
   useEffect(() => {
     /* global google */
-    if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+    if (typeof window !== 'undefined' && window.google?.accounts?.id && clientId && !clientId.includes('example')) {
       window.google.accounts.id.initialize({
-        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '102938475610-example.apps.googleusercontent.com',
+        client_id: clientId,
         callback: handleGoogleCredentialResponse
       });
     }
-  }, []);
+  }, [clientId]);
 
   const handleGoogleCredentialResponse = (response) => {
     try {
@@ -42,7 +44,26 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
       setUser(googleUser);
       if (onAuthSuccess) onAuthSuccess(googleUser);
     } catch (err) {
-      console.warn('[GoogleAuth] GIS Credential parsing fallback:', err);
+      console.warn('[GoogleAuth] GIS Credential parsing error:', err);
+    }
+  };
+
+  const handleGoogleSignIn = () => {
+    soundFx.playPop();
+    /* global google */
+    if (typeof window !== 'undefined' && window.google?.accounts?.id && clientId && !clientId.includes('example')) {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleCredentialResponse
+      });
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          // Fallback popup if One-Tap prompt is blocked or closed by browser
+          console.log('[GoogleAuth] Prompt not displayed, fallback trigger.');
+        }
+      });
+    } else {
+      // Offline / Local fallback if no Client ID is provided
       handleMockGoogleAuth();
     }
   };
@@ -78,7 +99,7 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
         </div>
         <button
           onClick={handleSignOut}
-          className="text-[9px] font-black uppercase text-slate-400 hover:text-rose-400 ml-1 px-2 py-0.5 rounded-lg bg-[#131F24] border border-[#20323D]"
+          className="text-[9px] font-black uppercase text-slate-400 hover:text-rose-400 ml-1 px-2 py-0.5 rounded-lg bg-[#131F24] border border-[#20323D] cursor-pointer"
           title="Sign out of Google Account"
         >
           Sign Out
@@ -89,7 +110,7 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
 
   return (
     <button
-      onClick={handleMockGoogleAuth}
+      onClick={handleGoogleSignIn}
       className={`px-4 py-3 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 border-2 border-slate-300 border-b-4 border-b-slate-400 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 shadow-md active:scale-95 transition-all cursor-pointer ${className}`}
       title="1-Tap Sign in with Google Account"
     >
