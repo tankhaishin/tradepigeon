@@ -16,6 +16,49 @@ export default function AiDebriefModal({ isOpen, onClose, selectedMood, onSaveSe
 
   const handleGenerateAiReport = () => {
     setIsAnalyzing(true);
+
+    // Multi-reply variations per scenario (never repetitive, tailored to user choices)
+    const reportBank = {
+      compliantDisciplined: [
+        "Exceptional process discipline today. All risk parameters and stop-loss boundaries were respected. Consistency is built by repeating this exact execution framework day after day.",
+        "Flawless risk adherence. You respected your defined position sizing and stop limits regardless of market noise. Keep your sizing static and focus on high-conviction setups.",
+        "High-grade execution today. Your focus remained on process over outcome, which is the true hallmark of long-term trading consistency."
+      ],
+      compliantEmotional: [
+        "Great job maintaining your risk boundaries despite feeling emotional tension. Recognizing impulse urges without acting on them is a major psychological victory.",
+        "Risk limits were respected even with market FOMO present. For your next session, focus on letting price come to your key levels before entering.",
+        "Solid discipline under pressure. You managed your risk parameters effectively despite feeling anxious. Stay patient and trust your playbook."
+      ],
+      deviatedRevenge: [
+        "Rule deviation detected under revenge pressure. When a loss triggers emotional anger, clear decision-making is compromised. Enforce a mandatory 30-minute walk post-loss before taking another fill.",
+        "Risk limits breached during revenge execution. Trying to win back capital immediately from the market leads to severe drawdowns. Enforce a hard daily risk limit tomorrow.",
+        "Emotional payback trade logged. Remember that taking a loss is simply a business expense—never an invitation to over-leverage or chase fills."
+      ],
+      deviatedGeneral: [
+        "Plan deviation logged today. Review your entry trigger checklist before your next session. Protecting your capital must take priority over capturing every market move.",
+        "Risk parameters were breached during today's session. Identify the exact trigger that caused you to abandon your stop limits and document it in your debrief.",
+        "Execution discipline fell below target today. Set hard broker risk locks or cut your position sizing in half until your compliance grade recovers."
+      ]
+    };
+
+    let selectedList = reportBank.compliantDisciplined;
+    if (followedPlan) {
+      if (emotion === 'anxious' || emotion === 'fomo' || emotion === 'revenge') {
+        selectedList = reportBank.compliantEmotional;
+      } else {
+        selectedList = reportBank.compliantDisciplined;
+      }
+    } else {
+      if (emotion === 'revenge') {
+        selectedList = reportBank.deviatedRevenge;
+      } else {
+        selectedList = reportBank.deviatedGeneral;
+      }
+    }
+
+    const randomReport = selectedList[Math.floor(Math.random() * selectedList.length)];
+    setAiReport(randomReport);
+
     setTimeout(() => {
       setIsAnalyzing(false);
       setAiReportGenerated(true);

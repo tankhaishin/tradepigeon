@@ -27,11 +27,29 @@ export default function RealTimeCompanionToast({ latestTrade, onDismiss }) {
   let badgeText = isViolated ? (isWin ? 'PLAN VIOLATION (TOXIC WIN)' : 'PLAN VIOLATION (UNPLANNED LOSS)') : 'DRAWDOWN LIMIT ALERT';
   let badgeColor = isViolated ? (isWin ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-rose-500/20 text-rose-400 border-rose-500/40') : 'bg-[#FF6B00]/20 text-[#FF6B00] border-[#FF6B00]/40';
 
-  let commentary = isViolated 
-    ? (isWin 
-        ? `Trade fill on ${latestTrade.symbol} (${latestTrade.pnl}) flagged: Playbook rule was violated. Note: Profitable outcomes from un-planed entries build dangerous habits.` 
-        : `Trade fill on ${latestTrade.symbol} (${latestTrade.pnl}) flagged: Max risk limit breached. Take a mandatory 15-minute cool-down before next entry.`)
-    : `Max risk limit breached on ${latestTrade.symbol}. Take a mandatory cooling-off period before your next trade.`;
+  const toxicWinCommentaries = [
+    `Trade fill on ${latestTrade.symbol} (${latestTrade.pnl}) flagged: Playbook rule was violated. Note: Profitable outcomes from unplanned entries build dangerous risk habits.`,
+    `Execution alert on ${latestTrade.symbol} (${latestTrade.pnl}): Unplanned entry resulted in gain. Remember that process discipline matters more than single-trade P&L.`,
+    `Rule bypass on ${latestTrade.symbol}: Resulted in profit, but entry was off-plan. Avoid letting winning trades validate bad execution habits.`
+  ];
+
+  const unplannedLossCommentaries = [
+    `Trade fill on ${latestTrade.symbol} (${latestTrade.pnl}) flagged: Max risk limit breached. Take a mandatory 15-minute cool-down before taking another entry.`,
+    `Risk alert on ${latestTrade.symbol} (${latestTrade.pnl}): Position exceeded defined stop parameters. Step away from the screen to reset your decision-making.`,
+    `Stop loss limit exceeded on ${latestTrade.symbol}: Protect your remaining equity by taking a short break before evaluating new setups.`
+  ];
+
+  const drawdownCommentaries = [
+    `Max drawdown threshold reached on ${latestTrade.symbol}. Take a mandatory cooling-off period before your next trade.`,
+    `Daily drawdown limit flagged for ${latestTrade.symbol}. Lower position size and step back to preserve capital for tomorrow's session.`,
+    `Risk boundary alert on ${latestTrade.symbol}: Account drawdown limits are near threshold. Pause trading and review your execution playbook.`
+  ];
+
+  let commentaryList = drawdownCommentaries;
+  if (isViolated) {
+    commentaryList = isWin ? toxicWinCommentaries : unplannedLossCommentaries;
+  }
+  const commentary = commentaryList[Math.floor(Math.random() * commentaryList.length)];
 
   return (
     <div className="fixed bottom-6 right-6 z-50 max-w-md w-full animate-bounce-in">

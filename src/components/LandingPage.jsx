@@ -26,7 +26,9 @@ export default function LandingPage({ onGetStarted, onLogin }) {
     { pose: 'shielded', text: '"You respected your stop loss—that is a great trade in my book. Capital preserved!"' },
     { pose: 'anxious', text: '"Patience, my friend. The market always offers another setup. Let\'s wait for yours."' },
     { pose: 'revenge', text: '"Take a breather, my friend. Stepping away right now protects your account for tomorrow."' },
-    { pose: 'zen', text: '"Process first, profits follow. Stay calm and trade your playbook!"' }
+    { pose: 'zen', text: '"Process first, profits follow. Stay calm and trade your playbook!"' },
+    { pose: 'thinking', text: '"What gets measured gets managed. Document every fill with proof."' },
+    { pose: 'trophy', text: '"Long-term consistency is built one disciplined session at a time."' }
   ];
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [activeMascotPose, setActiveMascotPose] = useState('welcoming');
@@ -34,7 +36,11 @@ export default function LandingPage({ onGetStarted, onLogin }) {
 
   const handleMascotClick = () => {
     soundFx.playPop();
-    const nextIndex = (quoteIndex + 1) % mascotQuotes.length;
+    let nextIndex;
+    do {
+      nextIndex = Math.floor(Math.random() * mascotQuotes.length);
+    } while (nextIndex === quoteIndex && mascotQuotes.length > 1);
+
     setQuoteIndex(nextIndex);
     setActiveMascotPose(mascotQuotes[nextIndex].pose);
     setSpeechText(mascotQuotes[nextIndex].text);

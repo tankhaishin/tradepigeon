@@ -33,45 +33,49 @@ export default function QuestsTab() {
   ];
   const activeSeason = seasonalThemes[currentWeekNumber % seasonalThemes.length];
 
+  const userStats = loadStoredData('goodtrader_user_stats', { streakDays: 0, tradesLogged: 0, disciplinePoints: 0 });
+  const streakDays = userStats.streakDays || 0;
+  const tradesLogged = userStats.tradesLogged || 0;
+
   const quests = [
     {
       id: 101,
-      title: 'Maintain 14-Day Streak',
+      title: 'Maintain 7-Day Discipline Streak',
       reward: '+500 DP',
       rewardVal: 500,
-      current: 14,
-      target: 14,
-      completed: true,
+      current: Math.min(7, streakDays),
+      target: 7,
+      completed: streakDays >= 7,
       icon: <DuoChestIcon className="w-8 h-8" />
     },
     {
       id: 102,
-      title: 'Execute 5 A+ Setup Fills',
+      title: 'Execute 5 Disciplined Fills',
       reward: '+250 DP',
       rewardVal: 250,
-      current: 3,
+      current: Math.min(5, tradesLogged),
       target: 5,
-      completed: false,
+      completed: tradesLogged >= 5,
       icon: <DuoIceIcon className="w-8 h-8" />
     },
     {
       id: 103,
-      title: 'Complete 5 Risk Lock Checks',
+      title: 'Complete Post-Session Audit',
       reward: '+200 DP',
       rewardVal: 200,
-      current: 5,
-      target: 5,
-      completed: true,
+      current: completedSteps.includes(4) ? 1 : 0,
+      target: 1,
+      completed: completedSteps.includes(4),
       icon: <DuoShieldIcon className="w-8 h-8" />
     },
     {
       id: 104,
-      title: 'Pass 3 Psychology Quizzes',
+      title: 'Complete Pre-Market Mindset Check',
       reward: '+150 DP',
       rewardVal: 150,
-      current: 2,
-      target: 3,
-      completed: false,
+      current: completedSteps.includes(1) ? 1 : 0,
+      target: 1,
+      completed: completedSteps.includes(1),
       icon: <DuoLightningIcon className="w-8 h-8" />
     },
   ];
