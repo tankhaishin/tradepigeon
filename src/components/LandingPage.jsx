@@ -19,14 +19,14 @@ export default function LandingPage({ onGetStarted, onLogin }) {
   const [activeRoadmapIndex, setActiveRoadmapIndex] = useState(0);
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
   
-  // DYNAMIC INTERACTIVE MASCOT REACTIVE STATE
+  // DYNAMIC INTERACTIVE MASCOT REACTIVE STATE (Respectful Trading Companion Tone)
   const mascotQuotes = [
-    { pose: 'welcoming', text: '"Did you follow your plan today—or get lucky?"' },
-    { pose: 'celebrating', text: '"Disciplined wins build true prop trading wealth!"' },
-    { pose: 'shielded', text: '"A good loss is just a business expense. Respect your stop!"' },
-    { pose: 'anxious', text: '"FOMO costs accounts. Wait for your A+ setup!"' },
-    { pose: 'revenge', text: '"Revenge trading detected! Step back and breathe."' },
-    { pose: 'zen', text: '"Process first, profits follow. Trade like an algorithm!"' }
+    { pose: 'welcoming', text: '"Welcome back, my friend! Ready to execute your strategy today?"' },
+    { pose: 'celebrating', text: '"Outstanding discipline! Sticking to your plan is how you protect your edge."' },
+    { pose: 'shielded', text: '"You respected your stop loss—that is a great trade in my book. Capital preserved!"' },
+    { pose: 'anxious', text: '"Patience, my friend. The market always offers another setup. Let\'s wait for yours."' },
+    { pose: 'revenge', text: '"Take a breather, my friend. Stepping away right now protects your account for tomorrow."' },
+    { pose: 'zen', text: '"Process first, profits follow. Stay calm and trade your playbook!"' }
   ];
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [activeMascotPose, setActiveMascotPose] = useState('welcoming');
@@ -536,7 +536,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                   <div className="w-6 h-6 rounded-xl bg-[#58CC02] border border-[#58CC02] border-b-4 border-b-[#3C8901] flex items-center justify-center text-white shrink-0 shadow-md">
                     <Check size={14} strokeWidth={4} />
                   </div>
-                  <span>7-day money-back guarantee</span>
+                  <span>7-Day Free Trial — $0 charged today, cancel anytime in 1 click</span>
                 </li>
               </ul>
 
