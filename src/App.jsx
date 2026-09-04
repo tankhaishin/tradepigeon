@@ -52,9 +52,23 @@ class ErrorBoundary extends React.Component {
 }
 
 export default function App() {
+  const [googleUser, setGoogleUser] = useState(() => loadStoredData('goodtrader_google_user', null));
   const [showLanding, setShowLanding] = useState(() => {
-    return loadStoredData('goodtrader_visited_landing', false) === false;
+    const user = loadStoredData('goodtrader_google_user', null);
+    return !user;
   });
+
+  useEffect(() => {
+    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
+      if (key === 'goodtrader_google_user') {
+        setGoogleUser(value);
+        if (!value) {
+          setShowLanding(true);
+        }
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   const [activeTab, setActiveTab] = useState('learn');
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
@@ -111,7 +125,7 @@ export default function App() {
     soundFx.playSuccess();
   };
 
-  if (showLanding) {
+  if (showLanding || !googleUser) {
     return (
       <LandingPage 
         onGetStarted={handleEnterApp} 

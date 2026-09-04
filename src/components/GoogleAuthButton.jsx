@@ -76,8 +76,11 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
 
   const handleSignOut = () => {
     soundFx.playPop();
-    saveStoredData('goodtrader_google_user', null);
-    saveStoredData('goodtrader_visited_landing', false);
+    try {
+      localStorage.clear();
+    } catch (err) {
+      console.warn('[Storage Clear]:', err);
+    }
     setUser(null);
     if (onAuthSuccess) onAuthSuccess(null);
     window.location.href = window.location.origin;
