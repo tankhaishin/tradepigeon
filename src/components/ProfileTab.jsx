@@ -47,21 +47,11 @@ export default function ProfileTab() {
     triggerToast("Pro access active through billing cycle.");
   };
 
-  // VERIFIED TRADING EDGE LOG (Last 5 Sessions)
-  const historicalLogs = [
-    { date: 'Aug 10, 2026', grade: 'A+', score: '100% Plan Adherence', status: 'GOOD EXECUTION', pnl: '+$4,250.00', setup: 'Breakout & Retest', mood: 'In The Zone (Flow State)' },
-    { date: 'Aug 8, 2026', grade: 'A', score: '95% Plan Adherence', status: 'GOOD LOSS', pnl: '-$200.00', setup: 'Key Support Sweep', mood: 'Slightly Anxious' },
-    { date: 'Aug 7, 2026', grade: 'A+', score: '100% Plan Adherence', status: 'GOOD EXECUTION', pnl: '+$1,400.00', setup: 'Trend Continuation', mood: 'In The Zone (Flow State)' },
-    { date: 'Aug 5, 2026', grade: 'C-', score: '60% Plan Adherence', status: 'TOXIC WIN', pnl: '+$600.00', setup: 'Unplanned Chasing', mood: 'FOMO / Impatient' },
-    { date: 'Aug 4, 2026', grade: 'A+', score: '100% Plan Adherence', status: 'GOOD EXECUTION', pnl: '+$850.00', setup: 'Breakout & Retest', mood: 'In The Zone (Flow State)' },
-  ];
+  // VERIFIED TRADING EDGE LOG (Loaded from Storage with clean zero-state)
+  const historicalLogs = loadStoredData('goodtrader_debrief_history', []);
 
-  // Connected Auto-Synced Trading Accounts
-  const connectedAccounts = [
-    { name: 'Primary Funded Account', id: 'ACC-88210', balance: '$150,000.00', status: 'SYNCED (LIVE)', maxDailyDrawdown: '$4,500.00', currentDrawdown: '-$1,250.00' },
-    { name: 'Secondary Trading Account', id: 'ACC-44912', balance: '$100,000.00', status: 'SYNCED (LIVE)', maxDailyDrawdown: '$3,000.00', currentDrawdown: '-$450.00' },
-    { name: 'Evaluation Challenge Account', id: 'ACC-11048', balance: '$50,000.00', status: 'SYNCED (LIVE)', maxDailyDrawdown: '$1,500.00', currentDrawdown: '$0.00' },
-  ];
+  // Connected Auto-Synced Trading Accounts (Loaded from Storage with clean zero-state)
+  const connectedAccounts = loadStoredData('goodtrader_accounts_data', []);
 
   return (
     <main className="flex-1 min-h-screen lg:pl-28 xl:pl-80 xl:pr-[416px] bg-[#070C1E] p-4 sm:p-6 lg:p-8 text-white space-y-8 pb-24 lg:pb-10 max-w-full overflow-hidden">
@@ -151,33 +141,40 @@ export default function ProfileTab() {
         <div className="duo-card p-6 space-y-4 animate-fade-in">
           <div className="flex items-center justify-between pb-3 border-b border-[#20323D]">
             <h3 className="text-base font-black text-white">Session Accountability Log</h3>
-            <span className="text-xs font-bold text-[#52656D]">5 Recent Debrief Audits</span>
+            <span className="text-xs font-bold text-[#52656D]">{historicalLogs.length} Recent Debrief Audits</span>
           </div>
 
-          <div className="space-y-3">
-            {historicalLogs.map((item, idx) => (
-              <div key={idx} className="p-4 rounded-2xl bg-[#182830] border-2 border-[#2B3D47] border-b-4 border-b-[#142127] flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-base shrink-0 border-2 ${
-                    item.grade.startsWith('A') ? 'bg-[#58CC02] text-white border-[#46A302] border-b-4 border-b-[#388202]' : 'bg-amber-500 text-slate-950 border-amber-600 border-b-4 border-b-amber-700'
-                  }`}>
-                    {item.grade}
+          {historicalLogs.length === 0 ? (
+            <div className="p-8 text-center space-y-2 bg-[#182830]/50 rounded-2xl border border-[#20323D]">
+              <div className="text-sm font-black text-slate-300">No Debrief Audits Yet</div>
+              <p className="text-xs font-bold text-[#52656D]">Log your first trade in the Session Cockpit to generate your execution grade!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {historicalLogs.map((item, idx) => (
+                <div key={idx} className="p-4 rounded-2xl bg-[#182830] border-2 border-[#2B3D47] border-b-4 border-b-[#142127] flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-base shrink-0 border-2 ${
+                      item.grade.startsWith('A') ? 'bg-[#58CC02] text-white border-[#46A302] border-b-4 border-b-[#388202]' : 'bg-amber-500 text-slate-950 border-amber-600 border-b-4 border-b-amber-700'
+                    }`}>
+                      {item.grade}
+                    </div>
+                    <div>
+                      <div className="text-sm font-black text-white">{item.date} &bull; <span className="text-[#1CB0F6]">{item.setup}</span></div>
+                      <div className="text-xs font-bold text-[#52656D] mt-0.5">{item.score} &bull; Mindset: {item.mood}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-sm font-black text-white">{item.date} &bull; <span className="text-[#1CB0F6]">{item.setup}</span></div>
-                    <div className="text-xs font-bold text-[#52656D] mt-0.5">{item.score} &bull; Mindset: {item.mood}</div>
-                  </div>
-                </div>
 
-                <div className="text-right">
-                  <div className={`text-sm font-black ${item.pnl.startsWith('+') ? 'text-[#58CC02]' : 'text-rose-400'}`}>
-                    {item.pnl}
+                  <div className="text-right">
+                    <div className={`text-sm font-black ${item.pnl.startsWith('+') ? 'text-[#58CC02]' : 'text-rose-400'}`}>
+                      {item.pnl}
+                    </div>
+                    <div className="text-[10px] font-black uppercase text-slate-400 mt-0.5">{item.status}</div>
                   </div>
-                  <div className="text-[10px] font-black uppercase text-slate-400 mt-0.5">{item.status}</div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -186,35 +183,44 @@ export default function ProfileTab() {
         <div className="duo-card p-6 space-y-4 animate-fade-in">
           <div className="flex items-center justify-between pb-3 border-b border-[#20323D]">
             <h3 className="text-base font-black text-white">Auto-Synced Broker & Prop Accounts</h3>
-            <span className="text-xs font-black text-white bg-[#58CC02] border-2 border-[#46A302] border-b-4 border-b-[#388202] px-3 py-1 rounded-xl">3 LIVE CONNECTIONS</span>
+            <span className="text-xs font-black text-white bg-[#58CC02] border-2 border-[#46A302] border-b-4 border-b-[#388202] px-3 py-1 rounded-xl">
+              {connectedAccounts.length} LIVE CONNECTIONS
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {connectedAccounts.map((acc, idx) => (
-              <div key={idx} className="p-5 rounded-2xl bg-[#182830] border-2 border-[#2B3D47] border-b-4 border-b-[#142127] space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black text-white bg-[#58CC02] border border-[#46A302] px-2 py-0.5 rounded-md">{acc.status}</span>
-                  <span className="text-xs font-black text-[#52656D]">{acc.id}</span>
-                </div>
-
-                <div>
-                  <h4 className="text-base font-black text-white">{acc.name}</h4>
-                  <div className="text-xl font-black text-[#1CB0F6] mt-1">{acc.balance}</div>
-                </div>
-
-                <div className="pt-2 border-t border-[#20323D] space-y-1 text-xs font-bold">
-                  <div className="flex justify-between text-[#52656D]">
-                    <span>Max Daily Loss Limit:</span>
-                    <span className="text-white font-black">{acc.maxDailyDrawdown}</span>
+          {connectedAccounts.length === 0 ? (
+            <div className="p-8 text-center space-y-2 bg-[#182830]/50 rounded-2xl border border-[#20323D]">
+              <div className="text-sm font-black text-slate-300">No Connected Accounts</div>
+              <p className="text-xs font-bold text-[#52656D]">Import a statement CSV or connect your prop account to track daily loss limits.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {connectedAccounts.map((acc, idx) => (
+                <div key={idx} className="p-5 rounded-2xl bg-[#182830] border-2 border-[#2B3D47] border-b-4 border-b-[#142127] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-white bg-[#58CC02] border border-[#46A302] px-2 py-0.5 rounded-md">{acc.status}</span>
+                    <span className="text-xs font-black text-[#52656D]">{acc.id}</span>
                   </div>
-                  <div className="flex justify-between text-[#52656D]">
-                    <span>Current Session Drawdown:</span>
-                    <span className="text-rose-400 font-black">{acc.currentDrawdown}</span>
+
+                  <div>
+                    <h4 className="text-base font-black text-white">{acc.name}</h4>
+                    <div className="text-xl font-black text-[#1CB0F6] mt-1">{acc.balance}</div>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#20323D] space-y-1 text-xs font-bold">
+                    <div className="flex justify-between text-[#52656D]">
+                      <span>Max Daily Loss Limit:</span>
+                      <span className="text-white font-black">{acc.maxDailyDrawdown}</span>
+                    </div>
+                    <div className="flex justify-between text-[#52656D]">
+                      <span>Current Session Drawdown:</span>
+                      <span className="text-rose-400 font-black">{acc.currentDrawdown}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           {/* MOBILE PHONE PUSH NOTIFICATION SETTINGS */}
           <div className="pt-4">

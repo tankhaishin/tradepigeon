@@ -8,8 +8,8 @@ import { soundFx } from '../utils/audioEngine';
 
 export default function QuestsTab() {
   const [claimedQuestIds, setClaimedQuestIds] = useState(() => loadStoredData('goodtrader_claimed_quests', []));
-  const [completedSteps, setCompletedSteps] = useState(() => loadStoredData('goodtrader_completed_steps', [1]));
-  const [userDp, setUserDp] = useState(() => loadStoredData('goodtrader_user_dp', 450));
+  const [completedSteps, setCompletedSteps] = useState(() => loadStoredData('goodtrader_completed_steps', []));
+  const [userDp, setUserDp] = useState(() => loadStoredData('goodtrader_user_dp', 0));
 
   useEffect(() => {
     saveStoredData('goodtrader_claimed_quests', claimedQuestIds);
@@ -17,8 +17,8 @@ export default function QuestsTab() {
 
   useEffect(() => {
     const handleStepSync = () => {
-      setCompletedSteps(loadStoredData('goodtrader_completed_steps', [1]));
-      setUserDp(loadStoredData('goodtrader_user_dp', 450));
+      setCompletedSteps(loadStoredData('goodtrader_completed_steps', []));
+      setUserDp(loadStoredData('goodtrader_user_dp', 0));
     };
     window.addEventListener('storage', handleStepSync);
     return () => window.removeEventListener('storage', handleStepSync);

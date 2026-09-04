@@ -58,19 +58,11 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const [isHeatmapExpanded, setIsHeatmapExpanded] = useState(true);
 
   const [sessionTrades, setSessionTrades] = useState(() => {
-    return loadStoredData(`goodtrader_session_trades_day_${currentDay}`, [
-      { id: 't1', symbol: 'NQ1!', side: 'LONG', time: '10:14 AM', pnl: '+$1,290.00', rMultiple: '+2.58R', type: 'win', playbook: 'PLAYBOOK A', account: 'Topstep 50k', verified: false },
-      { id: 't2', symbol: 'NQ1!', side: 'SHORT', time: '11:30 AM', pnl: '-$425.00', rMultiple: '-0.85R', type: 'good_loss', playbook: 'PLAYBOOK B', account: 'Apex 150k', verified: false },
-      { id: 't3', symbol: 'ES1!', side: 'LONG', time: '01:45 PM', pnl: '+$350.00', rMultiple: '+0.70R', type: 'toxic_win', playbook: 'PLAYBOOK A', account: 'Topstep 50k', verified: false }
-    ]);
+    return loadStoredData(`goodtrader_session_trades_day_${currentDay}`, []);
   });
 
   useEffect(() => {
-    const loaded = loadStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, [
-      { id: 't1', symbol: 'NQ1!', side: 'LONG', time: '10:14 AM', pnl: '+$1,290.00', rMultiple: '+2.58R', type: 'win', playbook: 'PLAYBOOK A', account: 'Topstep 50k', verified: false },
-      { id: 't2', symbol: 'NQ1!', side: 'SHORT', time: '11:30 AM', pnl: '-$425.00', rMultiple: '-0.85R', type: 'good_loss', playbook: 'PLAYBOOK B', account: 'Apex 150k', verified: false },
-      { id: 't3', symbol: 'ES1!', side: 'LONG', time: '01:45 PM', pnl: '+$350.00', rMultiple: '+0.70R', type: 'toxic_win', playbook: 'PLAYBOOK A', account: 'Topstep 50k', verified: false }
-    ]);
+    const loaded = loadStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, []);
     setSessionTrades(loaded);
     setSelectedTradeIds([]);
   }, [activeAuditDay]);
