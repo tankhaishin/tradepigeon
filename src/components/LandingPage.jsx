@@ -464,7 +464,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
               Accessible Edge For Every Trader.
             </h2>
             <p className="text-base sm:text-lg font-bold text-slate-300">
-              Flat $9.99/mo — less than a single micro futures tick.
+              Launch Special $9.99/mo — less than a single micro futures tick.
             </p>
             
             {/* Billing Switcher Toggle */}
@@ -576,7 +576,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                   </div>
                   <div className="text-[10px] font-black uppercase text-[#FF6B00] tracking-widest">DAY 5</div>
                   <h4 className="text-base sm:text-lg font-black text-white">48h Trial Reminder</h4>
-                  <p className="text-xs sm:text-sm font-bold text-slate-300 leading-relaxed">Automated email notification 48 hours before trial ends—zero surprise charges ever.</p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-300 leading-relaxed">Stripe email notification & 1-click cancel option before trial ends—zero surprise charges ever.</p>
                 </div>
 
                 {/* Step 3: Day 7 */}
@@ -586,7 +586,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                   </div>
                   <div className="text-[10px] font-black uppercase text-[#58CC02] tracking-widest">DAY 7</div>
                   <h4 className="text-base sm:text-lg font-black text-white">Membership Begins</h4>
-                  <p className="text-xs sm:text-sm font-bold text-slate-300 leading-relaxed">Cancel anytime with 1 click. If you love it, your pass continues seamlessly at $9.99/mo (or $79.99/yr).</p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-300 leading-relaxed">Cancel anytime with 1 click. If you love it, your pass continues seamlessly at the locked-in Launch Special price of $9.99/mo (or $79.99/yr).</p>
                 </div>
 
               </div>
