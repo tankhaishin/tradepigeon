@@ -105,6 +105,19 @@ export default function App() {
   }, []);
 
   const handleEnterApp = () => {
+    let currentUser = googleUser;
+    if (!currentUser) {
+      currentUser = {
+        name: 'Trader',
+        email: 'trader@tradepigeon.com',
+        picture: '/parrot_logo.png',
+        sub: Date.now().toString(),
+        authenticatedAt: new Date().toISOString()
+      };
+      saveStoredData('goodtrader_google_user', currentUser);
+      setGoogleUser(currentUser);
+    }
+
     saveStoredData('goodtrader_visited_landing', true);
     setShowLanding(false);
     setConfettiTrigger(Date.now());
