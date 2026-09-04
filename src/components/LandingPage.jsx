@@ -187,8 +187,8 @@ export default function LandingPage({ onGetStarted, onLogin }) {
       <section className="w-full bg-[#0D1635]/60 py-10 relative z-10">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
           <div className="space-y-1">
-            <div className="text-3xl sm:text-4xl font-black text-white tracking-tight">365+</div>
-            <div className="text-xs font-black text-[#58CC02] uppercase tracking-wider">Rotational Risk Drills</div>
+            <div className="text-3xl sm:text-4xl font-black text-white tracking-tight">Daily</div>
+            <div className="text-xs font-black text-[#58CC02] uppercase tracking-wider">Pre-Market Risk Warmups</div>
           </div>
           <div className="space-y-1 border-y md:border-y-0 md:border-x border-[#1C2A4E]/80 py-4 md:py-0">
             <div className="text-3xl sm:text-4xl font-black text-[#58CC02] tracking-tight">&lt; 1s</div>
@@ -524,7 +524,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                   <div className="w-6 h-6 rounded-xl bg-[#58CC02] border border-[#58CC02] border-b-4 border-b-[#3C8901] flex items-center justify-center text-white shrink-0 shadow-md">
                     <Check size={14} strokeWidth={4} />
                   </div>
-                  <span>365 daily pre-market risk warmups</span>
+                  <span>Daily pre-market risk warmups</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <div className="w-6 h-6 rounded-xl bg-[#58CC02] border border-[#58CC02] border-b-4 border-b-[#3C8901] flex items-center justify-center text-white shrink-0 shadow-md">

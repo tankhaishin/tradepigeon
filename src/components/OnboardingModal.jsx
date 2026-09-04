@@ -87,14 +87,6 @@ export default function OnboardingModal({ isOpen, onComplete }) {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleFinishOnboarding}
-              className="text-[10px] font-black text-[#52656D] hover:text-white underline cursor-pointer"
-            >
-              Skip to Default Setup
-            </button>
-
             <div className="flex items-center gap-1.5">
               {[1, 2, 3, 4].map((s) => (
                 <div 
@@ -140,12 +132,15 @@ export default function OnboardingModal({ isOpen, onComplete }) {
         {/* STEP 1: TRADING METHODOLOGY PRESETS */}
         {step === 1 && (
           <div className="space-y-5 animate-fade-in">
-            <div className="p-4 rounded-2xl bg-[#182830] border-2 border-[#20323D] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
+            <div className="p-4 rounded-2xl bg-[#182830] border-2 border-[#FF6B00]/40 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
               <div>
-                <div className="text-xs font-black text-white text-center sm:text-left">Link Google Account (Optional)</div>
-                <div className="text-[10px] font-bold text-slate-400 text-center sm:text-left">1-tap account authentication & settings backup</div>
+                <div className="text-xs font-black text-white text-center sm:text-left flex items-center gap-1.5">
+                  <ShieldCheck size={14} className="text-[#58CC02]" />
+                  <span>Sign in with Google to Secure Your Account</span>
+                </div>
+                <div className="text-[10px] font-bold text-slate-400 text-center sm:text-left">1-tap authentication & cloud backup for your trade logs</div>
               </div>
-              <GoogleAuthButton className="py-2.5 text-xs shrink-0 w-full sm:w-auto" buttonText="Google Sign-In" />
+              <GoogleAuthButton className="py-2.5 text-xs shrink-0 w-full sm:w-auto" buttonText="Sign in with Google" />
             </div>
 
             <div className="space-y-1 text-center sm:text-left">
