@@ -43,6 +43,16 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const [activeAuditDay, setActiveAuditDay] = useState(currentDay);
   const [selectedBasketFilter, setSelectedBasketFilter] = useState('ALL');
   const [selectedTradeIds, setSelectedTradeIds] = useState([]);
+  const [userStats, setUserStats] = useState(() => loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS));
+
+  useEffect(() => {
+    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
+      if (key === 'goodtrader_user_stats') {
+        setUserStats(value || DEFAULT_USER_STATS);
+      }
+    });
+    return unsubscribe;
+  }, []);
   const [streakFreezes, setStreakFreezes] = useState(() => loadStoredData('goodtrader_streak_freezes', 1));
   const [activeHubTab, setActiveHubTab] = useState('trades');
   const [isHeatmapExpanded, setIsHeatmapExpanded] = useState(true);
@@ -544,21 +554,23 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
         {/* DUOLINGO COMPACT TOP HORIZONTAL STAT PILL BAR (EXACT MATCH WITH REAL DUOLINGO HEADER) */}
         <div className="grid grid-cols-4 gap-2">
           {/* Item 1: Season / Level Badge */}
-          <div className="flex items-center justify-center gap-1.5 p-2.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] shadow-sm" title="Season 1 Protocol Day 30">
+          <div className="flex items-center justify-center gap-1.5 p-2.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] shadow-sm" title={`Trader Level ${userStats.level || 1}`}>
             <DuoStarIcon className="w-5 h-5 shrink-0" />
-            <span className="text-xs sm:text-sm font-black text-white">30</span>
+            <span className="text-xs sm:text-sm font-black text-white">{userStats.level || 1}</span>
           </div>
 
           {/* Item 2: Streak Flame */}
-          <div className="flex items-center justify-center gap-1.5 p-2.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] shadow-sm" title="Discipline Streak: 14 Consecutive Days">
+          <div className="flex items-center justify-center gap-1.5 p-2.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] shadow-sm" title={`Discipline Streak: ${userStats.streakDays || 0} Consecutive Days`}>
             <DuoLightningIcon className="w-5 h-5 shrink-0" />
-            <span className="text-xs sm:text-sm font-black text-[#FF6B00]">14</span>
+            <span className="text-xs sm:text-sm font-black text-[#FF6B00]">{userStats.streakDays || 0}</span>
           </div>
 
           {/* Item 3: Gems / DP */}
-          <div className="flex items-center justify-center gap-1.5 p-2.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] shadow-sm" title="Discipline Points: 3,420 DP">
+          <div className="flex items-center justify-center gap-1.5 p-2.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] shadow-sm" title={`Discipline Points: ${userStats.disciplinePoints || 0} DP`}>
             <DuoGemIcon className="w-5 h-5 shrink-0" />
-            <span className="text-xs sm:text-sm font-black text-[#1CB0F6]">3.4k</span>
+            <span className="text-xs sm:text-sm font-black text-[#1CB0F6]">
+              {userStats.disciplinePoints >= 1000 ? `${(userStats.disciplinePoints / 1000).toFixed(1)}k` : (userStats.disciplinePoints || 0)}
+            </span>
           </div>
 
           {/* Item 4: Disciplined Trades */}
@@ -568,10 +580,10 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
               setIsRulesModalOpen(true);
             }}
             className="flex items-center justify-center gap-1.5 p-2.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] hover:border-[#58CC02] cursor-pointer transition-all active:scale-95 shadow-sm"
-            title="Disciplined Trades: 16 Trades Taken (Click for breakdown)"
+            title={`Disciplined Trades: ${userStats.tradesLogged || 0} Taken (Click for breakdown)`}
           >
             <DuoShieldIcon className="w-5 h-5 shrink-0" />
-            <span className="text-xs sm:text-sm font-black text-[#58CC02]">16</span>
+            <span className="text-xs sm:text-sm font-black text-[#58CC02]">{userStats.tradesLogged || 0}</span>
           </div>
         </div>
 

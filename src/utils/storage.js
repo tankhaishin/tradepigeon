@@ -11,8 +11,8 @@ const STORAGE_KEYS = {
 
 // Initial Clean Production Default State
 export const DEFAULT_USER_STATS = {
-  streakDays: 1,
-  disciplinePoints: 100,
+  streakDays: 0,
+  disciplinePoints: 0,
   hearts: 5,
   maxHearts: 5,
   level: 1,
