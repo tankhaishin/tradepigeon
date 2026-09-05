@@ -13,7 +13,7 @@ import TopStatBar from './components/TopStatBar';
 import RealTimeCompanionToast from './components/RealTimeCompanionToast';
 import LandingPage from './components/LandingPage';
 import ConfettiBurst from './components/ConfettiBurst';
-import { loadStoredData, saveStoredData, STORAGE_KEYS } from './utils/storage';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS } from './utils/storage';
 import { soundFx } from './utils/audioEngine';
 
 class ErrorBoundary extends React.Component {
