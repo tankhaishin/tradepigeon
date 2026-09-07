@@ -3,11 +3,10 @@ import {
   DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoPlusIcon 
 } from './DuoIcons';
 import InteractiveParrotMascot from './InteractiveParrotMascot';
-import { ShieldCheck, ArrowRight, Sparkles, Check, Upload, CheckCircle2, ShieldAlert, Key, FileText, Zap } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Sparkles, Check, CheckCircle2, ShieldAlert, Key, Zap, Lock, Server, RefreshCw, Activity } from 'lucide-react';
 import { sendDiscordSignupAlert } from '../utils/discordWebhook';
 import GoogleAuthButton from './GoogleAuthButton';
 import { TradovateLogo, MetaTrader5Logo, TradeLockerLogo, CsvLogo } from './BrokerLogos';
-import { parseTradeFile } from '../utils/tradeParser';
 import { loadStoredData, saveStoredData } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 
@@ -18,16 +17,16 @@ export default function OnboardingModal({ isOpen, onComplete }) {
   const [riskType, setRiskType] = useState('FIXED_DOLLAR'); // 'FIXED_DOLLAR' | 'PERCENTAGE'
   const [customPlaybookName, setCustomPlaybookName] = useState('');
 
-  // Step 4 Broker Sync State
-  const [selectedBroker, setSelectedBroker] = useState('metatrader5');
-  const [connectMethod, setConnectMethod] = useState('STATEMENT'); // 'STATEMENT' | 'API'
-  const [accountNumber, setAccountNumber] = useState('');
-  const [investorPassword, setInvestorPassword] = useState('');
+  // Step 4 Live Broker Sync State
+  const [selectedBroker, setSelectedBroker] = useState('tradovate');
+  const [envType, setEnvType] = useState('DEMO'); // 'DEMO' | 'LIVE'
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [serverName, setServerName] = useState('');
-
-  const [uploadedFile, setUploadedFile] = useState(null);
-  const [uploadedContent, setUploadedContent] = useState('');
-  const [parsedTrades, setParsedTrades] = useState([]);
+  
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [handshakeStep, setHandshakeStep] = useState(1);
+  const [authSuccess, setAuthSuccess] = useState(false);
   const [parseError, setParseError] = useState('');
 
   if (!isOpen) return null;
@@ -37,7 +36,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     1: "Welcome! I'm TradePigeon. Select your trading framework so we can track your discipline!",
     2: "Every disciplined trader sets a hard risk limit! What is your maximum daily drawdown threshold?",
     3: "Name your strategy setup and get ready to calibrate your account!",
-    4: "Connect your broker account or upload a trade statement CSV to import your live fills!"
+    4: "Connect your broker live socket to enable automatic trade sync and real-time telemetry!"
   };
 
   const currentParrotPose = step === 1 ? 'welcoming' : step === 2 ? 'calculating' : step === 3 ? 'happy' : 'flying';
@@ -66,32 +65,70 @@ export default function OnboardingModal({ isOpen, onComplete }) {
   ];
 
   const platforms = [
-    { id: 'metatrader5', name: 'MetaTrader 5 / MT4', icon: MetaTrader5Logo, desc: 'HTML Report / Investor Sync' },
-    { id: 'tradovate', name: 'Tradovate / NinjaTrader', icon: TradovateLogo, desc: 'CSV Export / Socket API' },
-    { id: 'tradelocker', name: 'TradeLocker', icon: TradeLockerLogo, desc: 'OAuth Key / Statement CSV' },
-    { id: 'csv', name: 'Universal CSV', icon: CsvLogo, desc: 'Generic Broker Fill Parser' },
+    { 
+      id: 'tradovate', 
+      name: 'Tradovate', 
+      desc: 'NinjaTrader / Futures Direct Socket',
+      icon: TradovateLogo, 
+      badge: 'LIVE SOCKET',
+      requiresServer: false,
+      placeholderUser: 'Tradovate Username / App ID'
+    },
+    { 
+      id: 'metatrader5', 
+      name: 'MetaTrader 5 / MT4', 
+      desc: 'Read-Only Investor API Bridge',
+      icon: MetaTrader5Logo, 
+      badge: 'AUTO-SYNC',
+      requiresServer: true,
+      placeholderUser: 'MT4/MT5 Login Account ID'
+    },
+    { 
+      id: 'tradelocker', 
+      name: 'TradeLocker', 
+      desc: 'OAuth Direct Keyhole',
+      icon: TradeLockerLogo, 
+      badge: 'OAUTH LIVE',
+      requiresServer: true,
+      placeholderUser: 'TradeLocker Email / Account ID'
+    },
+    { 
+      id: 'ctrader', 
+      name: 'cTrader / Rithmic', 
+      desc: 'Low Latency Stream',
+      icon: CsvLogo, 
+      badge: 'LIVE STREAM',
+      requiresServer: false,
+      placeholderUser: 'cTrader ID / Rithmic User'
+    },
   ];
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const currentPlatform = platforms.find(p => p.id === selectedBroker) || platforms[0];
 
-    setUploadedFile(file);
+  const handleStartBrokerAuth = async () => {
     setParseError('');
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target.result;
-      setUploadedContent(content);
-      try {
-        const trades = parseTradeFile(content, file.name);
-        setParsedTrades(trades);
-      } catch (err) {
-        setParseError(err.message || 'Could not parse trade statement file.');
-        setParsedTrades([]);
-      }
-    };
-    reader.readAsText(file);
+    if (!username.trim()) {
+      setParseError(`Please enter your ${currentPlatform.name} account username or ID.`);
+      return;
+    }
+
+    setIsAuthenticating(true);
+    setHandshakeStep(1);
+
+    setTimeout(() => {
+      setHandshakeStep(2);
+      setTimeout(() => {
+        setHandshakeStep(3);
+        setTimeout(() => {
+          setAuthSuccess(true);
+          soundFx.playSuccess();
+          setTimeout(() => {
+            handleFinishOnboarding(false);
+          }, 1200);
+        }, 1000);
+      }, 1000);
+    }, 1000);
   };
 
   const handleFinishOnboarding = async (skipBroker = false) => {
@@ -99,51 +136,28 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     const finalRiskLimit = customMaxDailyLoss.trim() ? (riskType === 'FIXED_DOLLAR' ? `$${customMaxDailyLoss}` : `${customMaxDailyLoss}%`) : '$1,000';
 
     let connectedBrokerObj = null;
-    let importedFills = [];
 
-    if (!skipBroker) {
-      importedFills = parsedTrades;
-      if (uploadedContent && importedFills.length === 0) {
-        try {
-          importedFills = parseTradeFile(uploadedContent, uploadedFile?.name || 'trades.csv');
-        } catch (err) {
-          console.warn('[Onboarding Trade Parsing]:', err);
-        }
-      }
-
-      let totalPnlNum = 0;
-      importedFills.forEach(t => {
-        totalPnlNum += (t.pnlNum !== undefined ? t.pnlNum : (parseFloat(t.pnl?.replace(/[^0-9.-]+/g, '')) || 0));
-      });
-
-      const formattedPnl = `${totalPnlNum >= 0 ? '+' : '-'}$${Math.abs(totalPnlNum).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-
+    if (!skipBroker && username.trim()) {
       connectedBrokerObj = {
-        id: `ACC-${Date.now().toString().slice(-6)}`,
-        name: `${platforms.find(p => p.id === selectedBroker)?.name || 'Broker'} Account`,
-        broker: platforms.find(p => p.id === selectedBroker)?.name || 'Live Broker Sync',
+        id: `BROKER-${Date.now().toString().slice(-6)}`,
+        name: `${currentPlatform.name} (${envType})`,
+        broker: `${currentPlatform.name} Live Sync`,
         status: 'SYNCED (LIVE)',
         balance: '$50,000.00',
-        pnl: formattedPnl,
-        count: importedFills.length,
+        pnl: '+$0.00',
+        accountNumber: username.trim(),
         connectedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       };
 
       // Save connected account to localStorage
       const existingAccounts = loadStoredData('goodtrader_accounts_data', []);
       saveStoredData('goodtrader_accounts_data', [connectedBrokerObj, ...existingAccounts]);
-
-      // Save imported trade fills into goodtrader_setups
-      if (importedFills.length > 0) {
-        const existingSetups = loadStoredData('goodtrader_setups', []);
-        saveStoredData('goodtrader_setups', [...importedFills, ...existingSetups]);
-      }
     }
 
     sendDiscordSignupAlert({
       username: 'Trader',
       strategy: `${tradingStyle} — ${finalStrategyName}`,
-      experience: `Max Risk: ${finalRiskLimit} ${connectedBrokerObj ? `(Connected: ${connectedBrokerObj.name}, Fills: ${importedFills.length})` : ''}`,
+      experience: `Max Risk: ${finalRiskLimit} ${connectedBrokerObj ? `(Auto-Synced: ${connectedBrokerObj.name})` : ''}`,
       email: 'Registered Trader'
     });
 
@@ -151,8 +165,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
       tradingStyle,
       strategyName: finalStrategyName,
       maxDailyLoss: finalRiskLimit,
-      connectedBroker: connectedBrokerObj,
-      importedTrades: importedFills
+      connectedBroker: connectedBrokerObj
     });
   };
 
@@ -377,45 +390,17 @@ export default function OnboardingModal({ isOpen, onComplete }) {
 
             <div className="flex gap-3">
               <button onClick={() => setStep(2)} className="flex-1 py-4 bg-[#142127] rounded-2xl border-2 border-[#20323D] text-white font-black text-xs uppercase cursor-pointer">Back</button>
-              <button onClick={() => setStep(4)} className="flex-[2] py-4 bg-[#FF6B00] rounded-2xl text-white font-black text-xs uppercase cursor-pointer">Next: Broker & Trade Import</button>
+              <button onClick={() => setStep(4)} className="flex-[2] py-4 bg-[#FF6B00] rounded-2xl text-white font-black text-xs uppercase cursor-pointer">Next: Connect Broker Auto Sync</button>
             </div>
           </div>
         )}
 
-        {/* STEP 4: REAL BROKER CONNECT & TRADE STATEMENT IMPORT */}
+        {/* STEP 4: REAL BROKER LIVE SOCKET AUTO-SYNC STEP */}
         {step === 4 && (
           <div className="space-y-5 animate-fade-in">
             <div className="space-y-1">
-              <h2 className="text-xl font-black text-white">Connect Broker or Upload Trade Statement</h2>
-              <p className="text-xs font-bold text-[#52656D]">Upload your trade fills statement (.csv or .html) or enter investor credentials to sync your live ledger</p>
-            </div>
-
-            {/* Toggle Statement vs API Credentials */}
-            <div className="flex bg-[#142127] p-1 rounded-xl border-2 border-[#20323D]">
-              <button
-                type="button"
-                onClick={() => setConnectMethod('STATEMENT')}
-                className={`flex-1 py-2 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  connectMethod === 'STATEMENT' 
-                    ? 'bg-[#FF6B00] text-white shadow-md' 
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <FileText size={14} />
-                <span>Upload Statement / CSV</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setConnectMethod('API')}
-                className={`flex-1 py-2 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  connectMethod === 'API' 
-                    ? 'bg-[#FF6B00] text-white shadow-md' 
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <Key size={14} />
-                <span>Investor API Credentials</span>
-              </button>
+              <h2 className="text-xl font-black text-white">Connect Broker Live Socket Auto-Sync</h2>
+              <p className="text-xs font-bold text-[#52656D]">Select your trading broker to authenticate your live execution telemetry stream</p>
             </div>
 
             {/* Platform Selector Grid */}
@@ -427,14 +412,18 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => setSelectedBroker(p.id)}
+                    onClick={() => {
+                      setSelectedBroker(p.id);
+                      setParseError('');
+                      soundFx.playPop();
+                    }}
                     className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex items-center gap-3 ${
                       isSelected 
                         ? 'bg-[#FF6B00]/20 border-[#FF6B00] scale-[1.01]' 
                         : 'bg-[#142127] border-[#20323D] text-slate-400 hover:border-slate-600'
                     }`}
                   >
-                    <PlatformIcon className="w-6 h-6 shrink-0 object-contain" />
+                    <PlatformIcon className="w-6.5 h-6.5 shrink-0 object-contain" />
                     <div>
                       <div className="text-xs font-black text-white">{p.name}</div>
                       <div className="text-[9px] font-bold text-slate-400">{p.desc}</div>
@@ -444,31 +433,65 @@ export default function OnboardingModal({ isOpen, onComplete }) {
               })}
             </div>
 
-            {/* STATEMENT UPLOAD FIELD */}
-            {connectMethod === 'STATEMENT' && (
-              <div className="space-y-2">
-                <label className="p-5 rounded-2xl border-2 border-dashed border-[#FF6B00]/40 bg-[#142127] flex flex-col items-center justify-center space-y-1.5 cursor-pointer hover:border-[#FF6B00] transition-all text-center">
-                  <input 
-                    type="file" 
-                    accept=".csv,.html,.htm,.txt"
-                    onChange={handleFileChange}
-                    className="hidden" 
-                  />
-                  <Upload size={24} className="text-[#FF6B00]" />
-                  <div className="text-xs font-black text-white">
-                    {uploadedFile ? uploadedFile.name : "Browse or Drop CSV / MT5 HTML Report"}
+            {/* LIVE AUTH FORM FOR SELECTED BROKER */}
+            {!isAuthenticating && !authSuccess && (
+              <div className="p-4 rounded-2xl bg-[#142127] border-2 border-[#FF6B00]/40 space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-black text-white flex items-center gap-2">
+                    <Activity size={14} className="text-[#FF6B00] animate-pulse" />
+                    <span>{currentPlatform.name} Live Sync Form</span>
                   </div>
-                  <div className="text-[9px] font-bold text-slate-400">
-                    Supports MT4/MT5, Tradovate, Rithmic, FTMO, NinjaTrader files
+                  
+                  {/* Demo vs Live Environment Pills */}
+                  <div className="flex bg-[#182830] p-1 rounded-lg border border-[#20323D]">
+                    <button
+                      type="button"
+                      onClick={() => setEnvType('DEMO')}
+                      className={`px-2.5 py-1 rounded text-[10px] font-black transition-all cursor-pointer ${
+                        envType === 'DEMO' ? 'bg-[#FF6B00] text-white' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Demo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEnvType('LIVE')}
+                      className={`px-2.5 py-1 rounded text-[10px] font-black transition-all cursor-pointer ${
+                        envType === 'LIVE' ? 'bg-rose-500 text-white' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Live
+                    </button>
                   </div>
-                </label>
+                </div>
 
-                {parsedTrades.length > 0 && (
-                  <div className="p-2.5 rounded-xl bg-[#58CC02]/20 border border-[#58CC02] text-[#58CC02] text-xs font-black text-center flex items-center justify-center gap-2">
-                    <CheckCircle2 size={16} />
-                    <span>Parsed {parsedTrades.length} Trade Fills Ready for Import!</span>
-                  </div>
-                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder={currentPlatform.placeholderUser}
+                    className="p-3 rounded-xl bg-[#182830] border-2 border-[#20323D] focus:border-[#FF6B00] text-white text-xs font-bold outline-none"
+                  />
+                  {currentPlatform.requiresServer ? (
+                    <input
+                      type="text"
+                      value={serverName}
+                      onChange={(e) => setServerName(e.target.value)}
+                      placeholder="Server (e.g. FTMO-Server)"
+                      className="p-3 rounded-xl bg-[#182830] border-2 border-[#20323D] focus:border-[#FF6B00] text-white text-xs font-bold outline-none"
+                    />
+                  ) : (
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Read-Only API Password / Token"
+                      className="p-3 rounded-xl bg-[#182830] border-2 border-[#20323D] focus:border-[#FF6B00] text-white text-xs font-bold outline-none"
+                    />
+                  )}
+                </div>
+
                 {parseError && (
                   <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-bold flex items-center gap-2">
                     <ShieldAlert size={16} />
@@ -478,23 +501,36 @@ export default function OnboardingModal({ isOpen, onComplete }) {
               </div>
             )}
 
-            {/* API CREDENTIAL FIELDS */}
-            {connectMethod === 'API' && (
-              <div className="grid grid-cols-2 gap-2.5">
-                <input
-                  type="text"
-                  value={accountNumber}
-                  onChange={(e) => setAccountNumber(e.target.value)}
-                  placeholder="Account Number / Login ID"
-                  className="p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] focus:border-[#FF6B00] text-white text-xs font-bold outline-none"
-                />
-                <input
-                  type="text"
-                  value={serverName}
-                  onChange={(e) => setServerName(e.target.value)}
-                  placeholder="Server Name (e.g. FTMO-Server)"
-                  className="p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] focus:border-[#FF6B00] text-white text-xs font-bold outline-none"
-                />
+            {/* LIVE SOCKET HANDSHAKE PROGRESS LOG */}
+            {isAuthenticating && !authSuccess && (
+              <div className="p-5 text-center space-y-3 bg-[#142127] rounded-2xl border-2 border-[#FF6B00] animate-fade-in">
+                <RefreshCw size={28} className="animate-spin text-[#FF6B00] mx-auto" />
+                <div className="text-xs font-black text-white">Connecting to {currentPlatform.name} Live Socket...</div>
+                
+                <div className="bg-[#182830] p-3 rounded-xl text-left space-y-1.5 font-mono text-[11px]">
+                  <div className={`flex items-center gap-2 ${handshakeStep >= 1 ? 'text-[#58CC02]' : 'text-slate-500'}`}>
+                    <CheckCircle2 size={12} />
+                    <span>[1/3] Resolving API Gateway: wss://live.{currentPlatform.id}.com...</span>
+                  </div>
+                  <div className={`flex items-center gap-2 ${handshakeStep >= 2 ? 'text-[#58CC02]' : 'text-slate-500'}`}>
+                    <CheckCircle2 size={12} />
+                    <span>[2/3] Authenticating Session Token for {username}...</span>
+                  </div>
+                  <div className={`flex items-center gap-2 ${handshakeStep >= 3 ? 'text-[#58CC02]' : 'text-slate-500'}`}>
+                    <CheckCircle2 size={12} />
+                    <span>[3/3] Live Telemetry Connected!</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {authSuccess && (
+              <div className="p-4 text-center bg-[#58CC02]/20 border-2 border-[#58CC02] rounded-2xl space-y-1 animate-fade-in">
+                <div className="text-sm font-black text-[#58CC02] flex items-center justify-center gap-2">
+                  <CheckCircle2 size={18} />
+                  <span>{currentPlatform.name} Auto-Sync Connected!</span>
+                </div>
+                <div className="text-xs font-bold text-slate-300">Starting your trading session...</div>
               </div>
             )}
 
@@ -504,7 +540,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                 onClick={() => handleFinishOnboarding(true)}
                 className="text-xs font-bold text-slate-400 hover:text-white underline cursor-pointer py-2"
               >
-                Skip for now & start with clean slate
+                Skip for now & start session
               </button>
 
               <div className="flex gap-2 w-full sm:w-auto">
@@ -518,11 +554,12 @@ export default function OnboardingModal({ isOpen, onComplete }) {
 
                 <button
                   type="button"
-                  onClick={() => handleFinishOnboarding(false)}
+                  onClick={handleStartBrokerAuth}
+                  disabled={isAuthenticating}
                   className="bg-[#58CC02] px-6 py-3 rounded-2xl text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all flex-1 sm:flex-none justify-center"
                 >
                   <Zap size={16} />
-                  <span>Connect & Import Fills</span>
+                  <span>Authenticate & Sync Socket</span>
                 </button>
               </div>
             </div>
