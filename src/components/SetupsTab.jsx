@@ -8,7 +8,7 @@ import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoUndoIcon, DuoPlusIcon
 import BrokerConnectModal from './BrokerConnectModal';
 import ManualTradeModal from './ManualTradeModal';
 import { parseTradeFile, calculateExecutionMatrix, calculateSetupExpectancy, formatCurrencyOrR } from '../utils/tradeParser';
-import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS } from '../utils/storage';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, buildDefaultPlaybooks } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 import InteractiveEquityCurve from './InteractiveEquityCurve';
 
@@ -21,8 +21,13 @@ export default function SetupsTab() {
   const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('goodtrader_stealth_mode', false));
 
   useEffect(() => {
-    const unsubscribe = subscribeToStorageUpdate(() => {
-      setIsStealthMode(loadStoredData('goodtrader_stealth_mode', false));
+    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
+      if (key === 'goodtrader_stealth_mode') {
+        setIsStealthMode(value);
+      }
+      if (key === 'goodtrader_playbook_setups') {
+        setPlaybookSetups(value);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -171,117 +176,7 @@ export default function SetupsTab() {
   };
 
   // SECTION B: VERIFIED STRATEGY PLAYBOOKS (Clean Zero-State Initial Metrics)
-  const [playbookSetups, setPlaybookSetups] = useState(() => loadStoredData('goodtrader_playbook_setups', [
-    {
-      id: 1,
-      name: 'Breakout & Retest (Key S/R Level)',
-      winRate: '0%',
-      winRateVal: 0,
-      avgRr: '0.0 R',
-      count: 0,
-      netProfit: '$0.00',
-      tier: 'PRIMARY SETUP',
-      color: 'border-[#58CC02]',
-      tagBg: 'bg-[#58CC02]/15 text-[#58CC02]',
-      bestTime: 'New York Session',
-      sparkline: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      tradeMetrics: {
-        avgHoldTime: '-',
-        sharpeRatio: '-',
-        profitFactor: '-',
-        maxDrawdownR: '0.0 R',
-        execPrecision: '100% Plan Adherence'
-      },
-      checklist: [
-        'Higher timeframe key level break',
-        'Volume surge on breakout candle',
-        '1-min / 5-min retest into former resistance',
-        'Bullish engulfing confirmation candle'
-      ],
-      psychologyMistake: 'Chasing the initial breakout before waiting for the retest loses discipline.'
-    },
-    {
-      id: 2,
-      name: 'Trend Continuation Pullback',
-      winRate: '0%',
-      winRateVal: 0,
-      avgRr: '0.0 R',
-      count: 0,
-      netProfit: '$0.00',
-      tier: 'SECONDARY SETUP',
-      color: 'border-[#1CB0F6]',
-      tagBg: 'bg-[#1CB0F6]/15 text-[#1CB0F6]',
-      bestTime: 'New York Session',
-      sparkline: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      tradeMetrics: {
-        avgHoldTime: '-',
-        sharpeRatio: '-',
-        profitFactor: '-',
-        maxDrawdownR: '0.0 R',
-        execPrecision: '100% Plan Adherence'
-      },
-      checklist: [
-        'Clear higher-high & higher-low structure',
-        'Pullback into VWAP / Moving Average',
-        'Stop-Loss placed below structure pivot'
-      ],
-      psychologyMistake: 'Entering mid-move without waiting for pullback structure.'
-    },
-    {
-      id: 3,
-      name: 'Key Support / Resistance Sweep',
-      winRate: '0%',
-      winRateVal: 0,
-      avgRr: '0.0 R',
-      count: 0,
-      netProfit: '$0.00',
-      tier: 'REVERSAL EDGE',
-      color: 'border-[#FF6B00]',
-      tagBg: 'bg-[#FF6B00]/15 text-[#FF6B00]',
-      bestTime: 'New York Session',
-      sparkline: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      tradeMetrics: {
-        avgHoldTime: '-',
-        sharpeRatio: '-',
-        profitFactor: '-',
-        maxDrawdownR: '0.0 R',
-        execPrecision: '100% Plan Adherence'
-      },
-      checklist: [
-        'Clean equal highs/lows targeted',
-        'Aggressive wick sweep past key level',
-        'Quick displacement close back inside range'
-      ],
-      psychologyMistake: 'Failing to place stop-loss above the sweep wick.'
-    },
-    {
-      id: 4,
-      name: 'VWAP Mean Reversion',
-      winRate: '0%',
-      winRateVal: 0,
-      avgRr: '0.0 R',
-      count: 0,
-      netProfit: '$0.00',
-      tier: 'MEAN REVERSION',
-      color: 'border-[#A560FF]',
-      tagBg: 'bg-[#A560FF]/15 text-[#A560FF]',
-      bestTime: 'New York Session',
-      sparkline: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      tradeMetrics: {
-        avgHoldTime: '-',
-        sharpeRatio: '-',
-        profitFactor: '-',
-        maxDrawdownR: '0.0 R',
-        execPrecision: '100% Plan Adherence'
-      },
-      checklist: [
-        '2+ Standard Deviations away from VWAP',
-        'Divergence on momentum indicator',
-        'Reversion candle back toward mean'
-      ],
-      psychologyMistake: 'Trading reversion during high-impact news events.'
-    }
-  ]));
+  const [playbookSetups, setPlaybookSetups] = useState(() => loadStoredData('goodtrader_playbook_setups', buildDefaultPlaybooks()));
 
   const [isNewSetupModalOpen, setIsNewSetupModalOpen] = useState(false);
   const [newSetupName, setNewSetupName] = useState('');

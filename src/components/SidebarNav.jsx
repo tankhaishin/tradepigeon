@@ -100,10 +100,10 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
                 ? 'bg-[#FF6B00]/15 border-[#FF6B00]/40 text-[#FF6B00]'
                 : 'bg-[#182830] border-[#20323D] text-slate-300 hover:text-white'
             }`}
-            title={isStealthMode ? 'Process-First Stealth Mode (Active) — Currency hidden' : 'Currency Mode Active — Click to switch to R-Only Stealth Mode'}
+            title={isStealthMode ? 'Stealth Mode Active — PnL shown in R-Multiples' : 'Dollar View Active — PnL shown in Dollars'}
           >
             {isStealthMode ? <EyeOff size={18} className="shrink-0" /> : <Eye size={18} className="shrink-0" />}
-            <span className="hidden xl:inline">{isStealthMode ? 'Stealth Mode (R-Only)' : 'Currency ($) Mode'}</span>
+            <span className="hidden xl:inline">{isStealthMode ? 'Stealth Mode' : 'Dollar View'}</span>
           </button>
 
           <button

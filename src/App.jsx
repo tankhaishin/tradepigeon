@@ -13,7 +13,7 @@ import TopStatBar from './components/TopStatBar';
 import RealTimeCompanionToast from './components/RealTimeCompanionToast';
 import LandingPage from './components/LandingPage';
 import ConfettiBurst from './components/ConfettiBurst';
-import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS } from './utils/storage';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, buildDefaultPlaybooks } from './utils/storage';
 import { soundFx } from './utils/audioEngine';
 
 class ErrorBoundary extends React.Component {
@@ -71,7 +71,11 @@ export default function App() {
   }, []);
 
   const [activeTab, setActiveTab] = useState('learn');
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(() => {
+    const user = loadStoredData('goodtrader_google_user', null);
+    const isCompleted = loadStoredData(STORAGE_KEYS.ONBOARDING_COMPLETED, false);
+    return !!user && !isCompleted;
+  });
   const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
   const [isMobileRightHubOpen, setIsMobileRightHubOpen] = useState(false);
   const [latestTradeAlert, setLatestTradeAlert] = useState(null);
@@ -133,6 +137,10 @@ export default function App() {
   const handleOnboardingComplete = (data) => {
     saveStoredData(STORAGE_KEYS.ONBOARDING_COMPLETED, true);
     saveStoredData('goodtrader_active_step', 1);
+
+    // Auto-generate customized Playbook setups based on trader's onboarding methodology & strategy name
+    const customizedPlaybooks = buildDefaultPlaybooks(data?.tradingStyle, data?.strategyName);
+    saveStoredData('goodtrader_playbook_setups', customizedPlaybooks);
 
     if (data?.connectedBroker) {
       const existingAccounts = loadStoredData('goodtrader_accounts_data', []);

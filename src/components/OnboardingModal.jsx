@@ -3,23 +3,49 @@ import {
   DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoPlusIcon 
 } from './DuoIcons';
 import InteractiveParrotMascot from './InteractiveParrotMascot';
-import { ShieldCheck, ArrowRight, Sparkles, Check, CheckCircle2, ShieldAlert, Key, Zap, Lock, Server, RefreshCw, Activity, ExternalLink } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Sparkles, Check, CheckCircle2, ShieldAlert, Key, Zap, Lock, Server, RefreshCw, Activity, ExternalLink, X } from 'lucide-react';
 import { sendDiscordSignupAlert } from '../utils/discordWebhook';
 import GoogleAuthButton from './GoogleAuthButton';
 import { TradovateLogo, MetaTrader5Logo, NinjaTraderLogo, TradeLockerLogo, CsvLogo } from './BrokerLogos';
-import { loadStoredData, saveStoredData } from '../utils/storage';
+import { loadStoredData, saveStoredData, STORAGE_KEYS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 
 export default function OnboardingModal({ isOpen, onComplete }) {
-  const [step, setStep] = useState(1);
-  const [tradingStyle, setTradingStyle] = useState('BLANK'); // 'SMC' | 'ORDERFLOW' | 'PRICE_ACTION' | 'BLANK'
-  const [customMaxDailyLoss, setCustomMaxDailyLoss] = useState('');
-  const [riskType, setRiskType] = useState('FIXED_DOLLAR'); // 'FIXED_DOLLAR' | 'PERCENTAGE'
-  const [customPlaybookName, setCustomPlaybookName] = useState('');
+  const initialDraft = loadStoredData(STORAGE_KEYS.ONBOARDING_DRAFT, {});
+  const initialStep = loadStoredData(STORAGE_KEYS.ONBOARDING_STEP, 1);
+
+  const [step, setStep] = useState(() => (initialStep >= 1 && initialStep <= 4 ? initialStep : 1));
+  const [tradingStyle, setTradingStyle] = useState(() => initialDraft.tradingStyle || 'BLANK'); // 'SMC' | 'ORDERFLOW' | 'PRICE_ACTION' | 'BLANK'
+  const [customMaxDailyLoss, setCustomMaxDailyLoss] = useState(() => initialDraft.customMaxDailyLoss || '');
+  const [riskType, setRiskType] = useState(() => initialDraft.riskType || 'FIXED_DOLLAR'); // 'FIXED_DOLLAR' | 'PERCENTAGE'
+  const [customPlaybookName, setCustomPlaybookName] = useState(() => initialDraft.customPlaybookName || '');
 
   // Step 4 Live Broker Sync State
   const [connectingBroker, setConnectingBroker] = useState(null);
   const [authSuccess, setAuthSuccess] = useState(false);
+
+  // Auto-persist step and uncommitted draft inputs
+  useEffect(() => {
+    if (isOpen) {
+      saveStoredData(STORAGE_KEYS.ONBOARDING_STEP, step);
+    }
+  }, [step, isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      saveStoredData(STORAGE_KEYS.ONBOARDING_DRAFT, {
+        tradingStyle,
+        customMaxDailyLoss,
+        riskType,
+        customPlaybookName
+      });
+    }
+  }, [tradingStyle, customMaxDailyLoss, riskType, customPlaybookName, isOpen]);
+
+  const clearDraftState = () => {
+    localStorage.removeItem(STORAGE_KEYS.ONBOARDING_STEP);
+    localStorage.removeItem(STORAGE_KEYS.ONBOARDING_DRAFT);
+  };
 
   useEffect(() => {
     const handleOAuthMessage = (event) => {
@@ -160,6 +186,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
   };
 
   const handleFinishOnboarding = async (skipBroker = false, connectedAccountParam = null) => {
+    clearDraftState();
     const finalStrategyName = customPlaybookName.trim() || 'Strategy 1';
     const finalRiskLimit = customMaxDailyLoss.trim() ? (riskType === 'FIXED_DOLLAR' ? `$${customMaxDailyLoss}` : `${customMaxDailyLoss}%`) : '$1,000';
 
@@ -210,6 +237,19 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                 />
               ))}
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                soundFx.playPop();
+                handleFinishOnboarding(true);
+              }}
+              className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-[#20323D] transition-colors cursor-pointer ml-1"
+              title="Close & Skip Onboarding"
+              aria-label="Close Onboarding"
+            >
+              <X size={18} />
+            </button>
           </div>
         </div>
 
