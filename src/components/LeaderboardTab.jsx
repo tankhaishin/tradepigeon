@@ -1,7 +1,6 @@
 import React from 'react';
-import { Trophy, Crown, Flame, Gem, ShieldCheck, Lock, Users } from 'lucide-react';
-import { DuoShieldIcon, DuoTrophyIcon } from './DuoIcons';
-import InteractiveParrotMascot from './InteractiveParrotMascot';
+import { Flame, Lock } from 'lucide-react';
+import { DuoTrophyIcon } from './DuoIcons';
 import { loadStoredData, DEFAULT_USER_STATS } from '../utils/storage';
 
 export default function LeaderboardTab() {
@@ -9,10 +8,8 @@ export default function LeaderboardTab() {
   const userStats = loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS);
 
   // Total registered traders telemetry threshold (Locks until 50 users)
-  const totalUserCount = loadStoredData('goodtrader_total_user_count', 7);
-  const REQUIRED_USERS = 50;
-  const isLocked = totalUserCount < REQUIRED_USERS;
-  const progressPercent = Math.min(100, Math.round((totalUserCount / REQUIRED_USERS) * 100));
+  const totalUserCount = loadStoredData('goodtrader_total_user_count', 0);
+  const isLocked = totalUserCount < 50;
 
   const leaderboardUsers = [
     { rank: 1, name: 'Alex_ICT', xp: '4,250 DP', streak: '28d', badge: 'Diamond League', avatarBg: 'bg-amber-500/20 text-amber-400' },
@@ -55,9 +52,9 @@ export default function LeaderboardTab() {
         </div>
       </div>
 
-      {/* 2. LOCKED LEADERBOARD OVERLAY & UNLOCK PROGRESS CARD */}
+      {/* 2. LOCKED LEADERBOARD OVERLAY */}
       {isLocked && (
-        <div className="duo-card p-6 sm:p-8 space-y-6 border-2 border-amber-500/40 bg-[#182830]/90 backdrop-blur-md relative z-10 text-center max-w-xl mx-auto shadow-2xl">
+        <div className="duo-card p-6 sm:p-8 space-y-4 border-2 border-amber-500/40 bg-[#182830]/90 backdrop-blur-md relative z-10 text-center max-w-xl mx-auto shadow-2xl">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-500/20 border-2 border-amber-500/50 flex items-center justify-center text-amber-400 shadow-inner">
             <Lock size={32} />
           </div>
@@ -67,24 +64,6 @@ export default function LeaderboardTab() {
             <p className="text-xs sm:text-sm font-bold text-[#77909D] leading-relaxed max-w-md mx-auto">
               Global discipline rankings and league competition activate as soon as 50 total traders register on the platform.
             </p>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="space-y-2 max-w-md mx-auto">
-            <div className="flex items-center justify-between text-xs font-black">
-              <span className="text-slate-300 flex items-center gap-1.5">
-                <Users size={14} className="text-[#1CB0F6]" />
-                <span>Traders Registered</span>
-              </span>
-              <span className="text-[#58CC02]">{totalUserCount} / {REQUIRED_USERS} ({progressPercent}%)</span>
-            </div>
-            
-            <div className="w-full h-4 bg-[#142127] rounded-full border border-[#20323D] overflow-hidden p-0.5 shadow-inner">
-              <div 
-                className="h-full bg-gradient-to-r from-[#1CB0F6] to-[#58CC02] rounded-full transition-all duration-700 shadow-md"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
           </div>
         </div>
       )}
