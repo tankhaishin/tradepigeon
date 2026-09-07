@@ -4,6 +4,7 @@ import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoProfileIcon, DuoTroph
 import GoogleAuthButton from './GoogleAuthButton';
 import MobileAlertSettings from './MobileAlertSettings';
 import { soundFx } from '../utils/audioEngine';
+import { loadStoredData, DEFAULT_USER_STATS } from '../utils/storage';
 
 export default function ProfileTab() {
   const [activeSubTab, setActiveSubTab] = useState('DEBRIEF_HISTORY');
@@ -53,6 +54,10 @@ export default function ProfileTab() {
   // Connected Auto-Synced Trading Accounts (Loaded from Storage with clean zero-state)
   const connectedAccounts = loadStoredData('goodtrader_accounts_data', []);
 
+  // Live User Stats from Storage
+  const userStats = loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS);
+  const userDp = loadStoredData('goodtrader_user_dp', 0);
+
   return (
     <main className="flex-1 min-h-screen lg:pl-28 xl:pl-80 xl:pr-[416px] bg-[#070C1E] p-4 sm:p-6 lg:p-8 text-white space-y-8 pb-24 lg:pb-10 max-w-full overflow-hidden">
       
@@ -91,22 +96,22 @@ export default function ProfileTab() {
           <div className="flex-1 w-full space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-base font-black text-white">Discipline Streak</span>
-              <span className="text-xl sm:text-2xl font-black text-[#FF6B00]">14 Days</span>
+              <span className="text-xl sm:text-2xl font-black text-[#FF6B00]">{userStats.streakDays || 0} Days</span>
             </div>
 
             <div className="flex items-center justify-between">
               <span className="text-base font-black text-white">DP Gems</span>
-              <span className="text-xl sm:text-2xl font-black text-[#1CB0F6]">3,420</span>
+              <span className="text-xl sm:text-2xl font-black text-[#1CB0F6]">{userDp || 0}</span>
             </div>
 
             <div className="flex items-center justify-between">
               <span className="text-base font-black text-white">Disciplined Trades</span>
-              <span className="text-xl sm:text-2xl font-black text-[#58CC02]">16</span>
+              <span className="text-xl sm:text-2xl font-black text-[#58CC02]">{userStats.tradesLogged || 0}</span>
             </div>
 
             <div className="flex items-center justify-between">
               <span className="text-base font-black text-white">Plan Adherence</span>
-              <span className="text-xl sm:text-2xl font-black text-[#58CC02]">96%</span>
+              <span className="text-xl sm:text-2xl font-black text-[#58CC02]">{userStats.overallWinRate || '0%'}</span>
             </div>
           </div>
         </div>

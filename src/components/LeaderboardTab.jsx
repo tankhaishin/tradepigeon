@@ -2,11 +2,15 @@ import React from 'react';
 import { Trophy, Crown, Flame, Gem, ShieldCheck } from 'lucide-react';
 import { DuoShieldIcon, DuoTrophyIcon } from './DuoIcons';
 import InteractiveParrotMascot from './InteractiveParrotMascot';
+import { loadStoredData, DEFAULT_USER_STATS } from '../utils/storage';
 
 export default function LeaderboardTab() {
+  const userDp = loadStoredData('goodtrader_user_dp', 0);
+  const userStats = loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS);
+
   const leaderboardUsers = [
     { rank: 1, name: 'Alex_ICT', xp: '4,250 DP', streak: '28d', badge: 'Diamond League', avatarBg: 'bg-amber-500/20 text-amber-400' },
-    { rank: 2, name: 'Trader (YOU)', xp: '3,420 DP', streak: '14d', badge: 'Diamond League', avatarBg: 'bg-[#FF6B00] text-white' },
+    { rank: 2, name: 'Trader (YOU)', xp: `${userDp || 0} DP`, streak: `${userStats.streakDays || 0}d`, badge: 'Diamond League', avatarBg: 'bg-[#FF6B00] text-white' },
     { rank: 3, name: 'PropWizard', xp: '2,980 DP', streak: '19d', badge: 'Ruby League', avatarBg: 'bg-rose-500/20 text-rose-400' },
     { rank: 4, name: 'OrderFlowPro', xp: '2,410 DP', streak: '11d', badge: 'Ruby League', avatarBg: 'bg-sky-500/20 text-sky-400' },
     { rank: 5, name: 'ZenTrader', xp: '1,890 DP', streak: '8d', badge: 'Sapphire League', avatarBg: 'bg-purple-500/20 text-purple-400' },

@@ -44,11 +44,14 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const [selectedBasketFilter, setSelectedBasketFilter] = useState('ALL');
   const [selectedTradeIds, setSelectedTradeIds] = useState([]);
   const [userStats, setUserStats] = useState(() => loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS));
+  const [connectedAccounts, setConnectedAccounts] = useState(() => loadStoredData('goodtrader_accounts_data', []));
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
       if (key === 'goodtrader_user_stats') {
         setUserStats(value || DEFAULT_USER_STATS);
+      } else if (key === 'goodtrader_accounts_data') {
+        setConnectedAccounts(value || []);
       }
     });
     return unsubscribe;
@@ -67,12 +70,18 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     setSelectedTradeIds([]);
   }, [activeAuditDay]);
 
+  const primaryAccountName = connectedAccounts[0]?.name || connectedAccounts[0]?.id || 'Primary Account';
+  const availableBaskets = ['ALL', ...new Set([
+    ...connectedAccounts.map(a => a.name || a.id),
+    ...sessionTrades.map(t => t.account).filter(Boolean)
+  ])];
+
   const [isAddTradeModalOpen, setIsAddTradeModalOpen] = useState(false);
   const [newTradeSymbol, setNewTradeSymbol] = useState('NQ1!');
   const [newTradeSide, setNewTradeSide] = useState('LONG');
   const [newTradePnl, setNewTradePnl] = useState('+$500.00');
   const [newTradeType, setNewTradeType] = useState('win');
-  const [newTradeAccount, setNewTradeAccount] = useState('Topstep 50k');
+  const [newTradeAccount, setNewTradeAccount] = useState(primaryAccountName);
 
   const handleVerifyTrade = (tradeId, newType) => {
     soundFx.playPop();
@@ -751,7 +760,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                       rMultiple: '0.0R',
                       type: 'missed_trade',
                       playbook: 'Breakout & Retest',
-                      account: 'Topstep 50k',
+                      account: primaryAccountName,
                       verified: true
                     };
                     const updated = [...sessionTrades, newMissed];
@@ -780,7 +789,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
             {/* Account / Risk Basket Source Filter Pills */}
             <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
-              {['ALL', 'Topstep 50k', 'Apex 150k'].map((basket) => (
+              {availableBaskets.map((basket) => (
                 <button
                   key={basket}
                   onClick={() => setSelectedBasketFilter(basket)}
@@ -847,7 +856,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                         {/* Account & Playbook Badges */}
                         <div className="flex items-center justify-between text-[9px] font-bold text-slate-400 pt-0.5">
                           <span className="bg-[#182830] px-1.5 py-0.5 rounded border border-[#20323D] text-[#00F0FF] font-black">
-                            {trade.account || 'Topstep 50k'}
+                            {trade.account || primaryAccountName}
                           </span>
                           <button
                             type="button"
