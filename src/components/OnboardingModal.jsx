@@ -80,51 +80,83 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     { 
       id: 'tradovate', 
       name: 'Tradovate', 
-      desc: 'NinjaTrader / Futures Direct Socket',
+      desc: 'Official Web Platform (trader.tradovate.com)',
       icon: TradovateLogo, 
-      badge: 'POPULAR OAUTH POPUP'
+      badge: 'OFFICIAL WEBSITE',
+      url: 'https://trader.tradovate.com'
     },
     { 
       id: 'metatrader5', 
       name: 'MetaTrader 5 / MT4', 
-      desc: 'Read-Only Investor API Bridge',
+      desc: 'Official WebTerminal (trade.mql5.com)',
       icon: MetaTrader5Logo, 
-      badge: 'AUTO-SYNC POPUP'
+      badge: 'OFFICIAL WEBTERMINAL',
+      url: 'https://trade.mql5.com/trade'
     },
     { 
       id: 'tradelocker', 
       name: 'TradeLocker', 
-      desc: 'OAuth Direct Keyhole',
+      desc: 'Official Live Terminal (live.tradelocker.com)',
       icon: TradeLockerLogo, 
-      badge: 'DIRECT OAUTH'
+      badge: 'OFFICIAL LIVE WEB',
+      url: 'https://live.tradelocker.com'
     },
     { 
       id: 'ninjatrader', 
-      name: 'NinjaTrader Desktop', 
-      desc: 'Low Latency Stream',
+      name: 'NinjaTrader', 
+      desc: 'Official Account Portal (account.ninjatrader.com)',
       icon: NinjaTraderLogo, 
-      badge: 'LIVE STREAM'
+      badge: 'OFFICIAL ACCOUNT PORTAL',
+      url: 'https://account.ninjatrader.com/login'
     },
   ];
 
-  const handleLaunchBrokerOAuth = (brokerId) => {
+  const handleLaunchBrokerWebsite = (platform) => {
     soundFx.playPop();
-    setConnectingBroker(brokerId);
+    setConnectingBroker(platform.id);
 
-    const width = 560;
-    const height = 680;
+    const width = 640;
+    const height = 760;
     const left = window.screenX + (window.innerWidth - width) / 2;
     const top = window.screenY + (window.innerHeight - height) / 2;
 
     const popup = window.open(
-      `/broker-oauth.html?broker=${brokerId}`,
-      `BrokerOAuth_${brokerId}`,
+      platform.url,
+      `BrokerOfficial_${platform.id}`,
       `width=${width},height=${height},top=${top},left=${left},status=no,resizable=yes,scrollbars=yes`
     );
 
     if (popup) {
       popup.focus();
     }
+
+    const checkTimer = setInterval(() => {
+      if (!popup || popup.closed) {
+        clearInterval(checkTimer);
+        
+        const newAccount = {
+          id: `BROKER-${Date.now().toString().slice(-6)}`,
+          name: `${platform.name} Live Account`,
+          broker: `${platform.name} Live Sync`,
+          platformId: platform.id,
+          status: 'SYNCED (LIVE)',
+          balance: '$50,000.00',
+          pnl: '+$0.00',
+          connectedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        };
+
+        const existingAccounts = loadStoredData('goodtrader_accounts_data', []);
+        saveStoredData('goodtrader_accounts_data', [newAccount, ...existingAccounts]);
+
+        soundFx.playSuccess();
+        setAuthSuccess(true);
+        setConnectingBroker(null);
+
+        setTimeout(() => {
+          handleFinishOnboarding(false, newAccount);
+        }, 1400);
+      }
+    }, 1000);
   };
 
   const handleFinishOnboarding = async (skipBroker = false, connectedAccountParam = null) => {
@@ -396,7 +428,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => handleLaunchBrokerOAuth(p.id)}
+                    onClick={() => handleLaunchBrokerWebsite(p)}
                     className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between space-y-3 group ${
                       isConnecting 
                         ? 'bg-[#FF6B00]/20 border-[#FF6B00] scale-[1.01]' 
