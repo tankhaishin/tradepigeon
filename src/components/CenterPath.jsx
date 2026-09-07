@@ -701,7 +701,7 @@ export default function CenterPath() {
                             return (
                               <div 
                                 key={node.stepNum} 
-                                className={`relative flex flex-col items-center transition-all duration-300 ${isStepActive ? 'z-50' : 'z-10'}`}
+                                className={`relative flex flex-col items-center transition-all duration-300 ${isStepActive ? 'z-20' : 'z-10'}`}
                                 style={{ transform: `translateX(${node.x}px)` }}
                               >
                                 {/* ORANGE TRADEPIGEON MASCOT PLANTED DIRECTLY ON TOP OF 3D PUCK */}

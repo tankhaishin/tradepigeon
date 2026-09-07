@@ -496,11 +496,11 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       {isMobileOpen && (
         <div 
           onClick={onCloseMobile}
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 xl:hidden animate-fade-in"
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[90] xl:hidden animate-fade-in"
         />
       )}
 
-      <aside className={isInPage ? "w-full space-y-6 block pb-20" : `h-screen fixed right-0 top-0 bg-[#070C1E] border-l-2 border-[#1C2A4E] p-6 pb-36 space-y-6 overflow-y-auto z-50 transition-all duration-300 ${
+      <aside className={isInPage ? "w-full space-y-6 block pb-20" : `h-screen fixed right-0 top-0 bg-[#070C1E] border-l-2 border-[#1C2A4E] p-6 pb-36 space-y-6 overflow-y-auto z-[95] transition-all duration-300 ${
         internalExpanded 
           ? 'w-full sm:w-[720px] lg:w-[760px] xl:w-[820px] shadow-[0_0_60px_rgba(0,0,0,0.85)] block' 
           : isMobileOpen 
@@ -1107,7 +1107,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
       {/* CUSTOM 3D DATA INTEGRITY SAFEGUARD MODAL */}
       {isIntegrityModalOpen && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 z-[1000] animate-fade-in">
           <div className="duo-card max-w-md w-full p-6 sm:p-8 space-y-5 border-2 border-[#FF6B00] relative shadow-2xl">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border-2 border-amber-500/40">
@@ -1137,7 +1137,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
       {/* 5-RULE INSTITUTIONAL PROTOCOL MODAL */}
       {isRulesModalOpen && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in text-left">
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 z-[1000] animate-fade-in text-left">
           <div className="duo-card max-w-lg w-full p-6 sm:p-8 space-y-6 border-2 border-[#58CC02] relative shadow-2xl">
             <button
               onClick={() => setIsRulesModalOpen(false)}
@@ -1152,11 +1152,9 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
               </div>
               <div>
                 <span className="text-[10px] font-black uppercase text-[#58CC02] tracking-wider">BEHAVIORAL EXECUTION INDEX</span>
-                <h3 className="text-xl font-black text-white">16 Disciplined Trades Taken</h3>
+                <h3 className="text-xl font-black text-white">{userStats.tradesLogged || sessionTrades.length || 0} Disciplined Trades Taken</h3>
               </div>
             </div>
-
-
 
             <div className="grid grid-cols-2 gap-2.5">
               {[
@@ -1217,7 +1215,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       )}
       {/* 3D ADD MANUAL TRADE MODAL */}
       {isAddTradeModalOpen && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 z-[1000] animate-fade-in">
           <div className="duo-card max-w-sm w-full p-5 sm:p-6 space-y-4 border-2 border-[#1CB0F6] relative shadow-2xl text-left">
             <button
               onClick={() => setIsAddTradeModalOpen(false)}
