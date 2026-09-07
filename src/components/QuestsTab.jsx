@@ -3,7 +3,7 @@ import { DuoChestIcon, DuoLightningIcon, DuoIceIcon, DuoLockIcon, DuoShieldIcon 
 import EducationalQuizNode from './EducationalQuizNode';
 import { CheckCircle2, Lock, Sparkles, Award } from 'lucide-react';
 import InteractiveParrotMascot from './InteractiveParrotMascot';
-import { loadStoredData, saveStoredData, STORAGE_KEYS } from '../utils/storage';
+import { loadStoredData, saveStoredData, STORAGE_KEYS, DEFAULT_USER_STATS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 
 export default function QuestsTab() {

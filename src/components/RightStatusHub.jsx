@@ -5,7 +5,7 @@ import InteractiveParrotMascot from './InteractiveParrotMascot';
 import AiDebriefModal from './AiDebriefModal';
 import ManualTradeModal from './ManualTradeModal';
 import PendingOrdersRadar from './PendingOrdersRadar';
-import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS } from '../utils/storage';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 
 export default function RightStatusHub({ isExpanded = false, onToggleExpand, isMobileOpen = false, onCloseMobile, isInPage = false, onOpenCalendarTab }) {
