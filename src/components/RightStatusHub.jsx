@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Flame, Gem, Heart, Trophy, ChevronRight, ChevronLeft, ChevronDown, Lock, Calendar, CheckCircle2, ShieldAlert, CheckSquare, Plus, X, ShieldCheck, Check, Sparkles, Coffee, Activity, Moon, Trash2, AlertCircle } from 'lucide-react';
 import { DuoLightningIcon, DuoIceIcon, DuoLockIcon, DuoChestIcon, DuoPlaneIcon, DuoPalmtreeIcon, DuoUndoIcon, DuoShieldIcon, DuoGemIcon, DuoStarIcon } from './DuoIcons';
 import InteractiveParrotMascot from './InteractiveParrotMascot';
@@ -1106,8 +1107,8 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
 
       {/* CUSTOM 3D DATA INTEGRITY SAFEGUARD MODAL */}
-      {isIntegrityModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 z-[1000] animate-fade-in">
+      {isIntegrityModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-[#070C1E]/95 backdrop-blur-xl flex items-center justify-center p-4 z-[9999] animate-fade-in">
           <div className="duo-card max-w-md w-full p-6 sm:p-8 space-y-5 border-2 border-[#FF6B00] relative shadow-2xl">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border-2 border-amber-500/40">
@@ -1132,12 +1133,13 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 5-RULE INSTITUTIONAL PROTOCOL MODAL */}
-      {isRulesModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 z-[1000] animate-fade-in text-left">
+      {isRulesModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-[#070C1E]/95 backdrop-blur-xl flex items-center justify-center p-4 z-[9999] animate-fade-in text-left">
           <div className="duo-card max-w-lg w-full p-6 sm:p-8 space-y-6 border-2 border-[#58CC02] relative shadow-2xl">
             <button
               onClick={() => setIsRulesModalOpen(false)}
@@ -1197,8 +1199,10 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
               <span>Close Execution Breakdown</span>
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+
       {/* MANDATORY POST-SESSION AUDIT & JOURNAL MODAL */}
       {isDebriefModalOpen && (
         <AiDebriefModal
@@ -1213,9 +1217,10 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
           }}
         />
       )}
+
       {/* 3D ADD MANUAL TRADE MODAL */}
-      {isAddTradeModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 z-[1000] animate-fade-in">
+      {isAddTradeModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-[#070C1E]/95 backdrop-blur-xl flex items-center justify-center p-4 z-[9999] animate-fade-in">
           <div className="duo-card max-w-sm w-full p-5 sm:p-6 space-y-4 border-2 border-[#1CB0F6] relative shadow-2xl text-left">
             <button
               onClick={() => setIsAddTradeModalOpen(false)}
@@ -1299,7 +1304,8 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
               <span>Log Trade to Session Audit</span>
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MANUAL TRADE ENTRY MODAL OVERLAY */}

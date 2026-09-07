@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
-import { Trophy, Crown, Flame, Gem, ShieldCheck, Lock, Users, Sparkles, Share2 } from 'lucide-react';
+import React from 'react';
+import { Trophy, Crown, Flame, Gem, ShieldCheck, Lock, Users } from 'lucide-react';
 import { DuoShieldIcon, DuoTrophyIcon } from './DuoIcons';
 import InteractiveParrotMascot from './InteractiveParrotMascot';
 import { loadStoredData, DEFAULT_USER_STATS } from '../utils/storage';
-import { soundFx } from '../utils/audioEngine';
 
 export default function LeaderboardTab() {
   const userDp = loadStoredData('goodtrader_user_dp', 0);
@@ -14,17 +13,6 @@ export default function LeaderboardTab() {
   const REQUIRED_USERS = 50;
   const isLocked = totalUserCount < REQUIRED_USERS;
   const progressPercent = Math.min(100, Math.round((totalUserCount / REQUIRED_USERS) * 100));
-
-  const [toastMessage, setToastMessage] = useState('');
-
-  const handleShareInvite = () => {
-    soundFx.playPop();
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.origin);
-      setToastMessage('Invite link copied! Share with your trading squad.');
-      setTimeout(() => setToastMessage(''), 3500);
-    }
-  };
 
   const leaderboardUsers = [
     { rank: 1, name: 'Alex_ICT', xp: '4,250 DP', streak: '28d', badge: 'Diamond League', avatarBg: 'bg-amber-500/20 text-amber-400' },
@@ -98,17 +86,6 @@ export default function LeaderboardTab() {
               />
             </div>
           </div>
-
-          {/* Action Call to Share */}
-          <div className="pt-2">
-            <button
-              onClick={handleShareInvite}
-              className="duo-btn-orange px-6 py-3 text-xs uppercase tracking-wider inline-flex items-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all"
-            >
-              <Share2 size={16} />
-              <span>Invite Traders to Unlock (+500 DP)</span>
-            </button>
-          </div>
         </div>
       )}
 
@@ -156,17 +133,6 @@ export default function LeaderboardTab() {
           ))}
         </div>
       </div>
-
-      {/* SLEEK FLOATING TOAST NOTIFICATION */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 animate-bounce-short">
-          <div className="duo-card p-4 bg-[#1CB0F6] border-2 border-[#1899D6] border-b-4 border-b-[#147BB0] text-white flex items-center gap-3">
-            <Sparkles size={20} className="shrink-0" />
-            <span className="text-xs font-black">{toastMessage}</span>
-          </div>
-        </div>
-      )}
-
     </main>
   );
 }
