@@ -126,57 +126,9 @@ export default function CenterPath() {
   const [isDebriefOpen, setIsDebriefOpen] = useState(false);
   const [selectedSetupTags, setSelectedSetupTags] = useState(['Breakout & Retest', 'S/R Level Sweep']);
   const [expandedModuleId, setExpandedModuleId] = useState('mod_1');
-  const [basketsList, setBasketsList] = useState(() => loadStoredData('goodtrader_baskets_list', [
-    { 
-      id: 'b_1', 
-      name: 'Basket A'
-    },
-    { 
-      id: 'b_2', 
-      name: 'Basket B'
-    }
-  ]));
-
+  const [basketsList, setBasketsList] = useState(() => loadStoredData('goodtrader_baskets_list', []));
   const [basketCheckedRules, setBasketCheckedRules] = useState({});
-
-  const [accountsData, setAccountsData] = useState(() => loadStoredData('goodtrader_accounts_data', [
-    { 
-      id: 1, 
-      name: 'Account 1 ($150k)', 
-      basketName: 'Basket A',
-      type: 'FUNDED ACCOUNT', 
-      broker: 'Broker Socket 1', 
-      sizeVal: 150000,
-      pnl: 2450, 
-      maxLossVal: 2500,
-      riskPct: 0.50,
-      fills: '3 Win Fills Today' 
-    },
-    { 
-      id: 2, 
-      name: 'Account 2 ($100k)', 
-      basketName: 'Basket A',
-      type: 'FUNDED ACCOUNT', 
-      broker: 'Broker Socket 2', 
-      sizeVal: 100000,
-      pnl: 1800, 
-      maxLossVal: 1500,
-      riskPct: 0.40,
-      fills: '2 Win Fills Today' 
-    },
-    { 
-      id: 3, 
-      name: 'Account 3 ($50k)', 
-      basketName: 'Basket B',
-      type: 'EVALUATION STEP 1', 
-      broker: 'Broker Socket 3', 
-      sizeVal: 50000,
-      pnl: 0, 
-      maxLossVal: 1000,
-      riskPct: 0.25,
-      fills: 'No Fills Today' 
-    },
-  ]));
+  const [accountsData, setAccountsData] = useState(() => loadStoredData('goodtrader_accounts_data', []));
 
   const formatAccSize = (acc) => {
     if (!acc) return '$100k';
@@ -616,19 +568,20 @@ export default function CenterPath() {
                       <div className="flex items-start gap-3.5 py-3 border-y border-[#1C2A4E]">
                         <Duo3dZenBadge className="w-10 h-10 shrink-0 drop-shadow-md mt-0.5" />
                         <p className="text-base font-black text-white leading-snug italic flex-1 min-w-0">
-                          "{loadStoredData(`goodtrader_session_note_day_${dayNum}`, 'Respected 1.0R stop loss on NQ sweep. Zero tilt chasing after first loss.')}"
+                          "{loadStoredData(`goodtrader_session_note_day_${dayNum}`, 'No session debrief note recorded for this day.')}"
                         </p>
                       </div>
 
                       {/* 2. PROCESS-FIRST BEHAVIORAL MATRIX (VIBRANT ONLY FOR CATEGORIES WITH TRADES TAKEN) */}
                       {(() => {
+                        const savedCounts = loadStoredData(`goodtrader_trade_counts_day_${dayNum}`, { winCount: 0, goodLossCount: 0, toxicWinCount: 0, doubleFailureCount: 0 });
                         const categories = [
-                          { id: 'win', label: 'DISCIPLINED WIN', count: 1, pnl: '+$1,290.00', activeBg: 'bg-[#58CC02] border-b-4 border-[#388202] text-white shadow-[#58CC02]/25' },
-                          { id: 'good_loss', label: 'DISCIPLINED LOSS', count: 1, pnl: '-$425.00', activeBg: 'bg-[#1CB0F6] border-b-4 border-[#147BB0] text-white shadow-[#1CB0F6]/25' },
+                          { id: 'win', label: 'DISCIPLINED WIN', count: savedCounts.winCount || 0, pnl: savedCounts.winCount ? 'Recorded' : '$0.00', activeBg: 'bg-[#58CC02] border-b-4 border-[#388202] text-white shadow-[#58CC02]/25' },
+                          { id: 'good_loss', label: 'DISCIPLINED LOSS', count: savedCounts.goodLossCount || 0, pnl: savedCounts.goodLossCount ? 'Recorded' : '$0.00', activeBg: 'bg-[#1CB0F6] border-b-4 border-[#147BB0] text-white shadow-[#1CB0F6]/25' },
                           { id: 'breakeven', label: 'DISCIPLINED BE', count: 0, pnl: '$0.00', activeBg: 'bg-[#CE82FF] border-b-4 border-[#9D28EC] text-white' },
-                          { id: 'toxic_win', label: 'TOXIC WIN', count: 0, pnl: '$0.00', activeBg: 'bg-[#FFC800] border-b-4 border-[#8A6B00] text-slate-950' },
+                          { id: 'toxic_win', label: 'TOXIC WIN', count: savedCounts.toxicWinCount || 0, pnl: savedCounts.toxicWinCount ? 'Recorded' : '$0.00', activeBg: 'bg-[#FFC800] border-b-4 border-[#8A6B00] text-slate-950' },
                           { id: 'toxic_be', label: 'TOXIC BE', count: 0, pnl: '$0.00', activeBg: 'bg-[#00F0FF] border-b-4 border-[#00B3BF] text-slate-950' },
-                          { id: 'double_failure', label: 'DOUBLE FAILURE', count: 0, pnl: '$0.00', activeBg: 'bg-[#FF4B4B] border-b-4 border-[#C62828] text-white' },
+                          { id: 'double_failure', label: 'DOUBLE FAILURE', count: savedCounts.doubleFailureCount || 0, pnl: savedCounts.doubleFailureCount ? 'Recorded' : '$0.00', activeBg: 'bg-[#FF4B4B] border-b-4 border-[#C62828] text-white' },
                           { id: 'missed_trade', label: 'MISSED TRADE', count: 0, pnl: '0 Setups', activeBg: 'bg-amber-500 border-b-4 border-amber-700 text-slate-950', isFullWidth: true },
                         ];
 

@@ -251,37 +251,37 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     saveStoredData('goodtrader_calendar_view_mode', calendarViewMode);
   }, [calendarViewMode]);
 
-  // Initial Default Months Data
+  // Initial Default Months Data (Clean 100% Zero-State)
   const defaultMonths = [
     {
       monthName: 'JULY 2026',
       days: [
-        { date: 1, dayOfWeek: 'W', status: 'win', pnl: '+$800' }, { date: 2, dayOfWeek: 'T', status: 'win', pnl: '+$650' },
-        { date: 3, dayOfWeek: 'F', status: 'good_loss', pnl: '-$300' }, { date: 4, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
-        { date: 5, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 6, dayOfWeek: 'M', status: 'win', pnl: '+$1,400' },
-        { date: 7, dayOfWeek: 'T', status: 'win', pnl: '+$920' }, { date: 8, dayOfWeek: 'W', status: 'win', pnl: '+$1,100' },
-        { date: 9, dayOfWeek: 'T', status: 'good_loss', pnl: '-$250' }, { date: 10, dayOfWeek: 'F', status: 'win', pnl: '+$1,500' },
+        { date: 1, dayOfWeek: 'W', status: 'upcoming', pnl: '-' }, { date: 2, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
+        { date: 3, dayOfWeek: 'F', status: 'upcoming', pnl: '-' }, { date: 4, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
+        { date: 5, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 6, dayOfWeek: 'M', status: 'upcoming', pnl: '-' },
+        { date: 7, dayOfWeek: 'T', status: 'upcoming', pnl: '-' }, { date: 8, dayOfWeek: 'W', status: 'upcoming', pnl: '-' },
+        { date: 9, dayOfWeek: 'T', status: 'upcoming', pnl: '-' }, { date: 10, dayOfWeek: 'F', status: 'upcoming', pnl: '-' },
         { date: 11, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 12, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
-        { date: 13, dayOfWeek: 'M', status: 'win', pnl: '+$750' }, { date: 14, dayOfWeek: 'T', status: 'win', pnl: '+$880' },
-        { date: 15, dayOfWeek: 'W', status: 'good_loss', pnl: '-$180' }, { date: 16, dayOfWeek: 'T', status: 'win', pnl: '+$2,100' },
-        { date: 17, dayOfWeek: 'F', status: 'win', pnl: '+$1,350' }, { date: 18, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
-        { date: 19, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 20, dayOfWeek: 'M', status: 'win', pnl: '+$950' },
-        { date: 21, dayOfWeek: 'T', status: 'win', pnl: '+$1,050' }, { date: 22, dayOfWeek: 'W', status: 'good_loss', pnl: '-$400' },
-        { date: 23, dayOfWeek: 'T', status: 'win', pnl: '+$1,250' }, { date: 24, dayOfWeek: 'F', status: 'win', pnl: '+$1,600' },
+        { date: 13, dayOfWeek: 'M', status: 'upcoming', pnl: '-' }, { date: 14, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
+        { date: 15, dayOfWeek: 'W', status: 'upcoming', pnl: '-' }, { date: 16, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
+        { date: 17, dayOfWeek: 'F', status: 'upcoming', pnl: '-' }, { date: 18, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
+        { date: 19, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 20, dayOfWeek: 'M', status: 'upcoming', pnl: '-' },
+        { date: 21, dayOfWeek: 'T', status: 'upcoming', pnl: '-' }, { date: 22, dayOfWeek: 'W', status: 'upcoming', pnl: '-' },
+        { date: 23, dayOfWeek: 'T', status: 'upcoming', pnl: '-' }, { date: 24, dayOfWeek: 'F', status: 'upcoming', pnl: '-' },
         { date: 25, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 26, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
-        { date: 27, dayOfWeek: 'M', status: 'win', pnl: '+$700' }, { date: 28, dayOfWeek: 'T', status: 'win', pnl: '+$900' },
-        { date: 29, dayOfWeek: 'W', status: 'good_loss', pnl: '-$150' }, { date: 30, dayOfWeek: 'T', status: 'win', pnl: '+$1,150' },
-        { date: 31, dayOfWeek: 'F', status: 'win', pnl: '+$1,450' }
+        { date: 27, dayOfWeek: 'M', status: 'upcoming', pnl: '-' }, { date: 28, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
+        { date: 29, dayOfWeek: 'W', status: 'upcoming', pnl: '-' }, { date: 30, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
+        { date: 31, dayOfWeek: 'F', status: 'upcoming', pnl: '-' }
       ]
     },
     {
       monthName: 'AUGUST 2026',
       days: [
         { date: 1, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 2, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
-        { date: 3, dayOfWeek: 'M', status: 'win', pnl: '+$450' }, { date: 4, dayOfWeek: 'T', status: 'win', pnl: '+$1,200' },
-        { date: 5, dayOfWeek: 'W', status: 'good_loss', pnl: '-$200' }, { date: 6, dayOfWeek: 'T', status: 'holiday_freeze', pnl: 'HOLIDAY / NO TRADE' },
-        { date: 7, dayOfWeek: 'F', status: 'win', pnl: '+$600' }, { date: 8, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
-        { date: 9, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 10, dayOfWeek: 'M', status: 'today', pnl: '+$4,250' },
+        { date: 3, dayOfWeek: 'M', status: 'upcoming', pnl: '-' }, { date: 4, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
+        { date: 5, dayOfWeek: 'W', status: 'upcoming', pnl: '-' }, { date: 6, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
+        { date: 7, dayOfWeek: 'F', status: 'upcoming', pnl: '-' }, { date: 8, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
+        { date: 9, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 10, dayOfWeek: 'M', status: 'today', pnl: '$0.00' },
         { date: 11, dayOfWeek: 'T', status: 'upcoming', pnl: '-' }, { date: 12, dayOfWeek: 'W', status: 'upcoming', pnl: '-' },
         { date: 13, dayOfWeek: 'T', status: 'upcoming', pnl: '-' }, { date: 14, dayOfWeek: 'F', status: 'upcoming', pnl: '-' },
         { date: 15, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 16, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
@@ -301,10 +301,15 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     }
   ];
 
-  // Month Historical Data State with localStorage
+  // Month Historical Data State with localStorage (Purging old mock data if detected)
   const [monthsData, setMonthsData] = useState(() => {
     try {
       const loaded = loadStoredData(STORAGE_KEYS.CALENDAR_DATA, defaultMonths);
+      // Auto-purge legacy mock data if August 3 was pre-populated with 'win'
+      if (Array.isArray(loaded) && loaded[1]?.days?.[2]?.status === 'win') {
+        saveStoredData(STORAGE_KEYS.CALENDAR_DATA, defaultMonths);
+        return defaultMonths;
+      }
       if (Array.isArray(loaded) && loaded.length >= 2 && loaded[1] && Array.isArray(loaded[1].days)) {
         return loaded;
       }

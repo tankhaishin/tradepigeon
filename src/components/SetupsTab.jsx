@@ -38,22 +38,11 @@ export default function SetupsTab() {
   const [expandedPlaybooksState, setExpandedPlaybooksState] = useState({});
 
   // Auto-Sync Accounts State
-  const [syncedAccounts, setSyncedAccounts] = useState([
-    { id: 'broker_1', name: 'Primary Funded Account', broker: 'MetaTrader 5 Auto-Sync', status: 'SYNCED (LIVE)', count: 48, pnl: '+$14,250.00' },
-    { id: 'broker_2', name: 'Secondary Trading Account', broker: 'TradeLocker Auto-Sync', status: 'SYNCED (LIVE)', count: 32, pnl: '+$9,800.00' },
-  ]);
+  const [syncedAccounts, setSyncedAccounts] = useState(() => loadStoredData('goodtrader_synced_accounts', []));
 
   // LIVE TRADE EXECUTIONS LOG TABLE DATA
-  const defaultLogs = [
-    { id: 'TRD-1092', time: '09:34:12 NY', symbol: 'NQ1!', side: 'BUY', size: '2.0', entry: '18,420.50', exit: '18,485.00', pnlNum: 1290, pnl: '+$1,290.00', type: 'FOLLOW_WIN', setup: 'Breakout & Retest', r: '+2.6 R', chartUrl: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=1200&auto=format&fit=crop' },
-    { id: 'TRD-1091', time: '09:48:05 NY', symbol: 'ES1!', side: 'BUY', size: '4.0', entry: '5,512.25', exit: '5,508.00', pnlNum: -425, pnl: '-$425.00', type: 'FOLLOW_LOSS', setup: 'Trend Continuation', r: '-1.0 R', chartUrl: 'https://images.unsplash.com/photo-1642543492481-44e81e3914a7?q=80&w=1200&auto=format&fit=crop' },
-    { id: 'TRD-1090', time: '10:15:40 NY', symbol: 'NQ1!', side: 'SELL', size: '1.5', entry: '18,470.00', exit: '18,410.00', pnlNum: 1800, pnl: '+$1,800.00', type: 'FOLLOW_WIN', setup: 'Key S/R Sweep', r: '+3.0 R', chartUrl: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=1200&auto=format&fit=crop' },
-    { id: 'TRD-1089', time: '10:55:18 NY', symbol: 'MNQ', side: 'BUY', size: '10.0', entry: '18,440.00', exit: '18,475.00', pnlNum: 700, pnl: '+$700.00', type: 'VIOLATE_WIN', setup: 'FOMO Chase (Chased high)', r: '+1.4 R', chartUrl: null },
-    { id: 'TRD-1088', time: '14:22:04 NY', symbol: 'NQ1!', side: 'SELL', size: '3.0', entry: '18,410.00', exit: '18,455.00', pnlNum: -1350, pnl: '-$1,350.00', type: 'VIOLATE_LOSS', setup: 'Revenge Tilt Bet', r: '-2.2 R', chartUrl: null },
-  ];
-
   const [tradeLogs, setTradeLogs] = useState(() => {
-    return loadStoredData('goodtrader_tradelogs', defaultLogs);
+    return loadStoredData('goodtrader_tradelogs', []);
   });
 
   const [deletedTradeBackup, setDeletedTradeBackup] = useState(null);
