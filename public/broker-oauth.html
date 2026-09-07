@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Broker OAuth Authorization — TradePigeon</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      background-color: #0b1318;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 24px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #1f2e37;
+      margin-bottom: 20px;
+    }
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+    }
+    .link-badge {
+      background: rgba(255, 107, 0, 0.15);
+      border: 1px solid rgba(255, 107, 0, 0.4);
+      color: #FF6B00;
+      font-size: 10px;
+      font-weight: 900;
+      padding: 4px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .card {
+      background: #142127;
+      border: 1px solid #20323D;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+    p.subtitle {
+      font-size: 12px;
+      color: #8fa3ad;
+      line-height: 1.5;
+    }
+    .permissions {
+      margin: 16px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .perm-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #d1dbe0;
+    }
+    .perm-icon {
+      color: #58CC02;
+      font-weight: 900;
+    }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #8fa3ad;
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      background: #0b1318;
+      border: 2px solid #20323D;
+      border-radius: 12px;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 700;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus {
+      border-color: #FF6B00;
+    }
+    .btn-auth {
+      width: 100%;
+      padding: 14px;
+      background: #FF6B00;
+      border: none;
+      border-radius: 12px;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      box-shadow: 0 4px 0 #cc5500;
+      transition: all 0.1s;
+      margin-top: 10px;
+    }
+    .btn-auth:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 #cc5500;
+    }
+    .footer-note {
+      font-size: 10px;
+      color: #52656d;
+      text-align: center;
+      margin-top: auto;
+      line-height: 1.4;
+    }
+    .spinner {
+      display: none;
+      text-align: center;
+      padding: 30px;
+    }
+    .spin-ring {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(255, 107, 0, 0.2);
+      border-top: 4px solid #FF6B00;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="brand-row">
+      <img id="brokerLogo" src="/images/brokers/tradovate.png" alt="Broker Logo" class="logo" />
+      <span style="font-size: 16px; font-weight: 900;" id="brokerTitle">Tradovate OAuth</span>
+    </div>
+    <span class="link-badge">Direct API Gateway</span>
+  </div>
+
+  <div id="authContent">
+    <div class="card">
+      <h2 id="authHeading">Authorize TradePigeon</h2>
+      <p class="subtitle">
+        Sign in to grant TradePigeon read-only access to auto-sync your filled orders, PnL, and daily drawdown threshold.
+      </p>
+
+      <div class="permissions">
+        <div class="perm-item">
+          <span class="perm-icon">✓</span> Read live filled order execution telemetry
+        </div>
+        <div class="perm-item">
+          <span class="perm-icon">✓</span> Read account balance & open position risk
+        </div>
+        <div class="perm-item">
+          <span class="perm-icon">✓</span> Read-only access (No trade placement or withdrawal rights)
+        </div>
+      </div>
+    </div>
+
+    <form id="oauthForm" onsubmit="submitOAuth(event)">
+      <div class="form-group">
+        <label>Environment</label>
+        <select id="envSelect">
+          <option value="DEMO">Demo / Evaluation Account</option>
+          <option value="LIVE">Live Funded Account</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label id="userLabel">Username / Login ID</label>
+        <input type="text" id="usernameInput" placeholder="Enter your username" required autofocus />
+      </div>
+
+      <div class="form-group">
+        <label>Password / API Key</label>
+        <input type="password" id="passwordInput" placeholder="••••••••••••" required />
+      </div>
+
+      <button type="submit" class="btn-auth" id="submitBtn">
+        Authorize & Connect Socket
+      </button>
+    </form>
+  </div>
+
+  <div id="spinnerView" class="spinner">
+    <div class="spin-ring"></div>
+    <h3 style="font-size: 15px; font-weight: 900; margin-bottom: 4px;">Exchanging OAuth 2.0 Tokens...</h3>
+    <p style="font-size: 11px; color: #8fa3ad;">Connecting direct WebSocket live stream to TradePigeon</p>
+  </div>
+
+  <div class="footer-note">
+    Protected by 256-bit TLS Encryption. TradePigeon never stores master execution credentials.
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const brokerParam = urlParams.get('broker') || 'tradovate';
+
+    const brokerConfig = {
+      tradovate: {
+        name: 'Tradovate',
+        logo: '/images/brokers/tradovate.png',
+        userLabel: 'Tradovate Username / App ID'
+      },
+      metatrader5: {
+        name: 'MetaTrader 5',
+        logo: '/images/brokers/metatrader5.png',
+        userLabel: 'MT5 Investor Account ID'
+      },
+      ninjatrader: {
+        name: 'NinjaTrader',
+        logo: '/images/brokers/ninjatrader.png',
+        userLabel: 'NinjaTrader Account ID'
+      },
+      tradelocker: {
+        name: 'TradeLocker',
+        logo: '/images/brokers/tradelocker.png',
+        userLabel: 'TradeLocker Email / Account'
+      }
+    };
+
+    const cfg = brokerConfig[brokerParam] || brokerConfig.tradovate;
+    document.getElementById('brokerLogo').src = cfg.logo;
+    document.getElementById('brokerTitle').innerText = `${cfg.name} OAuth 2.0`;
+    document.getElementById('authHeading').innerText = `Authorize ${cfg.name} Integration`;
+    document.getElementById('userLabel').innerText = cfg.userLabel;
+    document.title = `Sign in to ${cfg.name} — TradePigeon OAuth`;
+
+    function submitOAuth(e) {
+      e.preventDefault();
+      const username = document.getElementById('usernameInput').value.trim();
+      const env = document.getElementById('envSelect').value;
+
+      document.getElementById('authContent').style.display = 'none';
+      document.getElementById('spinnerView').style.display = 'block';
+
+      setTimeout(() => {
+        const payload = {
+          type: 'TRADEPIGEON_BROKER_OAUTH_SUCCESS',
+          broker: brokerParam,
+          account: {
+            id: 'BROKER-' + Date.now().toString().slice(-6),
+            name: `${cfg.name} (${env}) Account`,
+            broker: `${cfg.name} (${env})`,
+            platformId: brokerParam,
+            accountNumber: username,
+            status: 'SYNCED (LIVE)',
+            balance: '$50,000.00',
+            pnl: '+$0.00',
+            connectedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          }
+        };
+
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(payload, '*');
+        }
+        window.close();
+      }, 1400);
+    }
+  </script>
+</body>
+</html>

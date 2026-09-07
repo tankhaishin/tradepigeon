@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoPlusIcon 
 } from './DuoIcons';
 import InteractiveParrotMascot from './InteractiveParrotMascot';
-import { ShieldCheck, ArrowRight, Sparkles, Check, CheckCircle2, ShieldAlert, Key, Zap, Lock, Server, RefreshCw, Activity } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Sparkles, Check, CheckCircle2, ShieldAlert, Key, Zap, Lock, Server, RefreshCw, Activity, ExternalLink } from 'lucide-react';
 import { sendDiscordSignupAlert } from '../utils/discordWebhook';
 import GoogleAuthButton from './GoogleAuthButton';
-import { TradovateLogo, MetaTrader5Logo, TradeLockerLogo, CsvLogo } from './BrokerLogos';
+import { TradovateLogo, MetaTrader5Logo, NinjaTraderLogo, TradeLockerLogo, CsvLogo } from './BrokerLogos';
 import { loadStoredData, saveStoredData } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 
@@ -18,16 +18,28 @@ export default function OnboardingModal({ isOpen, onComplete }) {
   const [customPlaybookName, setCustomPlaybookName] = useState('');
 
   // Step 4 Live Broker Sync State
-  const [selectedBroker, setSelectedBroker] = useState('tradovate');
-  const [envType, setEnvType] = useState('DEMO'); // 'DEMO' | 'LIVE'
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [serverName, setServerName] = useState('');
-  
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [handshakeStep, setHandshakeStep] = useState(1);
+  const [connectingBroker, setConnectingBroker] = useState(null);
   const [authSuccess, setAuthSuccess] = useState(false);
-  const [parseError, setParseError] = useState('');
+
+  useEffect(() => {
+    const handleOAuthMessage = (event) => {
+      if (event.data?.type === 'TRADEPIGEON_BROKER_OAUTH_SUCCESS') {
+        const { account } = event.data;
+        if (account) {
+          soundFx.playSuccess();
+          setAuthSuccess(true);
+          setConnectingBroker(null);
+
+          setTimeout(() => {
+            handleFinishOnboarding(false, account);
+          }, 1200);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleOAuthMessage);
+    return () => window.removeEventListener('message', handleOAuthMessage);
+  }, [tradingStyle, customPlaybookName, customMaxDailyLoss, riskType]);
 
   if (!isOpen) return null;
 
@@ -36,7 +48,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     1: "Welcome! I'm TradePigeon. Select your trading framework so we can track your discipline!",
     2: "Every disciplined trader sets a hard risk limit! What is your maximum daily drawdown threshold?",
     3: "Name your strategy setup and get ready to calibrate your account!",
-    4: "Connect your broker live socket to enable automatic trade sync and real-time telemetry!"
+    4: "Launch your broker's OAuth popup to authorize direct live socket auto-sync!"
   };
 
   const currentParrotPose = step === 1 ? 'welcoming' : step === 2 ? 'calculating' : step === 3 ? 'happy' : 'flying';
@@ -70,86 +82,58 @@ export default function OnboardingModal({ isOpen, onComplete }) {
       name: 'Tradovate', 
       desc: 'NinjaTrader / Futures Direct Socket',
       icon: TradovateLogo, 
-      badge: 'LIVE SOCKET',
-      requiresServer: false,
-      placeholderUser: 'Tradovate Username / App ID'
+      badge: 'POPULAR OAUTH POPUP'
     },
     { 
       id: 'metatrader5', 
       name: 'MetaTrader 5 / MT4', 
       desc: 'Read-Only Investor API Bridge',
       icon: MetaTrader5Logo, 
-      badge: 'AUTO-SYNC',
-      requiresServer: true,
-      placeholderUser: 'MT4/MT5 Login Account ID'
+      badge: 'AUTO-SYNC POPUP'
     },
     { 
       id: 'tradelocker', 
       name: 'TradeLocker', 
       desc: 'OAuth Direct Keyhole',
       icon: TradeLockerLogo, 
-      badge: 'OAUTH LIVE',
-      requiresServer: true,
-      placeholderUser: 'TradeLocker Email / Account ID'
+      badge: 'DIRECT OAUTH'
     },
     { 
-      id: 'ctrader', 
-      name: 'cTrader / Rithmic', 
+      id: 'ninjatrader', 
+      name: 'NinjaTrader Desktop', 
       desc: 'Low Latency Stream',
-      icon: CsvLogo, 
-      badge: 'LIVE STREAM',
-      requiresServer: false,
-      placeholderUser: 'cTrader ID / Rithmic User'
+      icon: NinjaTraderLogo, 
+      badge: 'LIVE STREAM'
     },
   ];
 
-  const currentPlatform = platforms.find(p => p.id === selectedBroker) || platforms[0];
+  const handleLaunchBrokerOAuth = (brokerId) => {
+    soundFx.playPop();
+    setConnectingBroker(brokerId);
 
-  const handleStartBrokerAuth = async () => {
-    setParseError('');
+    const width = 560;
+    const height = 680;
+    const left = window.screenX + (window.innerWidth - width) / 2;
+    const top = window.screenY + (window.innerHeight - height) / 2;
 
-    if (!username.trim()) {
-      setParseError(`Please enter your ${currentPlatform.name} account username or ID.`);
-      return;
+    const popup = window.open(
+      `/broker-oauth.html?broker=${brokerId}`,
+      `BrokerOAuth_${brokerId}`,
+      `width=${width},height=${height},top=${top},left=${left},status=no,resizable=yes,scrollbars=yes`
+    );
+
+    if (popup) {
+      popup.focus();
     }
-
-    setIsAuthenticating(true);
-    setHandshakeStep(1);
-
-    setTimeout(() => {
-      setHandshakeStep(2);
-      setTimeout(() => {
-        setHandshakeStep(3);
-        setTimeout(() => {
-          setAuthSuccess(true);
-          soundFx.playSuccess();
-          setTimeout(() => {
-            handleFinishOnboarding(false);
-          }, 1200);
-        }, 1000);
-      }, 1000);
-    }, 1000);
   };
 
-  const handleFinishOnboarding = async (skipBroker = false) => {
+  const handleFinishOnboarding = async (skipBroker = false, connectedAccountParam = null) => {
     const finalStrategyName = customPlaybookName.trim() || 'Strategy 1';
     const finalRiskLimit = customMaxDailyLoss.trim() ? (riskType === 'FIXED_DOLLAR' ? `$${customMaxDailyLoss}` : `${customMaxDailyLoss}%`) : '$1,000';
 
-    let connectedBrokerObj = null;
+    let connectedBrokerObj = connectedAccountParam;
 
-    if (!skipBroker && username.trim()) {
-      connectedBrokerObj = {
-        id: `BROKER-${Date.now().toString().slice(-6)}`,
-        name: `${currentPlatform.name} (${envType})`,
-        broker: `${currentPlatform.name} Live Sync`,
-        status: 'SYNCED (LIVE)',
-        balance: '$50,000.00',
-        pnl: '+$0.00',
-        accountNumber: username.trim(),
-        connectedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-      };
-
-      // Save connected account to localStorage
+    if (connectedBrokerObj) {
       const existingAccounts = loadStoredData('goodtrader_accounts_data', []);
       saveStoredData('goodtrader_accounts_data', [connectedBrokerObj, ...existingAccounts]);
     }
@@ -400,32 +384,38 @@ export default function OnboardingModal({ isOpen, onComplete }) {
           <div className="space-y-5 animate-fade-in">
             <div className="space-y-1">
               <h2 className="text-xl font-black text-white">Connect Broker Live Socket Auto-Sync</h2>
-              <p className="text-xs font-bold text-[#52656D]">Select your trading broker to authenticate your live execution telemetry stream</p>
+              <p className="text-xs font-bold text-[#52656D]">Click your broker below to launch the official OAuth 2.0 authorization popup window</p>
             </div>
 
             {/* Platform Selector Grid */}
             <div className="grid grid-cols-2 gap-2.5">
               {platforms.map((p) => {
                 const PlatformIcon = p.icon;
-                const isSelected = selectedBroker === p.id;
+                const isConnecting = connectingBroker === p.id;
                 return (
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => {
-                      setSelectedBroker(p.id);
-                      setParseError('');
-                      soundFx.playPop();
-                    }}
-                    className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex items-center gap-3 ${
-                      isSelected 
+                    onClick={() => handleLaunchBrokerOAuth(p.id)}
+                    className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between space-y-3 group ${
+                      isConnecting 
                         ? 'bg-[#FF6B00]/20 border-[#FF6B00] scale-[1.01]' 
-                        : 'bg-[#142127] border-[#20323D] text-slate-400 hover:border-slate-600'
+                        : 'bg-[#142127] border-[#20323D] hover:border-[#FF6B00] hover:bg-[#FF6B00]/10'
                     }`}
                   >
-                    <PlatformIcon className="w-6.5 h-6.5 shrink-0 object-contain" />
+                    <div className="flex items-center justify-between">
+                      <PlatformIcon className="w-8 h-8 shrink-0 object-contain" />
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-[#FF6B00]/20 text-[#FF6B00] border border-[#FF6B00]/30 flex items-center gap-1">
+                        <span>{p.badge}</span>
+                        <ExternalLink size={10} />
+                      </span>
+                    </div>
+
                     <div>
-                      <div className="text-xs font-black text-white">{p.name}</div>
+                      <div className="text-xs font-black text-white group-hover:text-[#FF6B00] transition-colors flex items-center justify-between">
+                        <span>{p.name}</span>
+                        {isConnecting && <RefreshCw size={14} className="animate-spin text-[#FF6B00]" />}
+                      </div>
                       <div className="text-[9px] font-bold text-slate-400">{p.desc}</div>
                     </div>
                   </button>
@@ -433,102 +423,11 @@ export default function OnboardingModal({ isOpen, onComplete }) {
               })}
             </div>
 
-            {/* LIVE AUTH FORM FOR SELECTED BROKER */}
-            {!isAuthenticating && !authSuccess && (
-              <div className="p-4 rounded-2xl bg-[#142127] border-2 border-[#FF6B00]/40 space-y-3.5">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-black text-white flex items-center gap-2">
-                    <Activity size={14} className="text-[#FF6B00] animate-pulse" />
-                    <span>{currentPlatform.name} Live Sync Form</span>
-                  </div>
-                  
-                  {/* Demo vs Live Environment Pills */}
-                  <div className="flex bg-[#182830] p-1 rounded-lg border border-[#20323D]">
-                    <button
-                      type="button"
-                      onClick={() => setEnvType('DEMO')}
-                      className={`px-2.5 py-1 rounded text-[10px] font-black transition-all cursor-pointer ${
-                        envType === 'DEMO' ? 'bg-[#FF6B00] text-white' : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Demo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEnvType('LIVE')}
-                      className={`px-2.5 py-1 rounded text-[10px] font-black transition-all cursor-pointer ${
-                        envType === 'LIVE' ? 'bg-rose-500 text-white' : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Live
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder={currentPlatform.placeholderUser}
-                    className="p-3 rounded-xl bg-[#182830] border-2 border-[#20323D] focus:border-[#FF6B00] text-white text-xs font-bold outline-none"
-                  />
-                  {currentPlatform.requiresServer ? (
-                    <input
-                      type="text"
-                      value={serverName}
-                      onChange={(e) => setServerName(e.target.value)}
-                      placeholder="Server (e.g. FTMO-Server)"
-                      className="p-3 rounded-xl bg-[#182830] border-2 border-[#20323D] focus:border-[#FF6B00] text-white text-xs font-bold outline-none"
-                    />
-                  ) : (
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Read-Only API Password / Token"
-                      className="p-3 rounded-xl bg-[#182830] border-2 border-[#20323D] focus:border-[#FF6B00] text-white text-xs font-bold outline-none"
-                    />
-                  )}
-                </div>
-
-                {parseError && (
-                  <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-bold flex items-center gap-2">
-                    <ShieldAlert size={16} />
-                    <span>{parseError}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* LIVE SOCKET HANDSHAKE PROGRESS LOG */}
-            {isAuthenticating && !authSuccess && (
-              <div className="p-5 text-center space-y-3 bg-[#142127] rounded-2xl border-2 border-[#FF6B00] animate-fade-in">
-                <RefreshCw size={28} className="animate-spin text-[#FF6B00] mx-auto" />
-                <div className="text-xs font-black text-white">Connecting to {currentPlatform.name} Live Socket...</div>
-                
-                <div className="bg-[#182830] p-3 rounded-xl text-left space-y-1.5 font-mono text-[11px]">
-                  <div className={`flex items-center gap-2 ${handshakeStep >= 1 ? 'text-[#58CC02]' : 'text-slate-500'}`}>
-                    <CheckCircle2 size={12} />
-                    <span>[1/3] Resolving API Gateway: wss://live.{currentPlatform.id}.com...</span>
-                  </div>
-                  <div className={`flex items-center gap-2 ${handshakeStep >= 2 ? 'text-[#58CC02]' : 'text-slate-500'}`}>
-                    <CheckCircle2 size={12} />
-                    <span>[2/3] Authenticating Session Token for {username}...</span>
-                  </div>
-                  <div className={`flex items-center gap-2 ${handshakeStep >= 3 ? 'text-[#58CC02]' : 'text-slate-500'}`}>
-                    <CheckCircle2 size={12} />
-                    <span>[3/3] Live Telemetry Connected!</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {authSuccess && (
               <div className="p-4 text-center bg-[#58CC02]/20 border-2 border-[#58CC02] rounded-2xl space-y-1 animate-fade-in">
                 <div className="text-sm font-black text-[#58CC02] flex items-center justify-center gap-2">
                   <CheckCircle2 size={18} />
-                  <span>{currentPlatform.name} Auto-Sync Connected!</span>
+                  <span>Broker OAuth Authorized!</span>
                 </div>
                 <div className="text-xs font-bold text-slate-300">Starting your trading session...</div>
               </div>
@@ -550,16 +449,6 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                   className="px-5 py-3 rounded-2xl bg-[#142127] border-2 border-[#20323D] text-xs font-black text-[#52656D] hover:text-white cursor-pointer"
                 >
                   Back
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleStartBrokerAuth}
-                  disabled={isAuthenticating}
-                  className="bg-[#58CC02] px-6 py-3 rounded-2xl text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all flex-1 sm:flex-none justify-center"
-                >
-                  <Zap size={16} />
-                  <span>Authenticate & Sync Socket</span>
                 </button>
               </div>
             </div>
