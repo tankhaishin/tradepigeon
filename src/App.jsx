@@ -130,9 +130,20 @@ export default function App() {
     }
   };
 
-  const handleOnboardingComplete = () => {
+  const handleOnboardingComplete = (data) => {
     saveStoredData(STORAGE_KEYS.ONBOARDING_COMPLETED, true);
     saveStoredData('goodtrader_active_step', 1);
+
+    if (data?.connectedBroker) {
+      const existingAccounts = loadStoredData('goodtrader_accounts_data', []);
+      saveStoredData('goodtrader_accounts_data', [data.connectedBroker, ...existingAccounts]);
+    }
+
+    if (data?.importedTrades && data.importedTrades.length > 0) {
+      const existingSetups = loadStoredData('goodtrader_setups', []);
+      saveStoredData('goodtrader_setups', [...data.importedTrades, ...existingSetups]);
+    }
+
     setIsOnboardingOpen(false);
     setActiveTab('learn'); // Main Daily Protocol Path (Step 1: Mindset Check)!
     soundFx.playSuccess();
