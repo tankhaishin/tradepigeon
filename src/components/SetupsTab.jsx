@@ -634,10 +634,10 @@ export default function SetupsTab() {
                     })}
                   </svg>
 
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-                    <span className="text-[9px] font-black uppercase text-[#52656D] tracking-wider">DISCIPLINE SCORE</span>
-                    <div className="text-3xl font-black text-white leading-none mt-0.5">{adherenceScore}%</div>
-                    <span className="text-[10px] font-extrabold text-[#58CC02] mt-1">{followedTrades} of {totalTradesCount} Fills Clean</span>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center p-4">
+                    <span className="text-[8px] sm:text-[9px] font-black uppercase text-[#52656D] tracking-wider leading-none truncate max-w-[110px]">DISCIPLINE SCORE</span>
+                    <div className="text-2xl sm:text-3xl font-black text-white leading-tight my-0.5">{adherenceScore}%</div>
+                    <span className="text-[9px] sm:text-[10px] font-extrabold text-[#58CC02] leading-none truncate max-w-[120px]">{followedTrades} of {totalTradesCount} Fills Clean</span>
                   </div>
                 </div>
               );
@@ -787,49 +787,49 @@ export default function SetupsTab() {
                   {/* Calculate Expectancy Telemetry for this setup */}
                   {(() => {
                     const setupTrades = tradeLogs.filter(t => t.setup?.toLowerCase() === setup.name.toLowerCase() || t.playbook?.toLowerCase() === setup.name.toLowerCase());
-                    const expData = calculateSetupExpectancy(setupTrades.length > 0 ? setupTrades : tradeLogs);
+                    const expData = calculateSetupExpectancy(setupTrades);
                     const rawNetPnl = setupTrades.reduce((sum, t) => sum + (t.pnlNum !== undefined ? t.pnlNum : (parseFloat(t.pnl?.replace(/[^0-9.-]+/g, '')) || 0)), 0);
-                    const pnlFormatted = formatCurrencyOrR(rawNetPnl || 3850, isStealthMode);
+                    const pnlFormatted = formatCurrencyOrR(rawNetPnl, isStealthMode);
 
                     return (
                       <>
                         {/* Top Badge & Net Profit Header */}
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider opacity-90">
+                        <div className="flex items-center justify-between gap-2 min-w-0">
+                          <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider opacity-90 truncate">
                             <DuoLightningIcon className="w-4 h-4 shrink-0" />
-                            <span>{setup.tier}</span>
+                            <span className="truncate">{setup.tier}</span>
                           </div>
-                          <span className={`text-lg sm:text-xl font-black font-mono ${theme.profitColor}`}>
+                          <span className={`text-base sm:text-lg font-black font-mono shrink-0 ${theme.profitColor}`}>
                             {pnlFormatted}
                           </span>
                         </div>
 
                         {/* Title & Executions Count */}
-                        <div>
-                          <h3 className="text-xl sm:text-2xl font-black leading-tight tracking-tight">{setup.name}</h3>
-                          <div className="text-xs font-bold opacity-90 mt-0.5">{setup.count} Verified Executions</div>
+                        <div className="min-w-0 text-left">
+                          <h3 className="text-lg sm:text-xl font-black leading-tight tracking-tight truncate">{setup.name}</h3>
+                          <div className="text-xs font-bold opacity-90 mt-0.5">{setupTrades.length} Verified Executions</div>
                         </div>
 
-                        {/* 4 HERO STAT FIGURES (EXPECTANCY MATH & TELEMETRY) */}
-                        <div className="grid grid-cols-4 gap-2 pt-1">
-                          <div className="p-2.5 rounded-2xl bg-black/20 border border-white/20 text-center space-y-0.5 backdrop-blur-sm">
-                            <div className="text-[9px] font-black uppercase tracking-wider opacity-80">Win Rate</div>
-                            <div className="text-base sm:text-lg font-black font-mono">{expData.winRate}%</div>
+                        {/* 4 HERO STAT FIGURES (RESPONSIVE NON-OVERFLOWING TELEMETRY) */}
+                        <div className="grid grid-cols-4 gap-1.5 pt-1 min-w-0">
+                          <div className="p-2 sm:p-2.5 rounded-xl bg-black/20 border border-white/20 text-center space-y-0.5 backdrop-blur-sm min-w-0 overflow-hidden">
+                            <div className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider opacity-80 truncate">WIN RATE</div>
+                            <div className="text-xs sm:text-sm font-black font-mono truncate">{expData.winRate}%</div>
                           </div>
 
-                          <div className="p-2.5 rounded-2xl bg-black/20 border border-white/20 text-center space-y-0.5 backdrop-blur-sm">
-                            <div className="text-[9px] font-black uppercase tracking-wider opacity-80">Expectancy</div>
-                            <div className="text-base sm:text-lg font-black font-mono">{expData.expectancyR}</div>
+                          <div className="p-2 sm:p-2.5 rounded-xl bg-black/20 border border-white/20 text-center space-y-0.5 backdrop-blur-sm min-w-0 overflow-hidden">
+                            <div className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider opacity-80 truncate">EXP</div>
+                            <div className="text-xs sm:text-sm font-black font-mono truncate">{expData.expectancyR}</div>
                           </div>
 
-                          <div className="p-2.5 rounded-2xl bg-black/20 border border-white/20 text-center space-y-0.5 backdrop-blur-sm">
-                            <div className="text-[9px] font-black uppercase tracking-wider opacity-80">Avg Win</div>
-                            <div className="text-base sm:text-lg font-black font-mono">{expData.avgWinR}</div>
+                          <div className="p-2 sm:p-2.5 rounded-xl bg-black/20 border border-white/20 text-center space-y-0.5 backdrop-blur-sm min-w-0 overflow-hidden">
+                            <div className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider opacity-80 truncate">AVG WIN</div>
+                            <div className="text-xs sm:text-sm font-black font-mono truncate">{expData.avgWinR}</div>
                           </div>
 
-                          <div className="p-2.5 rounded-2xl bg-black/20 border border-white/20 text-center space-y-0.5 backdrop-blur-sm">
-                            <div className="text-[9px] font-black uppercase tracking-wider opacity-80">Grade</div>
-                            <div className="text-base sm:text-lg font-black font-mono">{expData.grade}</div>
+                          <div className="p-2 sm:p-2.5 rounded-xl bg-black/20 border border-white/20 text-center space-y-0.5 backdrop-blur-sm min-w-0 overflow-hidden">
+                            <div className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider opacity-80 truncate">GRADE</div>
+                            <div className="text-xs sm:text-sm font-black font-mono truncate">{expData.grade}</div>
                           </div>
                         </div>
                       </>
