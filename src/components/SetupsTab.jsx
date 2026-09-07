@@ -80,6 +80,50 @@ export default function SetupsTab() {
   // Dynamic Real-Time Matrix Calculation based on active tradeLogs
   const executionMatrix = calculateExecutionMatrix(filteredTradeLogs, 500);
 
+  // Dynamic Behavioral Audit & Execution Precision Telemetry
+  const totalLogsCount = filteredTradeLogs.length;
+
+  const followedLogs = filteredTradeLogs.filter(t => !t.setup?.toLowerCase().includes('revenge') && !t.setup?.toLowerCase().includes('fomo') && !t.type?.startsWith('VIOLATE'));
+  const cleanRiskLogs = filteredTradeLogs.filter(t => !t.type?.includes('VIOLATE_LOSS') && !t.type?.includes('VIOLATE_WIN'));
+  const tiltFreeLogs = filteredTradeLogs.filter(t => !t.setup?.toLowerCase().includes('revenge') && !t.setup?.toLowerCase().includes('fomo'));
+  const stopLossLogs = filteredTradeLogs.filter(t => !t.type?.includes('VIOLATE_LOSS'));
+
+  const planCompPercent = totalLogsCount > 0 ? Math.round((followedLogs.length / totalLogsCount) * 100) : 0;
+  const riskLimitsPercent = totalLogsCount > 0 ? Math.round((cleanRiskLogs.length / totalLogsCount) * 100) : 0;
+  const tiltControlPercent = totalLogsCount > 0 ? Math.round((tiltFreeLogs.length / totalLogsCount) * 100) : 0;
+  const stopLossPercent = totalLogsCount > 0 ? Math.round((stopLossLogs.length / totalLogsCount) * 100) : 0;
+
+  // Win average R calculation
+  const winLogs = filteredTradeLogs.filter(t => {
+    const pnlNum = parseFloat((t.pnl || '0').replace(/[^0-9.-]+/g, '')) || 0;
+    return pnlNum > 0;
+  });
+  const totalWinR = winLogs.reduce((sum, t) => {
+    const pnlNum = parseFloat((t.pnl || '0').replace(/[^0-9.-]+/g, '')) || 0;
+    return sum + (pnlNum / 350);
+  }, 0);
+  const winAvgRVal = winLogs.length > 0 ? (totalWinR / winLogs.length).toFixed(1) : '0.0';
+
+  // Late session trades count
+  const lateSessionCount = filteredTradeLogs.filter(t => t.time && (t.time.includes('15:') || t.time.includes('16:') || t.setup?.toLowerCase().includes('late'))).length;
+
+  // Total Net PnL calculation
+  const totalNetPnl = filteredTradeLogs.reduce((sum, t) => {
+    const pnlNum = parseFloat((t.pnl || '0').replace(/[^0-9.-]+/g, '')) || 0;
+    return sum + pnlNum;
+  }, 0);
+
+  // Grade & Status calculation
+  let overallGrade = 'NO DATA';
+  if (totalLogsCount > 0) {
+    if (planCompPercent >= 90) overallGrade = 'A+ GRADE';
+    else if (planCompPercent >= 80) overallGrade = 'A GRADE';
+    else if (planCompPercent >= 70) overallGrade = 'B GRADE';
+    else overallGrade = 'C GRADE';
+  }
+
+  const auditStatus = totalLogsCount === 0 ? 'PENDING' : (planCompPercent >= 70 ? 'PASSED' : 'NEEDS AUDIT');
+
   const [draggedSetupId, setDraggedSetupId] = useState(null);
   const [draggedRuleIdx, setDraggedRuleIdx] = useState(null);
 
@@ -507,7 +551,13 @@ export default function SetupsTab() {
         <div className="duo-card p-5 sm:p-6 space-y-4 sm:space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-lg sm:text-xl font-black text-white">Execution Precision</h3>
-            <span className="text-xs font-black text-[#58CC02] bg-[#58CC02]/15 px-3 py-1 rounded-xl border border-[#58CC02]/30">A+ GRADE</span>
+            <span className={`text-xs font-black px-3 py-1 rounded-xl border ${
+              totalLogsCount === 0
+                ? 'text-slate-400 bg-slate-500/10 border-slate-500/30'
+                : 'text-[#58CC02] bg-[#58CC02]/15 border-[#58CC02]/30'
+            }`}>
+              {overallGrade}
+            </span>
           </div>
 
           <div className="flex items-center justify-between gap-4 pt-1">
@@ -518,17 +568,23 @@ export default function SetupsTab() {
             <div className="flex-1 min-w-0 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs sm:text-sm font-black text-white truncate">Plan Compliance</span>
-                <span className="text-lg sm:text-xl font-black text-[#58CC02] font-mono shrink-0">96%</span>
+                <span className="text-lg sm:text-xl font-black text-[#58CC02] font-mono shrink-0">
+                  {totalLogsCount > 0 ? `${planCompPercent}%` : 'N/A'}
+                </span>
               </div>
 
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs sm:text-sm font-black text-white truncate">Risk Limits</span>
-                <span className="text-lg sm:text-xl font-black text-[#1CB0F6] font-mono shrink-0">98%</span>
+                <span className="text-lg sm:text-xl font-black text-[#1CB0F6] font-mono shrink-0">
+                  {totalLogsCount > 0 ? `${riskLimitsPercent}%` : 'N/A'}
+                </span>
               </div>
 
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs sm:text-sm font-black text-white truncate">Tilt Control</span>
-                <span className="text-lg sm:text-xl font-black text-[#FF6B00] font-mono shrink-0">92%</span>
+                <span className="text-lg sm:text-xl font-black text-[#FF6B00] font-mono shrink-0">
+                  {totalLogsCount > 0 ? `${tiltControlPercent}%` : 'N/A'}
+                </span>
               </div>
             </div>
           </div>
@@ -538,7 +594,15 @@ export default function SetupsTab() {
         <div className="duo-card p-5 sm:p-6 space-y-4 sm:space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-lg sm:text-xl font-black text-white">Behavioral Audit</h3>
-            <span className="text-xs font-black text-[#1CB0F6] bg-[#1CB0F6]/15 px-3 py-1 rounded-xl border border-[#1CB0F6]/30">PASSED</span>
+            <span className={`text-xs font-black px-3 py-1 rounded-xl border ${
+              totalLogsCount === 0
+                ? 'text-slate-400 bg-slate-500/10 border-slate-500/30'
+                : auditStatus === 'PASSED'
+                  ? 'text-[#1CB0F6] bg-[#1CB0F6]/15 border-[#1CB0F6]/30'
+                  : 'text-amber-400 bg-amber-500/15 border-amber-500/30'
+            }`}>
+              {auditStatus}
+            </span>
           </div>
 
           <div className="flex items-center justify-between gap-4 pt-1">
@@ -549,17 +613,23 @@ export default function SetupsTab() {
             <div className="flex-1 min-w-0 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs sm:text-sm font-black text-white truncate">Stop-Loss Discipline</span>
-                <span className="text-lg sm:text-xl font-black text-[#58CC02] font-mono shrink-0">100%</span>
+                <span className="text-lg sm:text-xl font-black text-[#58CC02] font-mono shrink-0">
+                  {totalLogsCount > 0 ? `${stopLossPercent}%` : 'N/A'}
+                </span>
               </div>
 
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs sm:text-sm font-black text-white truncate">Win Average</span>
-                <span className="text-lg sm:text-xl font-black text-[#1CB0F6] font-mono shrink-0">2.4R</span>
+                <span className="text-lg sm:text-xl font-black text-[#1CB0F6] font-mono shrink-0">
+                  {totalLogsCount > 0 ? `${winAvgRVal}R` : '0.0R'}
+                </span>
               </div>
 
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs sm:text-sm font-black text-white truncate">Late Session Trading</span>
-                <span className="text-lg sm:text-xl font-black text-amber-400 font-mono shrink-0">2</span>
+                <span className="text-lg sm:text-xl font-black text-amber-400 font-mono shrink-0">
+                  {lateSessionCount}
+                </span>
               </div>
             </div>
           </div>
@@ -571,7 +641,11 @@ export default function SetupsTab() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#20323D]">
           <div className="flex items-center gap-3">
             <h3 className="text-lg font-black text-white">Execution Matrix</h3>
-            <span className="text-sm font-black text-[#58CC02] bg-[#58CC02]/15 px-2.5 py-0.5 rounded-lg">+$22,400.00</span>
+            <span className={`text-sm font-black px-2.5 py-0.5 rounded-lg ${
+              totalNetPnl >= 0 ? 'text-[#58CC02] bg-[#58CC02]/15' : 'text-rose-400 bg-rose-500/15'
+            }`}>
+              {formatCurrencyOrR(totalNetPnl, isStealthMode)}
+            </span>
           </div>
 
           <div className="flex items-center gap-1 bg-[#142127] p-1 rounded-xl border border-[#20323D]">
