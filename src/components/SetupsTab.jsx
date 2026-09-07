@@ -126,27 +126,27 @@ export default function SetupsTab() {
     saveStoredData('goodtrader_active_playbook_id', setupId);
   };
 
-  // SECTION B: VERIFIED STRATEGY PLAYBOOKS
-  const [playbookSetups, setPlaybookSetups] = useState([
+  // SECTION B: VERIFIED STRATEGY PLAYBOOKS (Clean Zero-State Initial Metrics)
+  const [playbookSetups, setPlaybookSetups] = useState(() => loadStoredData('goodtrader_playbook_setups', [
     {
       id: 1,
       name: 'Breakout & Retest (Key S/R Level)',
-      winRate: '78%',
-      winRateVal: 78,
-      avgRr: '2.4 R',
-      count: 42,
-      netProfit: '+$14,250.00',
-      tier: 'S-TIER EDGE',
+      winRate: '0%',
+      winRateVal: 0,
+      avgRr: '0.0 R',
+      count: 0,
+      netProfit: '$0.00',
+      tier: 'PRIMARY SETUP',
       color: 'border-[#58CC02]',
       tagBg: 'bg-[#58CC02]/15 text-[#58CC02]',
-      bestTime: '9:30 AM - 10:30 AM NY',
-      sparkline: [20, 35, 30, 50, 45, 70, 65, 90, 85, 110],
+      bestTime: 'New York Session',
+      sparkline: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       tradeMetrics: {
-        avgHoldTime: '24 Mins',
-        sharpeRatio: '3.42',
-        profitFactor: '2.85',
-        maxDrawdownR: '-1.0 R',
-        execPrecision: '98% Plan Adherence'
+        avgHoldTime: '-',
+        sharpeRatio: '-',
+        profitFactor: '-',
+        maxDrawdownR: '0.0 R',
+        execPrecision: '100% Plan Adherence'
       },
       checklist: [
         'Higher timeframe key level break',
@@ -154,54 +154,54 @@ export default function SetupsTab() {
         '1-min / 5-min retest into former resistance',
         'Bullish engulfing confirmation candle'
       ],
-      psychologyMistake: 'Chasing the initial breakout before waiting for the retest loses -1.2R on average.'
+      psychologyMistake: 'Chasing the initial breakout before waiting for the retest loses discipline.'
     },
     {
       id: 2,
       name: 'Trend Continuation Pullback',
-      winRate: '64%',
-      winRateVal: 64,
-      avgRr: '1.8 R',
-      count: 28,
-      netProfit: '+$6,800.00',
-      tier: 'A-TIER EDGE',
+      winRate: '0%',
+      winRateVal: 0,
+      avgRr: '0.0 R',
+      count: 0,
+      netProfit: '$0.00',
+      tier: 'SECONDARY SETUP',
       color: 'border-[#1CB0F6]',
       tagBg: 'bg-[#1CB0F6]/15 text-[#1CB0F6]',
-      bestTime: '10:00 AM - 11:30 AM NY',
-      sparkline: [15, 25, 20, 35, 40, 38, 52, 60, 58, 75],
+      bestTime: 'New York Session',
+      sparkline: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       tradeMetrics: {
-        avgHoldTime: '18 Mins',
-        sharpeRatio: '2.10',
-        profitFactor: '1.92',
-        maxDrawdownR: '-1.0 R',
-        execPrecision: '95% Plan Adherence'
+        avgHoldTime: '-',
+        sharpeRatio: '-',
+        profitFactor: '-',
+        maxDrawdownR: '0.0 R',
+        execPrecision: '100% Plan Adherence'
       },
       checklist: [
         'Clear higher-high & higher-low structure',
-        'Pullback to 20 EMA or VWAP line',
-        'Rejection wick at EMA level'
+        'Pullback into VWAP / Moving Average',
+        'Stop-Loss placed below structure pivot'
       ],
-      psychologyMistake: 'Taking continuation trades when price is already extended at daily high.'
+      psychologyMistake: 'Entering mid-move without waiting for pullback structure.'
     },
     {
       id: 3,
       name: 'Key Support / Resistance Sweep',
-      winRate: '71%',
-      winRateVal: 71,
-      avgRr: '2.1 R',
-      count: 35,
-      netProfit: '+$9,400.00',
-      tier: 'S-TIER EDGE',
+      winRate: '0%',
+      winRateVal: 0,
+      avgRr: '0.0 R',
+      count: 0,
+      netProfit: '$0.00',
+      tier: 'REVERSAL EDGE',
       color: 'border-[#FF6B00]',
       tagBg: 'bg-[#FF6B00]/15 text-[#FF6B00]',
-      bestTime: '9:45 AM - 10:45 AM NY',
-      sparkline: [10, 20, 15, 40, 35, 55, 60, 75, 70, 95],
+      bestTime: 'New York Session',
+      sparkline: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       tradeMetrics: {
-        avgHoldTime: '32 Mins',
-        sharpeRatio: '2.95',
-        profitFactor: '2.40',
-        maxDrawdownR: '-1.2 R',
-        execPrecision: '92% Plan Adherence'
+        avgHoldTime: '-',
+        sharpeRatio: '-',
+        profitFactor: '-',
+        maxDrawdownR: '0.0 R',
+        execPrecision: '100% Plan Adherence'
       },
       checklist: [
         'Clean equal highs/lows targeted',
@@ -213,31 +213,31 @@ export default function SetupsTab() {
     {
       id: 4,
       name: 'VWAP Mean Reversion',
-      winRate: '52%',
-      winRateVal: 52,
-      avgRr: '1.4 R',
-      count: 19,
-      netProfit: '+$1,950.00',
-      tier: 'B-TIER EDGE',
+      winRate: '0%',
+      winRateVal: 0,
+      avgRr: '0.0 R',
+      count: 0,
+      netProfit: '$0.00',
+      tier: 'MEAN REVERSION',
       color: 'border-[#A560FF]',
       tagBg: 'bg-[#A560FF]/15 text-[#A560FF]',
-      bestTime: '1:30 PM - 3:00 PM NY',
-      sparkline: [10, 18, 12, 22, 19, 28, 25, 32, 29, 38],
+      bestTime: 'New York Session',
+      sparkline: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       tradeMetrics: {
-        avgHoldTime: '15 Mins',
-        sharpeRatio: '1.45',
-        profitFactor: '1.32',
-        maxDrawdownR: '-1.8 R',
-        execPrecision: '88% Plan Adherence'
+        avgHoldTime: '-',
+        sharpeRatio: '-',
+        profitFactor: '-',
+        maxDrawdownR: '0.0 R',
+        execPrecision: '100% Plan Adherence'
       },
       checklist: [
         '2+ Standard Deviations away from VWAP',
-        'Divergence on RSI indicator',
+        'Divergence on momentum indicator',
         'Reversion candle back toward mean'
       ],
       psychologyMistake: 'Trading reversion during high-impact news events.'
     }
-  ]);
+  ]));
 
   const [isNewSetupModalOpen, setIsNewSetupModalOpen] = useState(false);
   const [newSetupName, setNewSetupName] = useState('');

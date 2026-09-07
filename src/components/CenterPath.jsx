@@ -212,7 +212,7 @@ export default function CenterPath() {
   };
 
   const [selectedPlaybookId, setSelectedPlaybookId] = useState('strat_1');
-  const [checkedRuleIndices, setCheckedRuleIndices] = useState([0, 1, 2]);
+  const [checkedRuleIndices, setCheckedRuleIndices] = useState([]);
 
   const [isMercyModalOpen, setIsMercyModalOpen] = useState(false);
   const [mercyDateStr, setMercyDateStr] = useState('');
