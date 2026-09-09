@@ -123,16 +123,17 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
     if (onAuthSuccess) onAuthSuccess(googleUser);
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = (e) => {
+    e?.stopPropagation();
     soundFx.playPop();
     try {
       localStorage.removeItem('goodtrader_google_user');
+      saveStoredData('goodtrader_google_user', null);
     } catch (err) {
       console.warn('[Storage Clear]:', err);
     }
     setUser(null);
     if (onAuthSuccess) onAuthSuccess(null);
-    window.location.href = window.location.origin;
   };
 
   if (user) {
