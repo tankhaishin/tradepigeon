@@ -93,6 +93,40 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, updated);
   };
 
+  const handleConfirmTrade = (tradeId) => {
+    soundFx.playLevelUp();
+    const updated = sessionTrades.map(t => {
+      if (t.id === tradeId) {
+        return { ...t, confirmed: true, verified: true };
+      }
+      return t;
+    });
+    setSessionTrades(updated);
+    saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, updated);
+
+    // Award +50 DP for confirming trade audit!
+    const stats = loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS);
+    const updatedStats = {
+      ...stats,
+      disciplinePoints: (stats.disciplinePoints || 0) + 50,
+      tradesLogged: (stats.tradesLogged || 0) + 1
+    };
+    saveStoredData('goodtrader_user_stats', updatedStats);
+    setUserStats(updatedStats);
+  };
+
+  const handleUnconfirmTrade = (tradeId) => {
+    soundFx.playPop();
+    const updated = sessionTrades.map(t => {
+      if (t.id === tradeId) {
+        return { ...t, confirmed: false };
+      }
+      return t;
+    });
+    setSessionTrades(updated);
+    saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, updated);
+  };
+
   const handleDeleteTrade = (tradeId) => {
     soundFx.playPop();
     const updated = sessionTrades.filter(t => t.id !== tradeId);
@@ -986,32 +1020,73 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                           </button>
                         </div>
 
-                        {/* 6 Execution Matrix Classification Pills */}
-                        <div className="grid grid-cols-3 gap-1 pt-1">
-                          {[
-                            { id: 'win', label: 'Disciplined Win', color: 'bg-[#58CC02] border-[#388202] text-white' },
-                            { id: 'good_loss', label: 'Disciplined Loss', color: 'bg-[#1CB0F6] border-[#147BB0] text-white' },
-                            { id: 'breakeven', label: 'Disciplined BE', color: 'bg-[#CE82FF] border-[#9D28EC] text-white' },
-                            { id: 'toxic_win', label: 'Toxic Win', color: 'bg-[#FFC800] border-[#8A6B00] text-slate-950' },
-                            { id: 'toxic_be', label: 'Toxic BE', color: 'bg-[#00F0FF] border-[#00B3BF] text-slate-950' },
-                            { id: 'double_failure', label: 'Double Failure', color: 'bg-[#FF4B4B] border-[#C62828] text-white' },
-                          ].map((typeOption) => {
-                            const isSelected = trade.type === typeOption.id;
-                            return (
-                              <button
-                                key={typeOption.id}
-                                onClick={() => handleVerifyTrade(trade.id, typeOption.id)}
-                                className={`py-1 px-0.5 rounded-lg text-[8px] font-black transition-all cursor-pointer border text-center truncate ${
-                                  isSelected
-                                    ? `${typeOption.color} font-black scale-[1.02] shadow-sm`
-                                    : 'bg-[#182830] border-[#20323D] text-slate-400 hover:text-white'
-                                }`}
-                              >
-                                {typeOption.label}
-                              </button>
-                            );
-                          })}
-                        </div>
+                        {/* Trade Confirmation & Classification Section */}
+                        {trade.confirmed ? (
+                          /* CONFIRMED / AUDITED DONE STATE */
+                          <div className="p-2 rounded-xl bg-[#58CC02]/15 border border-[#58CC02]/40 flex items-center justify-between text-xs animate-fade-in mt-1 shadow-sm">
+                            <div className="flex items-center gap-1.5 text-[#58CC02] font-black text-[10px]">
+                              <CheckCircle2 size={13} className="text-[#58CC02] shrink-0" />
+                              <span>AUDITED: {
+                                [
+                                  { id: 'win', label: 'Disciplined Win' },
+                                  { id: 'good_loss', label: 'Disciplined Loss' },
+                                  { id: 'breakeven', label: 'Disciplined BE' },
+                                  { id: 'toxic_win', label: 'Toxic Win' },
+                                  { id: 'toxic_be', label: 'Toxic BE' },
+                                  { id: 'double_failure', label: 'Double Failure' },
+                                  { id: 'missed_trade', label: 'Missed Setup' },
+                                ].find(o => o.id === trade.type)?.label.toUpperCase() || 'DISCIPLINED LOSS'
+                              }</span>
+                              <span className="text-[9px] font-black text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">+50 DP</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleUnconfirmTrade(trade.id)}
+                              className="text-[9px] font-bold text-slate-400 hover:text-white underline cursor-pointer transition-colors"
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        ) : (
+                          /* UNCONFIRMED / SELECTION STATE */
+                          <div className="space-y-1.5 pt-1">
+                            <div className="grid grid-cols-3 gap-1">
+                              {[
+                                { id: 'win', label: 'Disciplined Win', color: 'bg-[#58CC02] border-[#388202] text-white' },
+                                { id: 'good_loss', label: 'Disciplined Loss', color: 'bg-[#1CB0F6] border-[#147BB0] text-white' },
+                                { id: 'breakeven', label: 'Disciplined BE', color: 'bg-[#CE82FF] border-[#9D28EC] text-white' },
+                                { id: 'toxic_win', label: 'Toxic Win', color: 'bg-[#FFC800] border-[#8A6B00] text-slate-950' },
+                                { id: 'toxic_be', label: 'Toxic BE', color: 'bg-[#00F0FF] border-[#00B3BF] text-slate-950' },
+                                { id: 'double_failure', label: 'Double Failure', color: 'bg-[#FF4B4B] border-[#C62828] text-white' },
+                              ].map((typeOption) => {
+                                const isSelected = trade.type === typeOption.id;
+                                return (
+                                  <button
+                                    key={typeOption.id}
+                                    type="button"
+                                    onClick={() => handleVerifyTrade(trade.id, typeOption.id)}
+                                    className={`py-1 px-0.5 rounded-lg text-[8px] font-black transition-all cursor-pointer border text-center truncate ${
+                                      isSelected
+                                        ? `${typeOption.color} font-black scale-[1.02] shadow-sm`
+                                        : 'bg-[#182830] border-[#20323D] text-slate-400 hover:text-white'
+                                    }`}
+                                  >
+                                    {typeOption.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmTrade(trade.id)}
+                              className="duo-btn-green w-full py-2 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-md mt-1"
+                            >
+                              <CheckCircle2 size={13} />
+                              <span>✓ Confirm & Lock Trade Audit (+50 DP)</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })
