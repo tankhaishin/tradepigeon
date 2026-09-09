@@ -105,7 +105,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
       <header className="w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between z-30 relative">
         
         {/* Duolingo 3D Tactile Logo Mark */}
-        <div className="flex items-center gap-3.5 cursor-pointer group" onClick={handleStart}>
+        <div className="flex items-center gap-3.5 cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
           <div className="w-11 h-11 rounded-2xl bg-[#0D1635] overflow-hidden border-2 border-[#FF6B00] border-b-4 border-b-[#C2410C] flex items-center justify-center shrink-0 shadow-lg group-hover:scale-105 transition-transform">
             <img src="/parrot_logo.png" alt="Parrot Logo" className="w-full h-full object-cover" />
           </div>
@@ -117,7 +117,11 @@ export default function LandingPage({ onGetStarted, onLogin }) {
         {/* Header CTAs */}
         <div className="flex items-center gap-2.5">
           <GoogleAuthButton 
-            onAuthSuccess={handleStart} 
+            onAuthSuccess={(userObj) => {
+              if (userObj && userObj.email) {
+                handleStart(userObj);
+              }
+            }} 
             className="bg-[#142127] border-2 border-[#20323D] border-b-4 border-b-[#0e171b] text-white font-black text-xs hover:border-[#FF6B00] hover:bg-[#182830] transition-all px-4 py-2.5 rounded-2xl cursor-pointer shadow-md" 
             buttonText="Sign in with Google" 
           />
