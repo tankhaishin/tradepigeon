@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { soundFx } from '../utils/audioEngine';
 import { loadStoredData, saveStoredData } from '../utils/storage';
 
@@ -13,51 +13,6 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
   });
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-
-  // Initialize Google Identity Services (GIS) Client
-  useEffect(() => {
-    /* global google */
-    if (typeof window !== 'undefined' && window.google?.accounts?.id && clientId && !clientId.includes('example')) {
-      try {
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: handleGoogleCredentialResponse
-        });
-      } catch (e) {
-        console.warn('[GIS Init Error]:', e);
-      }
-    }
-  }, [clientId]);
-
-  const handleGoogleCredentialResponse = async (response) => {
-    try {
-      const base64Url = response.credential.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(
-        atob(base64)
-          .split('')
-          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-          .join('')
-      );
-      const payload = JSON.parse(jsonPayload);
-
-      const googleUser = {
-        name: payload.name || payload.given_name || 'Verified Trader',
-        email: payload.email || 'trader@gmail.com',
-        picture: payload.picture || '/parrot_logo.png',
-        sub: payload.sub || Date.now().toString(),
-        authenticatedAt: new Date().toISOString()
-      };
-
-      soundFx.playSuccess();
-      saveStoredData('goodtrader_google_user', googleUser);
-      setUser(googleUser);
-      if (onAuthSuccess) onAuthSuccess(googleUser);
-    } catch (err) {
-      console.warn('[GoogleAuth] Credential parsing error:', err);
-      fallbackInstantAuth();
-    }
-  };
 
   const handleGoogleSignInClick = (e) => {
     e?.preventDefault();
@@ -95,17 +50,17 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
                   authenticatedAt: new Date().toISOString()
                 });
               } catch (err) {
-                console.warn('[Google UserInfo Error]:', err);
+                console.warn('[Google UserInfo Fetch Error]:', err);
               }
             }
           },
           error_callback: (err) => {
-            console.warn('[Google OAuth Error]:', err);
+            console.warn('[Google OAuth Popup Error]:', err);
           }
         });
         client.requestAccessToken();
       } catch (err) {
-        console.warn('[Google Request Token Error]:', err);
+        console.warn('[Google Request Token Exception]:', err);
       }
     }
   };
@@ -120,7 +75,6 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
       console.warn('[Storage Clear]:', err);
     }
     setUser(null);
-    if (onAuthSuccess) onAuthSuccess(null);
   };
 
   if (user) {
