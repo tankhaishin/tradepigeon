@@ -394,25 +394,6 @@ export default function SetupsTab() {
             <Plus size={14} className="shrink-0" />
             <span>+ Manual Trade Log</span>
           </button>
-
-          <button 
-            onClick={() => {
-              if (tradeLogs.length > 0) {
-                if (window.confirm("Clear demo trades and start with a clean account?")) {
-                  setTradeLogs([]);
-                  soundFx.playPop();
-                }
-              } else {
-                setTradeLogs(defaultLogs);
-                soundFx.playSuccess();
-              }
-            }}
-            className="px-3.5 py-2 rounded-xl bg-[#142127] hover:bg-[#20323D] border border-[#2B3D47] text-slate-300 hover:text-white text-xs font-black flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
-            title="Toggle Demo Data"
-          >
-            <DuoUndoIcon className="w-4 h-4" />
-            <span>{tradeLogs.length > 0 ? 'Clear Demo' : 'Load Demo'}</span>
-          </button>
         </div>
       </div>
 

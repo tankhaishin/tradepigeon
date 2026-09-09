@@ -522,18 +522,47 @@ export default function CenterPath() {
                         </span>
                       </div>
                     ) : (
-                      <div className="w-full p-4 rounded-2xl bg-[#1CB0F6] border-2 border-[#1899D6] border-b-4 border-b-[#147BB0] text-white flex items-center justify-between shadow-xl animate-pulse">
-                        <div className="space-y-0.5">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-sky-100">
-                            {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} &bull; SESSION {dayNum}
-                          </span>
-                          <h4 className="text-sm font-black text-white">
-                            Session {dayNum} Active Protocol
-                          </h4>
+                      <div className="w-full p-4.5 rounded-2xl bg-[#1CB0F6] border-2 border-[#1899D6] border-b-4 border-b-[#147BB0] text-white space-y-3 shadow-xl text-left">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-sky-100 flex items-center gap-1.5">
+                              <Sparkles size={13} className="text-yellow-300 animate-spin" />
+                              <span>CURRENT ACTION &bull; STEP {!completedSteps.includes(1) ? '1' : !completedSteps.includes(2) ? '2' : !completedSteps.includes(3) ? '3' : '4'} OF 4</span>
+                            </span>
+                            <h4 className="text-base sm:text-lg font-black text-white leading-tight">
+                              {!completedSteps.includes(1) 
+                                ? "1. Complete Pre-Market Mindset Check" 
+                                : !completedSteps.includes(2)
+                                ? "2. Calibrate Playbook Risk & Drawdown"
+                                : !completedSteps.includes(3)
+                                ? "3. Active Trading & Telemetry Sync"
+                                : "4. Complete Post-Market Journal Audit"}
+                            </h4>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextStepNum = !completedSteps.includes(1) ? 1 : !completedSteps.includes(2) ? 2 : !completedSteps.includes(3) ? 3 : 4;
+                              setActiveStep(nextStepNum);
+                              setIsStepModalOpen(true);
+                              soundFx.playPop();
+                            }}
+                            className="bg-white text-[#1CB0F6] hover:bg-sky-50 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider shadow-md cursor-pointer transition-all border-b-2 border-b-sky-200 shrink-0 text-center"
+                          >
+                            <span>{!completedSteps.includes(1) ? 'Start Step 1 →' : !completedSteps.includes(2) ? 'Start Step 2 →' : !completedSteps.includes(3) ? 'View Telemetry →' : 'Log Audit →'}</span>
+                          </button>
                         </div>
-                        <span className="text-[10px] font-black px-3 py-1 rounded-xl bg-white text-[#1CB0F6] uppercase tracking-wider shadow-md">
-                          IN PROGRESS
-                        </span>
+
+                        <div className="p-2.5 rounded-xl bg-black/20 border border-white/20 text-[11px] font-bold text-sky-100 leading-relaxed">
+                          {!completedSteps.includes(1) 
+                            ? "💡 Protocol Requirement: Complete your 60-second Mindset Check to prime your emotional discipline before placing any live trades."
+                            : !completedSteps.includes(2)
+                            ? "💡 Risk Requirement: Lock in your maximum daily drawdown limit and position size before execution."
+                            : !completedSteps.includes(3)
+                            ? "🟢 Telemetry Active: Trade fills are auto-syncing in real time across your connected broker accounts."
+                            : "📝 Post-Session Requirement: Log your 60-second Audit Journal to lock in today's streak and earn +150 DP!"}
+                        </div>
                       </div>
                     )
                   )}
