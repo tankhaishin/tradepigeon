@@ -116,13 +116,13 @@ export default function LandingPage({ onGetStarted, onLogin }) {
 
         {/* Header CTAs */}
         <div className="flex items-center gap-2.5">
-          <GoogleAuthButton onAuthSuccess={handleStart} className="py-2 text-[11px]" buttonText="Option 1: Google Sign-In" />
+          <GoogleAuthButton onAuthSuccess={handleStart} className="py-2 text-[11px]" buttonText="Google Sign-In" />
           <button
             onClick={() => setIsEmailModalOpen(true)}
-            className="px-3.5 py-2 rounded-2xl bg-[#142127] border-2 border-[#20323D] text-xs font-black text-white hover:border-[#1CB0F6] cursor-pointer flex items-center gap-2 transition-all"
+            className="px-3.5 py-2 rounded-2xl bg-[#142127] border-2 border-[#20323D] text-xs font-black text-white hover:border-[#FF6B00] cursor-pointer flex items-center gap-2 transition-all"
           >
-            <Mail size={14} className="text-[#1CB0F6]" />
-            <span>Option 2: Manual Account Input</span>
+            <Mail size={14} className="text-[#FF6B00]" />
+            <span>Email Sign-In</span>
           </button>
           <button
             onClick={() => handleStripeCheckout()}
