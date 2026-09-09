@@ -95,37 +95,54 @@ export function verifyCalendarIntegrity(monthData) {
  * Sanitizes and repairs any cached calendar state against native Date truth.
  */
 export function auditAndSanitizeCalendarState(cachedMonths = []) {
-  if (!Array.isArray(cachedMonths) || cachedMonths.length === 0) {
-    return [
-      buildDynamicMonthData(2026, 6), // July 2026
-      buildDynamicMonthData(2026, 7), // August 2026
-      buildDynamicMonthData(2026, 8)  // September 2026
-    ];
-  }
+  const now = new Date();
+  const activeYear = now.getFullYear();
+  const activeMonthIdx = now.getMonth(); // 8 for September
+  const activeDate = now.getDate(); // 10
 
-  return cachedMonths.map((m) => {
-    let year = 2026;
-    let monthIdx = 7;
+  const defaultMonthsList = [
+    buildDynamicMonthData(activeYear, 6), // July 2026 (Idx 0)
+    buildDynamicMonthData(activeYear, 7), // August 2026 (Idx 1)
+    buildDynamicMonthData(activeYear, 8), // September 2026 (Idx 2)
+    buildDynamicMonthData(activeYear, 9), // October 2026 (Idx 3)
+  ];
 
-    if (m.monthName?.includes('JULY')) { year = 2026; monthIdx = 6; }
-    else if (m.monthName?.includes('AUGUST')) { year = 2026; monthIdx = 7; }
-    else if (m.monthName?.includes('SEPTEMBER')) { year = 2026; monthIdx = 8; }
+  const monthsToUse = (Array.isArray(cachedMonths) && cachedMonths.length > 0) ? cachedMonths : defaultMonthsList;
+
+  return monthsToUse.map((m) => {
+    let year = activeYear;
+    let monthIdx = 8; // Default September
+
+    if (m.monthName?.includes('JULY')) { year = activeYear; monthIdx = 6; }
+    else if (m.monthName?.includes('AUGUST')) { year = activeYear; monthIdx = 7; }
+    else if (m.monthName?.includes('SEPTEMBER')) { year = activeYear; monthIdx = 8; }
+    else if (m.monthName?.includes('OCTOBER')) { year = activeYear; monthIdx = 9; }
 
     const dynamicRef = buildDynamicMonthData(year, monthIdx);
 
     // Merge custom trade statuses onto dynamically validated day structure
     const repairedDays = dynamicRef.days.map((refDay, idx) => {
       const existing = m.days?.[idx] || {};
+      const isTodayDate = (monthIdx === activeMonthIdx && refDay.date === activeDate);
+      
+      let finalStatus = existing.status || refDay.status;
+      let finalPnl = existing.pnl || refDay.pnl;
+
+      if (isTodayDate && finalStatus !== 'no_trade' && finalStatus !== 'holiday_freeze') {
+        finalStatus = 'today';
+      }
+
       return {
         ...refDay,
-        status: existing.status || refDay.status,
-        pnl: existing.pnl || refDay.pnl,
+        status: finalStatus,
+        pnl: finalPnl,
         count: existing.count || refDay.count
       };
     });
 
     return {
       ...m,
+      monthName: dynamicRef.monthName,
       startOffset: dynamicRef.startOffset,
       days: repairedDays,
       isIntegrityVerified: true

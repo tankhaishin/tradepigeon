@@ -32,8 +32,10 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     if (onToggleExpand) onToggleExpand();
   };
 
-  const [selectedDay, setSelectedDay] = useState(9); // Default to Aug 10
-  const [currentMonthIndex, setCurrentMonthIndex] = useState(1); // August
+  const nowObj = new Date();
+  const todayDateVal = nowObj.getDate(); // 10th
+  const [selectedDay, setSelectedDay] = useState(todayDateVal - 1); // Sept 10th (0-indexed day 9)
+  const [currentMonthIndex, setCurrentMonthIndex] = useState(2); // September 2026 (Index 2)
   const [newTaskText, setNewTaskText] = useState('');
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [tradingStatus, setTradingStatusState] = useState(() => loadStoredData('goodtrader_trading_status', 'TRADING'));
