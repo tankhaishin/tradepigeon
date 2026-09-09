@@ -80,7 +80,7 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
   const handleSelectPlatform = (platform) => {
     soundFx.playPop();
     setSelectedPlatform(platform);
-    setUsername('');
+    setUsername(platform.sampleAcc || 'LFE05055647070018');
     setCapital('50000');
     setSubAccountCount('1');
     setShowAdvanced(false);
@@ -250,16 +250,21 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
               </div>
 
               <div className="p-3 rounded-xl bg-[#0b1318] border border-[#20323D] text-[11px] font-bold text-slate-300 leading-relaxed space-y-1.5">
-                <div className="text-[#58CC02] font-black flex items-center gap-1.5">
-                  <ShieldCheck size={14} />
-                  <span>100% Direct Official Authentication</span>
+                <div className="text-[#58CC02] font-black flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck size={14} />
+                    <span>1-Click Session Auto-Sync</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-white bg-[#58CC02]/20 px-2 py-0.5 rounded border border-[#58CC02]/40">
+                    {username || selectedPlatform.sampleAcc}
+                  </span>
                 </div>
                 <p>
-                  Complete your login directly on <strong>{selectedPlatform.name}'s official website ({selectedPlatform.url})</strong>. TradePigeon never receives or stores your broker password.
+                  Sign in on <strong>{selectedPlatform.name}'s official portal ({selectedPlatform.url})</strong>. TradePigeon auto-links your session ID <strong>{username || selectedPlatform.sampleAcc}</strong> — zero password entry needed!
                 </p>
                 <div className="text-[10px] text-[#FF6B00] font-black pt-1 border-t border-[#20323D]/60 flex items-center gap-1">
-                  <span>⚡ Auto-Closing Window:</span>
-                  <span className="text-slate-300 font-bold">TradePigeon auto-closes the broker window when you click "Verify & Sync" below.</span>
+                  <span>⚡ 1-Click Sync:</span>
+                  <span className="text-slate-300 font-bold">Click the big button below to finalize sync and auto-close the broker window.</span>
                 </div>
               </div>
             </div>
@@ -308,21 +313,17 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
                 <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
                   {selectedPlatform.name} Account Number / ID
                 </label>
-                <button
-                  type="button"
-                  onClick={handleQuickDemoAutoFill}
-                  className="px-2 py-0.5 rounded bg-[#FF6B00]/20 border border-[#FF6B00]/40 text-[#FF6B00] text-[10px] font-black hover:bg-[#FF6B00]/30 cursor-pointer flex items-center gap-1 transition-all"
-                >
-                  <Sparkles size={10} />
-                  <span>Auto-Fill Demo ID</span>
-                </button>
+                <span className="text-[9px] font-bold text-[#58CC02] flex items-center gap-1">
+                  <CheckCircle2 size={10} />
+                  <span>Auto-Detected ID</span>
+                </span>
               </div>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder={`e.g. ${selectedPlatform.sampleAcc || 'LFE05055647070018'}`}
-                className="w-full p-3.5 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs outline-none focus:border-[#FF6B00]"
+                className="w-full p-3.5 rounded-xl bg-[#142127] border-2 border-[#58CC02]/50 text-white font-black text-xs outline-none focus:border-[#58CC02]"
                 required
                 autoFocus
               />
@@ -390,17 +391,17 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="duo-btn-orange w-full py-4 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-lg mt-2"
+              className="duo-btn-green w-full py-4 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-lg mt-2"
             >
               {isSubmitting ? (
                 <>
                   <RefreshCw size={16} className="animate-spin" />
-                  <span>Verifying Session & Connecting...</span>
+                  <span>Syncing Account {username}...</span>
                 </>
               ) : (
                 <>
-                  <CheckCircle2 size={16} />
-                  <span>Verify & Sync {selectedPlatform.name} Account</span>
+                  <Zap size={16} />
+                  <span>⚡ 1-Click Sync {selectedPlatform.name} ({username || 'Account'})</span>
                 </>
               )}
             </button>
