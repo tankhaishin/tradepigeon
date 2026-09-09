@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Zap, ArrowRight, CheckCircle2, Flame, Heart, Gem, Trophy, Star, 
   Sparkles, Lock, BarChart3, ChevronRight, Play, Check, Globe, Bell, Mail, X
