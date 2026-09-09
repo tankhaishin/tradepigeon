@@ -77,15 +77,10 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
 
     if (typeof window !== 'undefined' && window.google?.accounts?.oauth2 && clientId && !clientId.includes('example')) {
       try {
-        const safeguardTimer = setTimeout(() => {
-          fallbackInstantAuth();
-        }, 1800);
-
         const client = window.google.accounts.oauth2.initTokenClient({
           client_id: clientId,
           scope: 'openid profile email',
           callback: async (tokenResponse) => {
-            clearTimeout(safeguardTimer);
             if (tokenResponse && tokenResponse.access_token) {
               try {
                 const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -100,38 +95,19 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
                   authenticatedAt: new Date().toISOString()
                 });
               } catch (err) {
-                fallbackInstantAuth();
+                console.warn('[Google UserInfo Error]:', err);
               }
-            } else {
-              fallbackInstantAuth();
             }
           },
-          error_callback: () => {
-            clearTimeout(safeguardTimer);
-            fallbackInstantAuth();
+          error_callback: (err) => {
+            console.warn('[Google OAuth Error]:', err);
           }
         });
         client.requestAccessToken();
       } catch (err) {
-        fallbackInstantAuth();
+        console.warn('[Google Request Token Error]:', err);
       }
-    } else {
-      fallbackInstantAuth();
     }
-  };
-
-  const fallbackInstantAuth = () => {
-    const googleUser = {
-      name: 'Verified Trader',
-      email: 'trader@gmail.com',
-      picture: '/parrot_logo.png',
-      sub: Date.now().toString(),
-      authenticatedAt: new Date().toISOString()
-    };
-    soundFx.playSuccess();
-    saveStoredData('goodtrader_google_user', googleUser);
-    setUser(googleUser);
-    if (onAuthSuccess) onAuthSuccess(googleUser);
   };
 
   const handleSignOut = (e) => {
