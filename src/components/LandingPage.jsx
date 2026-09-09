@@ -12,13 +12,13 @@ import { soundFx } from '../utils/audioEngine';
 import { saveStoredData } from '../utils/storage';
 
 import GoogleAuthButton from './GoogleAuthButton';
+import AuthModal from './AuthModal';
 
 export default function LandingPage({ onGetStarted, onLogin }) {
   const [isLegalTermsOpen, setIsLegalTermsOpen] = useState(false);
   const [isLegalPrivacyOpen, setIsLegalPrivacyOpen] = useState(false);
-  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  const [manualEmail, setManualEmail] = useState('');
-  const [manualName, setManualName] = useState('');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState('SIGN_IN');
   const [billingCycle, setBillingCycle] = useState('MONTHLY'); // Default: $9.99 / month
   const [activeRoadmapIndex, setActiveRoadmapIndex] = useState(0);
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
@@ -116,13 +116,14 @@ export default function LandingPage({ onGetStarted, onLogin }) {
 
         {/* Header CTAs */}
         <div className="flex items-center gap-2.5">
-          <GoogleAuthButton onAuthSuccess={handleStart} className="py-2 text-[11px]" buttonText="Google Sign-In" />
           <button
-            onClick={() => setIsEmailModalOpen(true)}
-            className="px-3.5 py-2 rounded-2xl bg-[#142127] border-2 border-[#20323D] text-xs font-black text-white hover:border-[#FF6B00] cursor-pointer flex items-center gap-2 transition-all"
+            onClick={() => {
+              setAuthMode('SIGN_IN');
+              setIsAuthModalOpen(true);
+            }}
+            className="px-4 py-2.5 rounded-2xl bg-[#142127] border-2 border-[#20323D] text-xs font-black text-white hover:border-[#FF6B00] hover:bg-[#182830] cursor-pointer flex items-center gap-2 transition-all shadow-md"
           >
-            <Mail size={14} className="text-[#FF6B00]" />
-            <span>Email Sign-In</span>
+            <span>Sign in</span>
           </button>
           <button
             onClick={() => handleStripeCheckout()}
@@ -749,59 +750,13 @@ export default function LandingPage({ onGetStarted, onLogin }) {
         title="Privacy Policy"
       />
 
-      {/* MANUAL EMAIL SIGN-IN MODAL */}
-      {isEmailModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="duo-card max-w-md w-full p-6 space-y-5 border-2 border-[#FF6B00] relative bg-[#0D1635] text-left">
-            <button 
-              onClick={() => setIsEmailModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1.5 rounded-xl bg-[#142127] border border-[#20323D] cursor-pointer"
-            >
-              <X size={16} />
-            </button>
-
-            <div className="space-y-1">
-              <div className="text-[10px] font-black uppercase text-[#1CB0F6] tracking-wider">OPTION 2: MANUAL ACCOUNT SIGN-IN</div>
-              <h3 className="text-xl font-black text-white">Manual Google / Email Input</h3>
-              <p className="text-xs font-bold text-slate-400">Type your Google or personal email address below to log in directly</p>
-            </div>
-
-            <form onSubmit={handleManualEmailSubmit} className="space-y-3.5">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Email Address</label>
-                <input
-                  type="email"
-                  value={manualEmail}
-                  onChange={(e) => setManualEmail(e.target.value)}
-                  placeholder="e.g. trader@domain.com"
-                  className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs outline-none focus:border-[#FF6B00]"
-                  required
-                  autoFocus
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Trader Name / Alias (Optional)</label>
-                <input
-                  type="text"
-                  value={manualName}
-                  onChange={(e) => setManualName(e.target.value)}
-                  placeholder="e.g. Disciplined Trader"
-                  className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs outline-none focus:border-[#FF6B00]"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="duo-btn-orange w-full py-3.5 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Mail size={16} />
-                <span>Sign In & Enter Dashboard</span>
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* AUTHENTICATION MODAL (SIGN IN / SIGN UP) */}
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)} 
+        onAuthSuccess={handleStart} 
+        initialMode={authMode} 
+      />
     </div>
   );
 }
