@@ -5,8 +5,7 @@ import { loadStoredData, saveStoredData } from '../utils/storage';
 export default function GoogleAuthButton({ onAuthSuccess, className = '', buttonText = 'Sign in with Google' }) {
   const [user, setUser] = useState(() => {
     const saved = loadStoredData('goodtrader_google_user', null);
-    // Purge mock Alex Trader account from browser memory
-    if (saved && (saved.email === 'alex.trader@gmail.com' || saved.name === 'Alex Trader')) {
+    if (saved && (saved.email === 'alex.trader@gmail.com' || saved.name === 'Alex Trader' || saved.email === 'trader@tradepigeon.com')) {
       saveStoredData('goodtrader_google_user', null);
       return null;
     }
@@ -26,7 +25,7 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
     }
   }, [clientId]);
 
-  const handleGoogleCredentialResponse = (response) => {
+  const handleGoogleCredentialResponse = async (response) => {
     try {
       // Decode JWT payload (standard 3-part base64)
       const base64Url = response.credential.split('.')[1];
@@ -40,8 +39,8 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
       const payload = JSON.parse(jsonPayload);
 
       const googleUser = {
-        name: payload.name || 'Verified Trader',
-        email: payload.email || 'trader@tradepigeon.com',
+        name: payload.name || payload.given_name || 'Verified Trader',
+        email: payload.email,
         picture: payload.picture || '/parrot_logo.png',
         sub: payload.sub || Date.now().toString(),
         authenticatedAt: new Date().toISOString()
@@ -56,11 +55,52 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
     }
   };
 
-  const fallbackInstantAuth = () => {
-    let emailInput = prompt('Enter your Gmail address to sign in:', 'trader@gmail.com');
-    if (!emailInput || !emailInput.trim()) {
-      emailInput = 'trader@gmail.com';
+  const handleGoogleSignIn = () => {
+    soundFx.playPop();
+    /* global google */
+    if (typeof window !== 'undefined' && window.google?.accounts?.oauth2 && clientId && !clientId.includes('example')) {
+      // Launch Official Google OAuth 2.0 Token Client Popup
+      const client = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'openid profile email',
+        callback: async (tokenResponse) => {
+          if (tokenResponse && tokenResponse.access_token) {
+            try {
+              const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+              });
+              const payload = await res.json();
+              const googleUser = {
+                name: payload.name || payload.given_name || 'Verified Trader',
+                email: payload.email,
+                picture: payload.picture || '/parrot_logo.png',
+                sub: payload.sub || Date.now().toString(),
+                authenticatedAt: new Date().toISOString()
+              };
+
+              soundFx.playSuccess();
+              saveStoredData('goodtrader_google_user', googleUser);
+              setUser(googleUser);
+              if (onAuthSuccess) onAuthSuccess(googleUser);
+            } catch (err) {
+              console.warn('[GoogleAuth] Failed to fetch Google UserInfo:', err);
+              fallbackPromptAuth();
+            }
+          }
+        }
+      });
+      client.requestAccessToken();
+    } else if (typeof window !== 'undefined' && window.google?.accounts?.id && clientId && !clientId.includes('example')) {
+      window.google.accounts.id.prompt();
+    } else {
+      fallbackPromptAuth();
     }
+  };
+
+  const fallbackPromptAuth = () => {
+    const emailInput = prompt('Enter your Google / Gmail email address to sign in:', 'trader@gmail.com');
+    if (!emailInput || !emailInput.trim()) return;
+
     const cleanEmail = emailInput.trim();
     const namePart = cleanEmail.split('@')[0].replace(/[._]/g, ' ');
     const cleanName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
@@ -78,29 +118,10 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
     if (onAuthSuccess) onAuthSuccess(googleUser);
   };
 
-  const handleGoogleSignIn = () => {
-    soundFx.playPop();
-    /* global google */
-    if (typeof window !== 'undefined' && window.google?.accounts?.id && clientId && !clientId.includes('example')) {
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: handleGoogleCredentialResponse
-      });
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          console.log('[GoogleAuth] GIS Prompt suppressed (Incognito/Cookies blocked). Using instant fallback.');
-          fallbackInstantAuth();
-        }
-      });
-    } else {
-      fallbackInstantAuth();
-    }
-  };
-
   const handleSignOut = () => {
     soundFx.playPop();
     try {
-      localStorage.clear();
+      localStorage.removeItem('goodtrader_google_user');
     } catch (err) {
       console.warn('[Storage Clear]:', err);
     }
@@ -131,8 +152,7 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
   return (
     <button
       onClick={handleGoogleSignIn}
-      className={`px-4 py-3 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 border-2 border-slate-300 border-b-4 border-b-slate-400 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 shadow-md active:scale-95 transition-all cursor-pointer ${className}`}
-      title="Sign in with Google Account"
+      className={`duo-btn-orange font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl cursor-pointer ${className}`}
     >
       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
