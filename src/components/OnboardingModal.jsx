@@ -543,94 +543,31 @@ export default function OnboardingModal({ isOpen, onComplete }) {
               <div className="p-4 text-center bg-[#58CC02]/20 border-2 border-[#58CC02] rounded-2xl space-y-1 animate-fade-in">
                 <div className="text-sm font-black text-[#58CC02] flex items-center justify-center gap-2">
                   <CheckCircle2 size={18} />
-                  <span>Broker Live Socket Connected!</span>
+                  <span>Broker Live Telemetry Connected!</span>
                 </div>
                 <div className="text-xs font-bold text-slate-300">Completing onboarding setup...</div>
               </div>
             ) : selectedPlatform ? (
-              authMode === 'CHOICE' ? (
-                /* CHOICE MODES: OPTION A (1-CLICK OAUTH POPUP) vs OPTION B (DIRECT API FORM) */
-                <div className="space-y-4 animate-fade-in text-left">
-                  <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-[#142127] border border-[#20323D]">
-                    <selectedPlatform.icon className="w-9 h-9 object-contain shrink-0" />
+              /* IN-APP DIRECT BROKER AUTHENTICATION FORM */
+              <form onSubmit={handleDirectAuthSubmit} className="space-y-4 animate-fade-in text-left">
+                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#142127] border border-[#20323D]">
+                  <div className="flex items-center gap-3">
+                    <selectedPlatform.icon className="w-8 h-8 object-contain shrink-0" />
                     <div>
-                      <div className="text-base font-black text-white">{selectedPlatform.name}</div>
-                      <div className="text-xs font-bold text-slate-400">Choose your connection method</div>
+                      <div className="text-sm font-black text-white">{selectedPlatform.name} Account Sync</div>
+                      <div className="text-[10px] font-bold text-slate-400">Direct API & Multi-Account Import</div>
                     </div>
                   </div>
-
-                  {/* HELPER CALLOUT FOR TRADOVATE SCREENSHOT */}
-                  <div className="p-3.5 rounded-2xl bg-[#00E5FF]/10 border border-[#00E5FF]/30 text-left space-y-1.5">
-                    <div className="text-xs font-black text-[#00E5FF] uppercase tracking-wider flex items-center gap-1.5">
-                      <Sparkles size={14} />
-                      <span>How to connect from your Tradovate screen:</span>
-                    </div>
-                    <p className="text-xs font-bold text-slate-300 leading-relaxed">
-                      In Tradovate's top header, locate your <strong>ACCOUNT ID</strong> (e.g., <code className="bg-[#0b1318] px-1.5 py-0.5 rounded text-[#00E5FF] font-mono">LFE05055647070018</code>). Click <strong>Option A (1-Click OAuth)</strong> below to authorize instantly!
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3">
-                    {/* OPTION A: OFFICIAL OAUTH POPUP */}
-                    <button
-                      type="button"
-                      onClick={() => handleLaunchOAuthPopup(selectedPlatform)}
-                      className="p-5 rounded-2xl bg-[#FF6B00]/15 border-2 border-[#FF6B00] text-left hover:bg-[#FF6B00]/25 transition-all cursor-pointer space-y-2 group shadow-md"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded bg-[#FF6B00] text-white">
-                          RECOMMENDED (1-CLICK OAUTH)
-                        </span>
-                        <ExternalLink size={16} className="text-[#FF6B00] group-hover:scale-110 transition-transform" />
-                      </div>
-                      <div className="text-sm font-black text-white group-hover:text-[#FF6B00]">
-                        Official {selectedPlatform.name} OAuth Sign-In
-                      </div>
-                      <div className="text-xs font-bold text-slate-300 leading-relaxed">
-                        Launches official login popup. Log in once on broker site — automatically redirects back & closes window when done.
-                      </div>
-                    </button>
-
-                    {/* OPTION B: DIRECT API / PROP FIRM BATCH */}
-                    <button
-                      type="button"
-                      onClick={() => setAuthMode('DIRECT_FORM')}
-                      className="p-5 rounded-2xl bg-[#142127] border-2 border-[#20323D] text-left hover:border-slate-500 transition-all cursor-pointer space-y-2 group"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded bg-[#1CB0F6]/20 text-[#1CB0F6] border border-[#1CB0F6]/40">
-                          PROP FIRM / MULTI-ACCOUNT BATCH
-                        </span>
-                        <Key size={16} className="text-[#1CB0F6] group-hover:scale-110 transition-transform" />
-                      </div>
-                      <div className="text-sm font-black text-white group-hover:text-[#1CB0F6]">
-                        Direct API Keys / Sub-Accounts Batch Form
-                      </div>
-                      <div className="text-xs font-bold text-slate-300 leading-relaxed">
-                        Type Account ID & API Key in-app. Best for importing 5–10 prop firm sub-accounts (Apex, Topstep, Lucid).
-                      </div>
-                    </button>
-                  </div>
+                  <a
+                    href={selectedPlatform.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-bold text-[#FF6B00] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Official Web</span>
+                    <ExternalLink size={12} />
+                  </a>
                 </div>
-              ) : (
-                /* OPTION B: IN-APP DIRECT BROKER AUTHENTICATION FORM */
-                <form onSubmit={handleDirectAuthSubmit} className="space-y-4 animate-fade-in">
-                  <div className="flex items-center justify-between p-3 rounded-2xl bg-[#142127] border border-[#20323D]">
-                    <div className="flex items-center gap-3">
-                      <selectedPlatform.icon className="w-8 h-8 object-contain shrink-0" />
-                      <div>
-                        <div className="text-sm font-black text-white">{selectedPlatform.name}</div>
-                        <div className="text-[10px] font-bold text-slate-400">Direct API & Multi-Account Import</div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setAuthMode('CHOICE')}
-                      className="text-xs font-bold text-[#FF6B00] hover:underline cursor-pointer"
-                    >
-                      Switch to OAuth
-                    </button>
-                  </div>
 
                 <div className="p-4 rounded-2xl bg-[#142127] border-2 border-[#FF6B00]/40 space-y-2 text-left shadow-lg">
                   <div className="text-xs font-black text-[#FF6B00] uppercase tracking-wider flex items-center gap-1.5">
@@ -757,7 +694,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                   )}
                 </button>
               </form>
-            )) : (
+            ) : (
               /* Platform Selector Grid */
               <div className="grid grid-cols-2 gap-2.5">
                 {platforms.map((p) => {
