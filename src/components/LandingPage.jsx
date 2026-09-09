@@ -9,12 +9,13 @@ import { TradovateLogo, MetaTrader5Logo, NinjaTraderLogo, TradeLockerLogo, CsvLo
 import { Duo3dShieldBadge, Duo3dFlameBadge, Duo3dChartBadge, Duo3dZapBadge, Duo3dLockBadge, Duo3dBellBadge, Duo3dCheckBadge } from './DuolingoFeatureBadges';
 import { DuoDisciplinedWinIcon, DuoDisciplinedLossIcon, DuoDisciplinedBeIcon, DuoToxicWinIcon, DuoToxicBeIcon, DuoDoubleFailureIcon, DuoMissedTradeIcon } from './DuoIcons';
 import { soundFx } from '../utils/audioEngine';
-import { saveStoredData } from '../utils/storage';
+import { saveStoredData, loadStoredData, subscribeToStorageUpdate } from '../utils/storage';
 
 import GoogleAuthButton from './GoogleAuthButton';
 import AuthModal from './AuthModal';
 
 export default function LandingPage({ onGetStarted, onLogin }) {
+  const [loggedInUser, setLoggedInUser] = useState(() => loadStoredData('goodtrader_google_user', null));
   const [isLegalTermsOpen, setIsLegalTermsOpen] = useState(false);
   const [isLegalPrivacyOpen, setIsLegalPrivacyOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -22,6 +23,15 @@ export default function LandingPage({ onGetStarted, onLogin }) {
   const [billingCycle, setBillingCycle] = useState('MONTHLY'); // Default: $9.99 / month
   const [activeRoadmapIndex, setActiveRoadmapIndex] = useState(0);
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
+      if (key === 'goodtrader_google_user') {
+        setLoggedInUser(value);
+      }
+    });
+    return unsubscribe;
+  }, []);
   
   // DYNAMIC INTERACTIVE MASCOT REACTIVE STATE (Respectful Trading Companion Tone)
   const mascotQuotes = [
@@ -50,9 +60,9 @@ export default function LandingPage({ onGetStarted, onLogin }) {
     setSpeechText(mascotQuotes[nextIndex].text);
   };
 
-  const handleStart = () => {
+  const handleStart = (userObj = loggedInUser) => {
     soundFx.playSuccess();
-    onGetStarted();
+    onGetStarted(userObj);
   };
 
   const handleStripeCheckout = async (overrideCycle) => {
@@ -125,13 +135,23 @@ export default function LandingPage({ onGetStarted, onLogin }) {
             className="bg-[#142127] border-2 border-[#20323D] border-b-4 border-b-[#0e171b] text-white font-black text-xs hover:border-[#FF6B00] hover:bg-[#182830] transition-all px-4 py-2.5 rounded-2xl cursor-pointer shadow-md" 
             buttonText="Sign in with Google" 
           />
-          <button
-            onClick={() => handleStripeCheckout()}
-            className="duo-btn-orange px-5 py-2.5 text-xs uppercase tracking-wider font-black shadow-lg cursor-pointer flex items-center gap-2"
-          >
-            <Duo3dZapBadge className="w-4 h-4" />
-            <span>START FREE TRIAL</span>
-          </button>
+          {loggedInUser ? (
+            <button
+              onClick={() => handleStart(loggedInUser)}
+              className="duo-btn-green px-5 py-2.5 text-xs uppercase tracking-wider font-black shadow-lg cursor-pointer flex items-center gap-2"
+            >
+              <span>ENTER DASHBOARD</span>
+              <ArrowRight size={16} />
+            </button>
+          ) : (
+            <button
+              onClick={() => handleStripeCheckout()}
+              className="duo-btn-orange px-5 py-2.5 text-xs uppercase tracking-wider font-black shadow-lg cursor-pointer flex items-center gap-2"
+            >
+              <Duo3dZapBadge className="w-4 h-4" />
+              <span>START FREE TRIAL</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -186,13 +206,23 @@ export default function LandingPage({ onGetStarted, onLogin }) {
 
           {/* Duolingo 3D Tactile Action Buttons */}
           <div className="space-y-3.5 max-w-md mx-auto lg:mx-0">
-            <button
-              onClick={() => handleStripeCheckout()}
-              className="duo-btn-orange w-full py-4 text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-[0_8px_30px_rgba(255,107,0,0.4)] cursor-pointer"
-            >
-              <Duo3dZapBadge className="w-5 h-5" />
-              <span>START YOUR 7-DAY FREE TRIAL</span>
-            </button>
+            {loggedInUser ? (
+              <button
+                onClick={() => handleStart(loggedInUser)}
+                className="duo-btn-green w-full py-4 text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-[0_8px_30px_rgba(88,204,2,0.4)] cursor-pointer font-black"
+              >
+                <span>ENTER TRADEPIGEON DASHBOARD</span>
+                <ArrowRight size={18} />
+              </button>
+            ) : (
+              <button
+                onClick={() => handleStripeCheckout()}
+                className="duo-btn-orange w-full py-4 text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-[0_8px_30px_rgba(255,107,0,0.4)] cursor-pointer"
+              >
+                <Duo3dZapBadge className="w-5 h-5" />
+                <span>START YOUR 7-DAY FREE TRIAL</span>
+              </button>
+            )}
           </div>
 
           {/* Duolingo 3D Tactile Broker Badges */}
@@ -580,13 +610,23 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                 </li>
               </ul>
 
-              <button
-                onClick={() => handleStripeCheckout()}
-                className="duo-btn-orange w-full py-4 text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg"
-              >
-                <Duo3dZapBadge className="w-5 h-5" />
-                <span>START YOUR 7-DAY FREE TRIAL</span>
-              </button>
+              {loggedInUser ? (
+                <button
+                  onClick={() => handleStart(loggedInUser)}
+                  className="duo-btn-green w-full py-4 text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+                >
+                  <span>ENTER TRADEPIGEON DASHBOARD</span>
+                  <ArrowRight size={18} />
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleStripeCheckout()}
+                  className="duo-btn-orange w-full py-4 text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+                >
+                  <Duo3dZapBadge className="w-5 h-5" />
+                  <span>START YOUR 7-DAY FREE TRIAL</span>
+                </button>
+              )}
             </div>
 
             {/* Right: Integrated Trial Timeline */}
