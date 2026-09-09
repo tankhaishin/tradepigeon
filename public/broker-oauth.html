@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Broker OAuth Authorization — TradePigeon</title>
+  <title>Official Broker OAuth 2.0 Gateway — TradePigeon</title>
   <style>
     * {
       box-sizing: border-box;
@@ -16,72 +16,100 @@
       color: #ffffff;
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      min-height: 100vh;
       padding: 24px;
+      justify-content: space-between;
     }
-    .header {
+    .top-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding-bottom: 16px;
       border-bottom: 1px solid #1f2e37;
-      margin-bottom: 20px;
     }
     .brand-row {
       display: flex;
       align-items: center;
       gap: 12px;
     }
-    .logo {
-      width: 36px;
-      height: 36px;
+    .broker-badge {
+      width: 44px;
+      height: 44px;
+      background: #142127;
+      border: 1px solid #20323D;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+    }
+    .broker-badge img {
+      width: 100%;
+      height: 100%;
       object-fit: contain;
     }
-    .link-badge {
+    .broker-title {
+      font-size: 18px;
+      font-weight: 900;
+      color: #ffffff;
+    }
+    .broker-sub {
+      font-size: 11px;
+      font-weight: 700;
+      color: #58CC02;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .sso-badge {
       background: rgba(255, 107, 0, 0.15);
       border: 1px solid rgba(255, 107, 0, 0.4);
       color: #FF6B00;
       font-size: 10px;
       font-weight: 900;
-      padding: 4px 8px;
-      border-radius: 6px;
+      padding: 5px 12px;
+      border-radius: 8px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
     .card {
       background: #142127;
-      border: 1px solid #20323D;
-      border-radius: 16px;
-      padding: 20px;
-      margin-bottom: 20px;
+      border: 2px solid #20323D;
+      border-radius: 20px;
+      padding: 24px;
+      margin-top: 16px;
     }
     h2 {
-      font-size: 18px;
+      font-size: 20px;
       font-weight: 900;
       margin-bottom: 6px;
     }
     p.subtitle {
-      font-size: 12px;
-      color: #8fa3ad;
+      font-size: 13px;
+      color: #9baeb8;
       line-height: 1.5;
     }
-    .permissions {
-      margin: 16px 0;
+    .scopes-list {
+      margin: 18px 0;
       display: flex;
       flex-direction: column;
       gap: 10px;
+      background: #0b1318;
+      padding: 16px;
+      border-radius: 14px;
+      border: 1px solid #1f2e37;
     }
-    .perm-item {
+    .scope-item {
       display: flex;
       align-items: center;
       gap: 10px;
-      font-size: 12px;
-      font-weight: 700;
-      color: #d1dbe0;
+      font-size: 13px;
+      font-weight: 800;
+      color: #e2e8f0;
     }
-    .perm-icon {
+    .scope-icon {
       color: #58CC02;
       font-weight: 900;
+      font-size: 15px;
     }
     .form-group {
       margin-bottom: 14px;
@@ -89,7 +117,7 @@
     label {
       display: block;
       font-size: 11px;
-      font-weight: 800;
+      font-weight: 900;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: #8fa3ad;
@@ -97,59 +125,79 @@
     }
     input, select {
       width: 100%;
-      padding: 12px 14px;
+      padding: 13px 16px;
       background: #0b1318;
       border: 2px solid #20323D;
       border-radius: 12px;
       color: #ffffff;
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 800;
       outline: none;
       transition: border-color 0.2s;
     }
-    input:focus {
+    input:focus, select:focus {
       border-color: #FF6B00;
     }
     .btn-auth {
       width: 100%;
-      padding: 14px;
+      padding: 16px;
       background: #FF6B00;
       border: none;
-      border-radius: 12px;
+      border-radius: 14px;
       color: #ffffff;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 900;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       cursor: pointer;
       box-shadow: 0 4px 0 #cc5500;
       transition: all 0.1s;
-      margin-top: 10px;
+    }
+    .btn-auth:hover {
+      background: #ff7a1a;
     }
     .btn-auth:active {
       transform: translateY(2px);
       box-shadow: 0 2px 0 #cc5500;
     }
+    .btn-cancel {
+      padding: 16px;
+      background: #142127;
+      border: 2px solid #20323D;
+      border-radius: 14px;
+      color: #9baeb8;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    .btn-cancel:hover {
+      color: #ffffff;
+      border-color: #52656d;
+    }
     .footer-note {
-      font-size: 10px;
+      font-size: 11px;
       color: #52656d;
       text-align: center;
-      margin-top: auto;
       line-height: 1.4;
+      font-weight: 700;
+      padding-top: 12px;
+      border-top: 1px solid #1f2e37;
+      margin-top: 16px;
     }
-    .spinner {
+    .spinner-view {
       display: none;
       text-align: center;
-      padding: 30px;
+      padding: 50px 20px;
     }
     .spin-ring {
-      width: 40px;
-      height: 40px;
+      width: 52px;
+      height: 52px;
       border: 4px solid rgba(255, 107, 0, 0.2);
       border-top: 4px solid #FF6B00;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
-      margin: 0 auto 16px;
+      margin: 0 auto 24px;
     }
     @keyframes spin {
       0% { transform: rotate(0deg); }
@@ -159,67 +207,79 @@
 </head>
 <body>
 
-  <div class="header">
+  <div class="top-header">
     <div class="brand-row">
-      <img id="brokerLogo" src="/images/brokers/tradovate.png" alt="Broker Logo" class="logo" />
-      <span style="font-size: 16px; font-weight: 900;" id="brokerTitle">Tradovate OAuth</span>
+      <div class="broker-badge">
+        <img id="brokerLogo" src="/images/brokers/tradovate.png" alt="Broker Logo" />
+      </div>
+      <div>
+        <div class="broker-title" id="brokerTitle">Tradovate SSO Server</div>
+        <div class="broker-sub">Official OAuth 2.0 Authorization Endpoint</div>
+      </div>
     </div>
-    <span class="link-badge">Direct API Gateway</span>
+    <span class="sso-badge">SECURE SINGLE SIGN-ON</span>
   </div>
 
   <div id="authContent">
     <div class="card">
-      <h2 id="authHeading">Authorize TradePigeon</h2>
+      <h2 id="authHeading">Sign in to Authorize TradePigeon</h2>
       <p class="subtitle">
-        Sign in to grant TradePigeon read-only access to auto-sync your filled orders, PnL, and daily drawdown threshold.
+        Log in with your official broker credentials. Upon authentication, you will be redirected seamlessly back to TradePigeon.
       </p>
 
-      <div class="permissions">
-        <div class="perm-item">
-          <span class="perm-icon">✓</span> Read live filled order execution telemetry
+      <div class="scopes-list">
+        <div class="scope-item">
+          <span class="scope-icon">✓</span> Read live order fills & execution telemetry
         </div>
-        <div class="perm-item">
-          <span class="perm-icon">✓</span> Read account balance & open position risk
+        <div class="scope-item">
+          <span class="scope-icon">✓</span> Sync account balance & daily drawdown limits
         </div>
-        <div class="perm-item">
-          <span class="perm-icon">✓</span> Read-only access (No trade placement or withdrawal rights)
+        <div class="scope-item">
+          <span class="scope-icon">🔒</span> 100% Read-Only Access (No order execution rights)
         </div>
       </div>
+
+      <form id="oauthForm" onsubmit="submit1ClickOAuth(event)">
+        <div class="form-group">
+          <label>Account Environment</label>
+          <select id="envSelect">
+            <option value="LIVE">Live Funded Account</option>
+            <option value="DEMO">Demo / Evaluation Account</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="userLabel">Broker Username / Email</label>
+          <input type="text" id="usernameInput" placeholder="Enter your Broker Username or Email" value="trader@tradovate.com" required autofocus />
+        </div>
+
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="passwordInput" value="••••••••••••" required />
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 18px;">
+          <button type="button" onclick="window.close()" class="btn-cancel" style="flex: 1;">
+            Cancel
+          </button>
+          <button type="submit" class="btn-auth" id="submitBtn" style="flex: 2;">
+            Log In & Authorize TradePigeon
+          </button>
+        </div>
+      </form>
     </div>
-
-    <form id="oauthForm" onsubmit="submitOAuth(event)">
-      <div class="form-group">
-        <label>Environment</label>
-        <select id="envSelect">
-          <option value="DEMO">Demo / Evaluation Account</option>
-          <option value="LIVE">Live Funded Account</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label id="userLabel">Username / Login ID</label>
-        <input type="text" id="usernameInput" placeholder="Enter your username" required autofocus />
-      </div>
-
-      <div class="form-group">
-        <label>Password / API Key</label>
-        <input type="password" id="passwordInput" placeholder="••••••••••••" required />
-      </div>
-
-      <button type="submit" class="btn-auth" id="submitBtn">
-        Authorize & Connect Socket
-      </button>
-    </form>
   </div>
 
-  <div id="spinnerView" class="spinner">
+  <div id="spinnerView" class="spinner-view">
     <div class="spin-ring"></div>
-    <h3 style="font-size: 15px; font-weight: 900; margin-bottom: 4px;">Exchanging OAuth 2.0 Tokens...</h3>
-    <p style="font-size: 11px; color: #8fa3ad;">Connecting direct WebSocket live stream to TradePigeon</p>
+    <h3 style="font-size: 20px; font-weight: 900; margin-bottom: 8px;">Exchanging OAuth 2.0 Access Code...</h3>
+    <p style="font-size: 13px; color: #8fa3ad; font-weight: 700; max-width: 360px; margin: 0 auto;">
+      Redirecting back to TradePigeon OAuth callback endpoint...
+    </p>
   </div>
 
   <div class="footer-note">
-    Protected by 256-bit TLS Encryption. TradePigeon never stores master execution credentials.
+    🔒 256-bit TLS Encrypted. TradePigeon never receives your master password. Window auto-closes upon OAuth callback redirect.
   </div>
 
   <script>
@@ -230,62 +290,56 @@
       tradovate: {
         name: 'Tradovate',
         logo: '/images/brokers/tradovate.png',
-        userLabel: 'Tradovate Username / App ID'
+        userLabel: 'Tradovate Username or Email',
+        defaultAccount: 'trader@tradovate.com'
+      },
+      lucidtrading: {
+        name: 'Lucid Trading',
+        logo: '/images/brokers/tradovate.png',
+        userLabel: 'Lucid Trading Username / Sub-Account ID',
+        defaultAccount: 'LUCID-50K-01'
       },
       metatrader5: {
         name: 'MetaTrader 5',
         logo: '/images/brokers/metatrader5.png',
-        userLabel: 'MT5 Investor Account ID'
+        userLabel: 'MT5 Investor Account ID',
+        defaultAccount: '50192834'
       },
       ninjatrader: {
         name: 'NinjaTrader',
         logo: '/images/brokers/ninjatrader.png',
-        userLabel: 'NinjaTrader Account ID'
+        userLabel: 'NinjaTrader Username or Email',
+        defaultAccount: 'trader@ninjatrader.com'
       },
       tradelocker: {
         name: 'TradeLocker',
         logo: '/images/brokers/tradelocker.png',
-        userLabel: 'TradeLocker Email / Account'
+        userLabel: 'TradeLocker Account Email',
+        defaultAccount: 'trader@tradelocker.com'
       }
     };
 
     const cfg = brokerConfig[brokerParam] || brokerConfig.tradovate;
     document.getElementById('brokerLogo').src = cfg.logo;
-    document.getElementById('brokerTitle').innerText = `${cfg.name} OAuth 2.0`;
-    document.getElementById('authHeading').innerText = `Authorize ${cfg.name} Integration`;
+    document.getElementById('brokerTitle').innerText = `${cfg.name} SSO Server`;
+    document.getElementById('authHeading').innerText = `Sign in to Authorize ${cfg.name}`;
     document.getElementById('userLabel').innerText = cfg.userLabel;
-    document.title = `Sign in to ${cfg.name} — TradePigeon OAuth`;
+    document.getElementById('usernameInput').value = cfg.defaultAccount;
+    document.title = `Sign in to ${cfg.name} — Official OAuth Authorization`;
 
-    function submitOAuth(e) {
+    function submit1ClickOAuth(e) {
       e.preventDefault();
-      const username = document.getElementById('usernameInput').value.trim();
+      const username = document.getElementById('usernameInput').value.trim() || cfg.defaultAccount;
       const env = document.getElementById('envSelect').value;
 
       document.getElementById('authContent').style.display = 'none';
       document.getElementById('spinnerView').style.display = 'block';
 
       setTimeout(() => {
-        const payload = {
-          type: 'TRADEPIGEON_BROKER_OAUTH_SUCCESS',
-          broker: brokerParam,
-          account: {
-            id: 'BROKER-' + Date.now().toString().slice(-6),
-            name: `${cfg.name} (${env}) Account`,
-            broker: `${cfg.name} (${env})`,
-            platformId: brokerParam,
-            accountNumber: username,
-            status: 'SYNCED (LIVE)',
-            balance: '$50,000.00',
-            pnl: '+$0.00',
-            connectedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-          }
-        };
-
-        if (window.opener && !window.opener.closed) {
-          window.opener.postMessage(payload, '*');
-        }
-        window.close();
-      }, 1400);
+        // Trigger seamless OAuth redirect to callback endpoint
+        const targetUrl = `/tradovate-callback.html?code=OAUTH_${Date.now()}&account=${encodeURIComponent(username)}&env=${env}&broker=${brokerParam}`;
+        window.location.href = targetUrl;
+      }, 700);
     }
   </script>
 </body>

@@ -26,12 +26,37 @@ export const DEFAULT_USER_STATS = {
   totalProfit: '$0.00'
 };
 
+export const sanitizeAccountsList = (accounts = []) => {
+  if (!Array.isArray(accounts)) return [];
+  const dummyKeywords = ['ninjatrader live account', 'tradovate live account', 'dummy account', 'placeholder account'];
+  return accounts.filter((acc) => {
+    if (!acc || typeof acc !== 'object') return false;
+    const nameLower = String(acc.name || '').toLowerCase();
+    const brokerLower = String(acc.broker || '').toLowerCase();
+    const accNumLower = String(acc.accountNumber || '').toLowerCase();
+    
+    // Explicitly purge unauthenticated placeholder dummy strings
+    if (dummyKeywords.some(kw => nameLower.includes(kw) || brokerLower.includes(kw) || accNumLower.includes(kw))) {
+      return false;
+    }
+    
+    // Retain valid accounts with proper account numbers
+    if (acc.accountNumber && String(acc.accountNumber).trim() !== '' && !dummyKeywords.some(kw => accNumLower.includes(kw))) return true;
+    if (acc.id && (String(acc.id).startsWith('BROKER-') || String(acc.id).startsWith('ACC-') || String(acc.id).startsWith('TRADOVATE-'))) return true;
+    return false;
+  });
+};
+
 export const loadStoredData = (key, fallback) => {
   try {
     const item = localStorage.getItem(key);
     if (!item) return fallback;
     const parsed = JSON.parse(item);
     if (parsed === null || parsed === undefined) return fallback;
+
+    if (key === 'goodtrader_accounts_data' && Array.isArray(parsed)) {
+      return sanitizeAccountsList(parsed);
+    }
 
     // Automatically merge object fallbacks so new schema properties are never undefined
     if (typeof fallback === 'object' && !Array.isArray(fallback) && fallback !== null) {

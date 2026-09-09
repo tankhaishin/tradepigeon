@@ -7,6 +7,7 @@ import AiDebriefModal from './AiDebriefModal';
 import ManualTradeModal from './ManualTradeModal';
 import PendingOrdersRadar from './PendingOrdersRadar';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS } from '../utils/storage';
+import { auditAndSanitizeCalendarState } from '../utils/calendarEngine';
 import { soundFx } from '../utils/audioEngine';
 
 export default function RightStatusHub({ isExpanded = false, onToggleExpand, isMobileOpen = false, onCloseMobile, isInPage = false, onOpenCalendarTab }) {
@@ -72,9 +73,10 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   }, [activeAuditDay]);
 
   const primaryAccountName = connectedAccounts[0]?.name || connectedAccounts[0]?.id || 'Primary Account';
+  const dummyKeywords = ['ninjatrader live account', 'tradovate live account', 'dummy account', 'placeholder account'];
   const availableBaskets = ['ALL', ...new Set([
     ...connectedAccounts.map(a => a.name || a.id),
-    ...sessionTrades.map(t => t.account).filter(Boolean)
+    ...sessionTrades.map(t => t.account).filter(accName => accName && !dummyKeywords.some(kw => String(accName).toLowerCase().includes(kw)))
   ])];
 
   const [isAddTradeModalOpen, setIsAddTradeModalOpen] = useState(false);
@@ -265,6 +267,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const defaultMonths = [
     {
       monthName: 'JULY 2026',
+      startOffset: 2,
       days: [
         { date: 1, dayOfWeek: 'W', status: 'upcoming', pnl: '-' }, { date: 2, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
         { date: 3, dayOfWeek: 'F', status: 'upcoming', pnl: '-' }, { date: 4, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
@@ -286,6 +289,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     },
     {
       monthName: 'AUGUST 2026',
+      startOffset: 5,
       days: [
         { date: 1, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 2, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
         { date: 3, dayOfWeek: 'M', status: 'upcoming', pnl: '-' }, { date: 4, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
@@ -307,26 +311,20 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     },
     {
       monthName: 'SEPTEMBER 2026',
+      startOffset: 1,
       days: Array.from({ length: 30 }, (_, i) => ({ date: i + 1, status: 'upcoming', pnl: '-' }))
     }
   ];
 
-  // Month Historical Data State with localStorage (Purging old mock data if detected)
+  // Month Historical Data State with localStorage (Dynamically audited via native JS Date engine)
   const [monthsData, setMonthsData] = useState(() => {
     try {
       const loaded = loadStoredData(STORAGE_KEYS.CALENDAR_DATA, defaultMonths);
-      // Auto-purge legacy mock data if August 3 was pre-populated with 'win'
-      if (Array.isArray(loaded) && loaded[1]?.days?.[2]?.status === 'win') {
-        saveStoredData(STORAGE_KEYS.CALENDAR_DATA, defaultMonths);
-        return defaultMonths;
-      }
-      if (Array.isArray(loaded) && loaded.length >= 2 && loaded[1] && Array.isArray(loaded[1].days)) {
-        return loaded;
-      }
+      return auditAndSanitizeCalendarState(loaded);
     } catch (e) {
       console.warn('Resetting corrupted calendar data:', e);
+      return auditAndSanitizeCalendarState(defaultMonths);
     }
-    return defaultMonths;
   });
 
   useEffect(() => {
@@ -1038,6 +1036,11 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
           {/* Compact Month Grid (MON-SUN, 1-31, 100% visible with ZERO cutoffs) */}
           <div className="grid grid-cols-7 gap-1 text-center">
+            {/* Leading offset cells to align Day 1 with its exact day of week */}
+            {Array.from({ length: currentMonthData.startOffset ?? (currentMonthData.monthName?.includes('AUGUST') ? 5 : currentMonthData.monthName?.includes('JULY') ? 2 : currentMonthData.monthName?.includes('SEPTEMBER') ? 1 : 0) }).map((_, offsetIdx) => (
+              <div key={`offset-${offsetIdx}`} className="min-h-[36px] rounded-xl bg-transparent" />
+            ))}
+
             {currentMonthData.days.map((item, idx) => {
               const isSelected = selectedDay === idx;
               

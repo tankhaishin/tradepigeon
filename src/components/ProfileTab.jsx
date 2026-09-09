@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { User, Flame, Gem, Heart, Calendar, ShieldCheck, Award, TrendingUp, CheckCircle2, AlertCircle, Cpu, RefreshCw, BarChart3, Activity, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Flame, Gem, Heart, Calendar, ShieldCheck, Award, TrendingUp, CheckCircle2, AlertCircle, Cpu, RefreshCw, BarChart3, Activity, Sparkles, Trash2 } from 'lucide-react';
 import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoProfileIcon, DuoTrophyIcon } from './DuoIcons';
 import GoogleAuthButton from './GoogleAuthButton';
 import MobileAlertSettings from './MobileAlertSettings';
 import { soundFx } from '../utils/audioEngine';
-import { loadStoredData, DEFAULT_USER_STATS } from '../utils/storage';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, DEFAULT_USER_STATS } from '../utils/storage';
 
 export default function ProfileTab() {
   const [activeSubTab, setActiveSubTab] = useState('DEBRIEF_HISTORY');
@@ -52,7 +52,31 @@ export default function ProfileTab() {
   const historicalLogs = loadStoredData('goodtrader_debrief_history', []);
 
   // Connected Auto-Synced Trading Accounts (Loaded from Storage with clean zero-state)
-  const connectedAccounts = loadStoredData('goodtrader_accounts_data', []);
+  const [connectedAccounts, setConnectedAccounts] = useState(() => loadStoredData('goodtrader_accounts_data', []));
+
+  useEffect(() => {
+    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
+      if (key === 'goodtrader_accounts_data') {
+        setConnectedAccounts(value || []);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleDisconnectAccount = (accountId) => {
+    soundFx.playPop();
+    const updated = connectedAccounts.filter((a) => a.id !== accountId && a.name !== accountId);
+    setConnectedAccounts(updated);
+    saveStoredData('goodtrader_accounts_data', updated);
+    triggerToast('Account disconnected successfully');
+  };
+
+  const handleClearAllAccounts = () => {
+    soundFx.playPop();
+    setConnectedAccounts([]);
+    saveStoredData('goodtrader_accounts_data', []);
+    triggerToast('All connected accounts cleared');
+  };
 
   // Live User Stats from Storage
   const userStats = loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS);
@@ -188,9 +212,22 @@ export default function ProfileTab() {
         <div className="duo-card p-6 space-y-4 animate-fade-in">
           <div className="flex items-center justify-between pb-3 border-b border-[#20323D]">
             <h3 className="text-base font-black text-white">Auto-Synced Broker & Prop Accounts</h3>
-            <span className="text-xs font-black text-white bg-[#58CC02] border-2 border-[#46A302] border-b-4 border-b-[#388202] px-3 py-1 rounded-xl">
-              {connectedAccounts.length} LIVE CONNECTIONS
-            </span>
+            <div className="flex items-center gap-2">
+              {connectedAccounts.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAllAccounts}
+                  className="text-xs font-black text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1 rounded-xl flex items-center gap-1.5 cursor-pointer transition-all"
+                  title="Purge all dummy/unauthenticated accounts"
+                >
+                  <Trash2 size={12} />
+                  <span>Clear All Accounts</span>
+                </button>
+              )}
+              <span className="text-xs font-black text-white bg-[#58CC02] border-2 border-[#46A302] border-b-4 border-b-[#388202] px-3 py-1 rounded-xl">
+                {connectedAccounts.length} LIVE CONNECTIONS
+              </span>
+            </div>
           </div>
 
           {connectedAccounts.length === 0 ? (
@@ -201,10 +238,18 @@ export default function ProfileTab() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {connectedAccounts.map((acc, idx) => (
-                <div key={idx} className="p-5 rounded-2xl bg-[#182830] border-2 border-[#2B3D47] border-b-4 border-b-[#142127] space-y-3">
+                <div key={acc.id || idx} className="p-5 rounded-2xl bg-[#182830] border-2 border-[#2B3D47] border-b-4 border-b-[#142127] space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-black text-white bg-[#58CC02] border border-[#46A302] px-2 py-0.5 rounded-md">{acc.status}</span>
-                    <span className="text-xs font-black text-[#52656D]">{acc.id}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDisconnectAccount(acc.id || acc.name)}
+                      className="text-xs font-black text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 px-2 py-1 rounded-lg border border-rose-500/30 flex items-center gap-1.5 cursor-pointer transition-all"
+                      title="Disconnect & remove this account"
+                    >
+                      <Trash2 size={12} />
+                      <span>Disconnect</span>
+                    </button>
                   </div>
 
                   <div>
