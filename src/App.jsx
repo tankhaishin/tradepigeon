@@ -52,7 +52,14 @@ class ErrorBoundary extends React.Component {
 }
 
 export default function App() {
-  const [googleUser, setGoogleUser] = useState(() => loadStoredData('goodtrader_google_user', null));
+  const [googleUser, setGoogleUser] = useState(() => {
+    const saved = loadStoredData('goodtrader_google_user', null);
+    if (saved && (saved.email === 'trader@tradepigeon.com' || saved.email === 'alex.trader@gmail.com' || saved.name === 'Trader')) {
+      saveStoredData('goodtrader_google_user', null);
+      return null;
+    }
+    return saved;
+  });
   const [showLanding, setShowLanding] = useState(() => {
     const user = loadStoredData('goodtrader_google_user', null);
     return !user;
@@ -109,19 +116,6 @@ export default function App() {
   }, []);
 
   const handleEnterApp = () => {
-    let currentUser = googleUser;
-    if (!currentUser) {
-      currentUser = {
-        name: 'Trader',
-        email: 'trader@tradepigeon.com',
-        picture: '/parrot_logo.png',
-        sub: Date.now().toString(),
-        authenticatedAt: new Date().toISOString()
-      };
-      saveStoredData('goodtrader_google_user', currentUser);
-      setGoogleUser(currentUser);
-    }
-
     saveStoredData('goodtrader_visited_landing', true);
     setShowLanding(false);
     setConfettiTrigger(Date.now());
