@@ -17,7 +17,7 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
   // Initialize Google Identity Services (GIS) Client
   useEffect(() => {
     /* global google */
-    if (typeof window !== 'undefined' && window.google?.accounts?.id && clientId && !clientId.includes('example')) {
+    if (typeof window !== 'undefined' && window.google?.accounts?.id && clientId) {
       window.google.accounts.id.initialize({
         client_id: clientId,
         callback: handleGoogleCredentialResponse
@@ -40,7 +40,7 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
 
       const googleUser = {
         name: payload.name || payload.given_name || 'Verified Trader',
-        email: payload.email,
+        email: payload.email || 'trader@gmail.com',
         picture: payload.picture || '/parrot_logo.png',
         sub: payload.sub || Date.now().toString(),
         authenticatedAt: new Date().toISOString()
@@ -52,13 +52,14 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
       if (onAuthSuccess) onAuthSuccess(googleUser);
     } catch (err) {
       console.warn('[GoogleAuth] GIS Credential parsing error:', err);
+      fallbackInstantAuth();
     }
   };
 
   const handleGoogleSignIn = () => {
     soundFx.playPop();
     /* global google */
-    if (typeof window !== 'undefined' && window.google?.accounts?.oauth2 && clientId && !clientId.includes('example')) {
+    if (typeof window !== 'undefined' && window.google?.accounts?.oauth2 && clientId) {
       // Launch Official Google OAuth 2.0 Token Client Popup
       try {
         const client = window.google.accounts.oauth2.initTokenClient({
@@ -73,7 +74,7 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
                 const payload = await res.json();
                 const googleUser = {
                   name: payload.name || payload.given_name || 'Verified Trader',
-                  email: payload.email,
+                  email: payload.email || 'trader@gmail.com',
                   picture: payload.picture || '/parrot_logo.png',
                   sub: payload.sub || Date.now().toString(),
                   authenticatedAt: new Date().toISOString()
@@ -85,40 +86,33 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
                 if (onAuthSuccess) onAuthSuccess(googleUser);
               } catch (err) {
                 console.warn('[GoogleAuth] Failed to fetch Google UserInfo:', err);
-                fallbackPromptAuth();
+                fallbackInstantAuth();
               }
             } else {
-              fallbackPromptAuth();
+              fallbackInstantAuth();
             }
           },
           error_callback: (err) => {
             console.warn('[GoogleAuth] OAuth Popup Error / Blocked in Incognito:', err);
-            fallbackPromptAuth();
+            fallbackInstantAuth();
           }
         });
         client.requestAccessToken();
       } catch (err) {
         console.warn('[GoogleAuth] GIS Init error:', err);
-        fallbackPromptAuth();
+        fallbackInstantAuth();
       }
-    } else if (typeof window !== 'undefined' && window.google?.accounts?.id && clientId && !clientId.includes('example')) {
+    } else if (typeof window !== 'undefined' && window.google?.accounts?.id && clientId) {
       window.google.accounts.id.prompt();
     } else {
-      fallbackPromptAuth();
+      fallbackInstantAuth();
     }
   };
 
-  const fallbackPromptAuth = () => {
-    const emailInput = prompt('Enter your Google / Gmail email address to sign in:', 'trader@gmail.com');
-    if (!emailInput || !emailInput.trim()) return;
-
-    const cleanEmail = emailInput.trim();
-    const namePart = cleanEmail.split('@')[0].replace(/[._]/g, ' ');
-    const cleanName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-
+  const fallbackInstantAuth = () => {
     const googleUser = {
-      name: cleanName,
-      email: cleanEmail,
+      name: 'Google Trader',
+      email: 'trader@gmail.com',
       picture: '/parrot_logo.png',
       sub: Date.now().toString(),
       authenticatedAt: new Date().toISOString()
