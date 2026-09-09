@@ -6,7 +6,7 @@ import { Duo3dChartBadge, Duo3dPulseBadge, Duo3dBellBadge, Duo3dZenBadge, Duo3dC
 import InteractiveParrotMascot from './InteractiveParrotMascot';
 import { getRandomDialogue, getRandomMarketWizardQuote } from '../data/dialogueBank';
 import { COURSE_MODULES } from '../data/educationBank';
-import { loadStoredData, saveStoredData, sanitizeAccountBasketData, STORAGE_KEYS } from '../utils/storage';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, sanitizeAccountBasketData, STORAGE_KEYS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 
 import AiDebriefModal from './AiDebriefModal';
@@ -23,6 +23,21 @@ export default function CenterPath() {
   const [completedDays, setCompletedDays] = useState(() => loadStoredData('goodtrader_completed_days', []));
   const [isVacationActive, setIsVacationActive] = useState(() => loadStoredData('goodtrader_vacation_active', false));
   const [showDetailsState, setShowDetailsState] = useState({});
+  const [sessionTrades, setSessionTrades] = useState(() => loadStoredData(`goodtrader_session_trades_day_${currentDay}`, []));
+
+  useEffect(() => {
+    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
+      if (key === `goodtrader_session_trades_day_${currentDay}`) {
+        setSessionTrades(value || []);
+      }
+      if (key === 'goodtrader_completed_steps') {
+        setCompletedSteps(value || []);
+      }
+    });
+    return unsubscribe;
+  }, [currentDay]);
+
+  const uncalibratedCount = sessionTrades.filter(t => !t.confirmed).length;
 
   useEffect(() => {
     const checkVacation = () => {
@@ -522,7 +537,42 @@ export default function CenterPath() {
                         </span>
                       </div>
                     ) : (
-                      <div className="w-full p-4.5 rounded-2xl bg-[#1CB0F6] border-2 border-[#1899D6] border-b-4 border-b-[#147BB0] text-white space-y-3 shadow-xl text-left">
+                      <div className="space-y-3 w-full">
+                        {/* UN-CALIBRATED TRADE ALERT BADGE (If trades placed before completing pre-market steps) */}
+                        {(!completedSteps.includes(1) || !completedSteps.includes(2)) && uncalibratedCount > 0 && (
+                          <div className="w-full p-4 rounded-2xl bg-[#FF6B00] border-2 border-[#E05E00] border-b-4 border-b-[#B84D00] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl text-left animate-fade-in">
+                            <div className="flex items-center gap-3">
+                              <InteractiveParrotMascot pose="alert" className="w-10 h-10 shrink-0 drop-shadow-md" />
+                              <div className="space-y-0.5">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-amber-100 flex items-center gap-1">
+                                  <AlertCircle size={12} className="text-yellow-200" />
+                                  <span>⚠️ {uncalibratedCount} UN-CALIBRATED TRADE {uncalibratedCount === 1 ? 'FILL' : 'FILLS'} DETECTED</span>
+                                </span>
+                                <h4 className="text-sm sm:text-base font-black text-white leading-tight">
+                                  Trade Placed Before Pre-Market Calibration
+                                </h4>
+                                <p className="text-[11px] text-amber-100 font-semibold">
+                                  Your fill was auto-captured! Complete Step 1 & 2 to unlock behavioral classification.
+                                </p>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nextStepNum = !completedSteps.includes(1) ? 1 : 2;
+                                setActiveStep(nextStepNum);
+                                setIsStepModalOpen(true);
+                                soundFx.playPop();
+                              }}
+                              className="bg-white text-[#FF6B00] hover:bg-orange-50 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider shadow-md cursor-pointer transition-all border-b-2 border-b-orange-200 shrink-0 text-center"
+                            >
+                              <span>Complete Setup →</span>
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="w-full p-4.5 rounded-2xl bg-[#1CB0F6] border-2 border-[#1899D6] border-b-4 border-b-[#147BB0] text-white space-y-3 shadow-xl text-left">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="space-y-0.5">
                             <span className="text-[10px] font-black uppercase tracking-wider text-sky-100 flex items-center gap-1.5">
@@ -562,6 +612,7 @@ export default function CenterPath() {
                             : !completedSteps.includes(3)
                             ? "🟢 Telemetry Active: Trade fills are auto-syncing in real time across your connected broker accounts."
                             : "📝 Post-Session Requirement: Log your 60-second Audit Journal to lock in today's streak and earn +150 DP!"}
+                        </div>
                         </div>
                       </div>
                     )
