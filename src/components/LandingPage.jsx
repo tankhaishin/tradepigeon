@@ -116,15 +116,11 @@ export default function LandingPage({ onGetStarted, onLogin }) {
 
         {/* Header CTAs */}
         <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => {
-              setAuthMode('SIGN_IN');
-              setIsAuthModalOpen(true);
-            }}
-            className="px-4 py-2.5 rounded-2xl bg-[#142127] border-2 border-[#20323D] text-xs font-black text-white hover:border-[#FF6B00] hover:bg-[#182830] cursor-pointer flex items-center gap-2 transition-all shadow-md"
-          >
-            <span>Sign in</span>
-          </button>
+          <GoogleAuthButton 
+            onAuthSuccess={handleStart} 
+            className="bg-[#142127] border-2 border-[#20323D] border-b-4 border-b-[#0e171b] text-white font-black text-xs hover:border-[#FF6B00] hover:bg-[#182830] transition-all px-4 py-2.5 rounded-2xl cursor-pointer shadow-md" 
+            buttonText="Sign in with Google" 
+          />
           <button
             onClick={() => handleStripeCheckout()}
             className="duo-btn-orange px-5 py-2.5 text-xs uppercase tracking-wider font-black shadow-lg cursor-pointer flex items-center gap-2"
