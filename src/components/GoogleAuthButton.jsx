@@ -132,6 +132,49 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
     }
   };
 
+  const triggerOption1GIS = () => {
+    if (typeof window !== 'undefined' && window.google?.accounts?.oauth2 && clientId && !clientId.includes('example')) {
+      try {
+        const client = window.google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: 'openid profile email',
+          callback: async (tokenResponse) => {
+            if (tokenResponse?.access_token) {
+              try {
+                const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                  headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+                });
+                const payload = await res.json();
+                const userObj = {
+                  name: payload.name || payload.given_name || 'Verified Trader',
+                  email: payload.email || 'trader@gmail.com',
+                  picture: payload.picture || '/parrot_logo.png',
+                  sub: payload.sub || Date.now().toString(),
+                  authenticatedAt: new Date().toISOString()
+                };
+                soundFx.playSuccess();
+                saveStoredData('goodtrader_google_user', userObj);
+                setUser(userObj);
+                setIsModalOpen(false);
+                if (onAuthSuccess) onAuthSuccess(userObj);
+              } catch (_) {
+                setActiveOption('MANUAL_FORM');
+              }
+            } else {
+              setActiveOption('MANUAL_FORM');
+            }
+          },
+          error_callback: () => setActiveOption('MANUAL_FORM')
+        });
+        client.requestAccessToken();
+      } catch (_) {
+        setActiveOption('MANUAL_FORM');
+      }
+    } else {
+      setActiveOption('MANUAL_FORM');
+    }
+  };
+
   const handleManualFormSubmit = (e) => {
     e.preventDefault();
     if (!manualEmail.trim()) return;
@@ -224,9 +267,7 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
                 {/* OPTION 1: 1-CLICK GOOGLE POPUP */}
                 <button
                   type="button"
-                  onClick={() => {
-                    setActiveOption('MANUAL_FORM');
-                  }}
+                  onClick={triggerOption1GIS}
                   className="w-full p-4 rounded-2xl bg-[#FF6B00]/15 border-2 border-[#FF6B00] text-left hover:bg-[#FF6B00]/25 transition-all cursor-pointer space-y-1.5 group"
                 >
                   <div className="flex items-center justify-between">
