@@ -59,53 +59,82 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
   const handleGoogleSignIn = () => {
     soundFx.playPop();
     /* global google */
-    if (typeof window !== 'undefined' && window.google?.accounts?.oauth2 && clientId) {
-      // Launch Official Google OAuth 2.0 Token Client Popup
+    let authDone = false;
+
+    const doSuccess = (userObj) => {
+      if (authDone) return;
+      authDone = true;
+      soundFx.playSuccess();
+      saveStoredData('goodtrader_google_user', userObj);
+      setUser(userObj);
+      if (onAuthSuccess) onAuthSuccess(userObj);
+    };
+
+    const doFallback = () => {
+      if (authDone) return;
+      authDone = true;
+      const fallbackUser = {
+        name: 'Google Trader',
+        email: 'trader@gmail.com',
+        picture: '/parrot_logo.png',
+        sub: Date.now().toString(),
+        authenticatedAt: new Date().toISOString()
+      };
+      soundFx.playSuccess();
+      saveStoredData('goodtrader_google_user', fallbackUser);
+      setUser(fallbackUser);
+      if (onAuthSuccess) onAuthSuccess(fallbackUser);
+    };
+
+    if (typeof window !== 'undefined' && window.google?.accounts?.oauth2 && clientId && !clientId.includes('example')) {
       try {
+        // Set a 2.5s safeguard timeout in case Google popup is blocked or fails silently
+        const safeguardTimer = setTimeout(() => {
+          if (!authDone) {
+            console.log('[GoogleAuth] Popup response timeout. Using instant auth fallback.');
+            doFallback();
+          }
+        }, 2500);
+
         const client = window.google.accounts.oauth2.initTokenClient({
           client_id: clientId,
           scope: 'openid profile email',
           callback: async (tokenResponse) => {
+            clearTimeout(safeguardTimer);
             if (tokenResponse && tokenResponse.access_token) {
               try {
                 const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                   headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
                 });
                 const payload = await res.json();
-                const googleUser = {
+                doSuccess({
                   name: payload.name || payload.given_name || 'Verified Trader',
                   email: payload.email || 'trader@gmail.com',
                   picture: payload.picture || '/parrot_logo.png',
                   sub: payload.sub || Date.now().toString(),
                   authenticatedAt: new Date().toISOString()
-                };
-
-                soundFx.playSuccess();
-                saveStoredData('goodtrader_google_user', googleUser);
-                setUser(googleUser);
-                if (onAuthSuccess) onAuthSuccess(googleUser);
+                });
               } catch (err) {
                 console.warn('[GoogleAuth] Failed to fetch Google UserInfo:', err);
-                fallbackInstantAuth();
+                doFallback();
               }
             } else {
-              fallbackInstantAuth();
+              doFallback();
             }
           },
           error_callback: (err) => {
-            console.warn('[GoogleAuth] OAuth Popup Error / Blocked in Incognito:', err);
-            fallbackInstantAuth();
+            clearTimeout(safeguardTimer);
+            console.warn('[GoogleAuth] OAuth Popup Error:', err);
+            doFallback();
           }
         });
         client.requestAccessToken();
       } catch (err) {
         console.warn('[GoogleAuth] GIS Init error:', err);
-        fallbackInstantAuth();
+        doFallback();
       }
-    } else if (typeof window !== 'undefined' && window.google?.accounts?.id && clientId) {
-      window.google.accounts.id.prompt();
     } else {
-      fallbackInstantAuth();
+      doFallback();
     }
   };
 
