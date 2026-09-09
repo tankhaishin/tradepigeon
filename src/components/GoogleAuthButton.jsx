@@ -57,17 +57,25 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
   };
 
   const fallbackInstantAuth = () => {
-    const defaultUser = {
-      name: 'Disciplined Trader',
-      email: 'trader@tradepigeon.com',
+    let emailInput = prompt('Enter your Gmail address to sign in:', 'trader@gmail.com');
+    if (!emailInput || !emailInput.trim()) {
+      emailInput = 'trader@gmail.com';
+    }
+    const cleanEmail = emailInput.trim();
+    const namePart = cleanEmail.split('@')[0].replace(/[._]/g, ' ');
+    const cleanName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+
+    const googleUser = {
+      name: cleanName,
+      email: cleanEmail,
       picture: '/parrot_logo.png',
       sub: Date.now().toString(),
       authenticatedAt: new Date().toISOString()
     };
     soundFx.playSuccess();
-    saveStoredData('goodtrader_google_user', defaultUser);
-    setUser(defaultUser);
-    if (onAuthSuccess) onAuthSuccess(defaultUser);
+    saveStoredData('goodtrader_google_user', googleUser);
+    setUser(googleUser);
+    if (onAuthSuccess) onAuthSuccess(googleUser);
   };
 
   const handleGoogleSignIn = () => {
