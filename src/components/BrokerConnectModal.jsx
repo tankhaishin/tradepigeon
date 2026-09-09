@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   CheckCircle2, ShieldAlert, ShieldCheck, Cpu, Lock, Key, Server, RefreshCw, X, Shield, Zap, ExternalLink, Activity, ArrowLeft, Sparkles, ChevronDown, ChevronUp
 } from 'lucide-react';
@@ -10,6 +10,7 @@ import { detectPlatformFromAccountId } from '../utils/platformDetector';
 export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) {
   const [authSuccess, setAuthSuccess] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState(null);
+  const brokerPopupRef = useRef(null);
 
   // Form Fields
   const [env, setEnv] = useState('LIVE');
@@ -86,14 +87,14 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
     setFormError('');
 
     if (platform?.url) {
-      window.open(platform.url, `OfficialBroker_${platform.id}`, 'width=800,height=850,status=no,resizable=yes,scrollbars=yes');
+      brokerPopupRef.current = window.open(platform.url, `OfficialBroker_${platform.id}`, 'width=800,height=850,status=no,resizable=yes,scrollbars=yes');
     }
   };
 
   const handleLaunchOfficialSite = () => {
     if (selectedPlatform?.url) {
       soundFx.playPop();
-      window.open(selectedPlatform.url, `OfficialBroker_${selectedPlatform.id}`, 'width=800,height=850,status=no,resizable=yes,scrollbars=yes');
+      brokerPopupRef.current = window.open(selectedPlatform.url, `OfficialBroker_${selectedPlatform.id}`, 'width=800,height=850,status=no,resizable=yes,scrollbars=yes');
     }
   };
 
@@ -114,6 +115,15 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
     setIsSubmitting(true);
     setFormError('');
     soundFx.playPop();
+
+    // Auto-close opened official broker window upon verification
+    if (brokerPopupRef.current && !brokerPopupRef.current.closed) {
+      try {
+        brokerPopupRef.current.close();
+      } catch (err) {
+        console.log('Broker window closed:', err);
+      }
+    }
 
     setTimeout(() => {
       const rawBalance = parseFloat(capital) || 50000;
@@ -239,7 +249,7 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
                 </button>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#0b1318] border border-[#20323D] text-[11px] font-bold text-slate-300 leading-relaxed space-y-1">
+              <div className="p-3 rounded-xl bg-[#0b1318] border border-[#20323D] text-[11px] font-bold text-slate-300 leading-relaxed space-y-1.5">
                 <div className="text-[#58CC02] font-black flex items-center gap-1.5">
                   <ShieldCheck size={14} />
                   <span>100% Direct Official Authentication</span>
@@ -247,6 +257,10 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
                 <p>
                   Complete your login directly on <strong>{selectedPlatform.name}'s official website ({selectedPlatform.url})</strong>. TradePigeon never receives or stores your broker password.
                 </p>
+                <div className="text-[10px] text-[#FF6B00] font-black pt-1 border-t border-[#20323D]/60 flex items-center gap-1">
+                  <span>⚡ Auto-Closing Window:</span>
+                  <span className="text-slate-300 font-bold">TradePigeon auto-closes the broker window when you click "Verify & Sync" below.</span>
+                </div>
               </div>
             </div>
 

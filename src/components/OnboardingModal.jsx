@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoPlusIcon 
 } from './DuoIcons';
@@ -25,6 +25,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
   const [connectingBroker, setConnectingBroker] = useState(null);
   const [authSuccess, setAuthSuccess] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState(null);
+  const brokerPopupRef = useRef(null);
 
   // Form Fields
   const [env, setEnv] = useState('LIVE');
@@ -172,14 +173,14 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     setFormError('');
 
     if (platform?.url) {
-      window.open(platform.url, `OfficialBroker_${platform.id}`, 'width=800,height=850,status=no,resizable=yes,scrollbars=yes');
+      brokerPopupRef.current = window.open(platform.url, `OfficialBroker_${platform.id}`, 'width=800,height=850,status=no,resizable=yes,scrollbars=yes');
     }
   };
 
   const handleLaunchOfficialSite = () => {
     if (selectedPlatform?.url) {
       soundFx.playPop();
-      window.open(selectedPlatform.url, `OfficialBroker_${selectedPlatform.id}`, 'width=800,height=850,status=no,resizable=yes,scrollbars=yes');
+      brokerPopupRef.current = window.open(selectedPlatform.url, `OfficialBroker_${selectedPlatform.id}`, 'width=800,height=850,status=no,resizable=yes,scrollbars=yes');
     }
   };
 
@@ -200,6 +201,15 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     setIsSubmitting(true);
     setFormError('');
     soundFx.playPop();
+
+    // Auto-close opened official broker window upon verification
+    if (brokerPopupRef.current && !brokerPopupRef.current.closed) {
+      try {
+        brokerPopupRef.current.close();
+      } catch (err) {
+        console.log('Broker window closed:', err);
+      }
+    }
 
     setTimeout(() => {
       const rawBalance = parseFloat(capital) || 50000;
