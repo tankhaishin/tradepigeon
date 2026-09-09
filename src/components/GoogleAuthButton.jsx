@@ -60,36 +60,47 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
     /* global google */
     if (typeof window !== 'undefined' && window.google?.accounts?.oauth2 && clientId && !clientId.includes('example')) {
       // Launch Official Google OAuth 2.0 Token Client Popup
-      const client = window.google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: 'openid profile email',
-        callback: async (tokenResponse) => {
-          if (tokenResponse && tokenResponse.access_token) {
-            try {
-              const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-              });
-              const payload = await res.json();
-              const googleUser = {
-                name: payload.name || payload.given_name || 'Verified Trader',
-                email: payload.email,
-                picture: payload.picture || '/parrot_logo.png',
-                sub: payload.sub || Date.now().toString(),
-                authenticatedAt: new Date().toISOString()
-              };
+      try {
+        const client = window.google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: 'openid profile email',
+          callback: async (tokenResponse) => {
+            if (tokenResponse && tokenResponse.access_token) {
+              try {
+                const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                  headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+                });
+                const payload = await res.json();
+                const googleUser = {
+                  name: payload.name || payload.given_name || 'Verified Trader',
+                  email: payload.email,
+                  picture: payload.picture || '/parrot_logo.png',
+                  sub: payload.sub || Date.now().toString(),
+                  authenticatedAt: new Date().toISOString()
+                };
 
-              soundFx.playSuccess();
-              saveStoredData('goodtrader_google_user', googleUser);
-              setUser(googleUser);
-              if (onAuthSuccess) onAuthSuccess(googleUser);
-            } catch (err) {
-              console.warn('[GoogleAuth] Failed to fetch Google UserInfo:', err);
+                soundFx.playSuccess();
+                saveStoredData('goodtrader_google_user', googleUser);
+                setUser(googleUser);
+                if (onAuthSuccess) onAuthSuccess(googleUser);
+              } catch (err) {
+                console.warn('[GoogleAuth] Failed to fetch Google UserInfo:', err);
+                fallbackPromptAuth();
+              }
+            } else {
               fallbackPromptAuth();
             }
+          },
+          error_callback: (err) => {
+            console.warn('[GoogleAuth] OAuth Popup Error / Blocked in Incognito:', err);
+            fallbackPromptAuth();
           }
-        }
-      });
-      client.requestAccessToken();
+        });
+        client.requestAccessToken();
+      } catch (err) {
+        console.warn('[GoogleAuth] GIS Init error:', err);
+        fallbackPromptAuth();
+      }
     } else if (typeof window !== 'undefined' && window.google?.accounts?.id && clientId && !clientId.includes('example')) {
       window.google.accounts.id.prompt();
     } else {
