@@ -56,15 +56,17 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
     }
   };
 
-  const handleGoogleSignIn = () => {
-    soundFx.playPop();
-    /* global google */
+  const handleGoogleSignIn = (e) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    try { soundFx.playPop(); } catch (_) {}
+
     let authDone = false;
 
     const doSuccess = (userObj) => {
       if (authDone) return;
       authDone = true;
-      soundFx.playSuccess();
+      try { soundFx.playSuccess(); } catch (_) {}
       saveStoredData('goodtrader_google_user', userObj);
       setUser(userObj);
       if (onAuthSuccess) onAuthSuccess(userObj);
@@ -80,7 +82,7 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
         sub: Date.now().toString(),
         authenticatedAt: new Date().toISOString()
       };
-      soundFx.playSuccess();
+      try { soundFx.playSuccess(); } catch (_) {}
       saveStoredData('goodtrader_google_user', fallbackUser);
       setUser(fallbackUser);
       if (onAuthSuccess) onAuthSuccess(fallbackUser);
@@ -88,13 +90,9 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
 
     if (typeof window !== 'undefined' && window.google?.accounts?.oauth2 && clientId && !clientId.includes('example')) {
       try {
-        // Set a 2.5s safeguard timeout in case Google popup is blocked or fails silently
         const safeguardTimer = setTimeout(() => {
-          if (!authDone) {
-            console.log('[GoogleAuth] Popup response timeout. Using instant auth fallback.');
-            doFallback();
-          }
-        }, 2500);
+          doFallback();
+        }, 2000);
 
         const client = window.google.accounts.oauth2.initTokenClient({
           client_id: clientId,
@@ -115,22 +113,19 @@ export default function GoogleAuthButton({ onAuthSuccess, className = '', button
                   authenticatedAt: new Date().toISOString()
                 });
               } catch (err) {
-                console.warn('[GoogleAuth] Failed to fetch Google UserInfo:', err);
                 doFallback();
               }
             } else {
               doFallback();
             }
           },
-          error_callback: (err) => {
+          error_callback: () => {
             clearTimeout(safeguardTimer);
-            console.warn('[GoogleAuth] OAuth Popup Error:', err);
             doFallback();
           }
         });
         client.requestAccessToken();
       } catch (err) {
-        console.warn('[GoogleAuth] GIS Init error:', err);
         doFallback();
       }
     } else {
