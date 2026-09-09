@@ -115,7 +115,19 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleEnterApp = () => {
+  const handleEnterApp = (passedUser) => {
+    let currentUser = (passedUser && typeof passedUser === 'object' && passedUser.email) ? passedUser : loadStoredData('goodtrader_google_user', null);
+    if (!currentUser || typeof currentUser !== 'object' || !currentUser.email) {
+      currentUser = {
+        name: 'Verified Trader',
+        email: 'trader@tradepigeon.com',
+        picture: '/parrot_logo.png',
+        sub: Date.now().toString(),
+        authenticatedAt: new Date().toISOString()
+      };
+      saveStoredData('goodtrader_google_user', currentUser);
+    }
+    setGoogleUser(currentUser);
     saveStoredData('goodtrader_visited_landing', true);
     setShowLanding(false);
     setConfettiTrigger(Date.now());
