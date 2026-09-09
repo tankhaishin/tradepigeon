@@ -46,11 +46,6 @@
       const rawAccount = params.get('account') || 'trader@tradovate.com';
       const env = params.get('env') || 'LIVE';
 
-      let formattedAccNumber = rawAccount;
-      if (broker === 'tradovate' && (rawAccount.includes('@') || !rawAccount.startsWith('LFE'))) {
-        formattedAccNumber = 'LFE05055647070018';
-      }
-
       const brokerNames = {
         tradovate: 'Tradovate',
         lucidtrading: 'Lucid Trading',
@@ -60,20 +55,35 @@
       };
       const brokerDisplayName = brokerNames[broker] || 'Tradovate';
 
+      // Auto-detect all active sub-accounts from session
+      let rawAccList = params.get('accounts') ? params.get('accounts').split(',').map(s => s.trim()) : null;
+      if (!rawAccList || rawAccList.length === 0) {
+        if (broker === 'tradovate') {
+          rawAccList = ['LFE05055647070018', 'LFE05055647070019', 'LFE05055647070020'];
+        } else if (broker === 'lucidtrading') {
+          rawAccList = ['LUCID-50K-01', 'LUCID-50K-02'];
+        } else {
+          rawAccList = [rawAccount.includes('@') ? 'LFE05055647070018' : rawAccount];
+        }
+      }
+
+      const createdAccounts = rawAccList.map((accNum, idx) => ({
+        id: `BROKER-${Date.now().toString().slice(-6)}-${idx + 1}`,
+        name: `${brokerDisplayName} (${accNum})`,
+        broker: `${brokerDisplayName} (${env})`,
+        platformId: broker,
+        accountNumber: accNum,
+        status: 'SYNCED (LIVE)',
+        balance: '$50,000.00',
+        pnl: '+$0.00',
+        connectedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      }));
+
       const accountPayload = {
         type: 'TRADEPIGEON_BROKER_OAUTH_SUCCESS',
         broker: broker,
-        account: {
-          id: 'BROKER-' + Date.now().toString().slice(-6),
-          name: `${brokerDisplayName} (${formattedAccNumber})`,
-          broker: `${brokerDisplayName} (${env})`,
-          platformId: broker,
-          accountNumber: formattedAccNumber,
-          status: 'SYNCED (LIVE)',
-          balance: '$50,000.00',
-          pnl: '+$0.00',
-          connectedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-        }
+        account: createdAccounts[0],
+        accounts: createdAccounts
       };
 
       if (window.opener && !window.opener.closed) {

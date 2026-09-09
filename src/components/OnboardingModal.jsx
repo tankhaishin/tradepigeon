@@ -63,14 +63,15 @@ export default function OnboardingModal({ isOpen, onComplete }) {
   useEffect(() => {
     const handleOAuthMessage = (event) => {
       if (event.data?.type === 'TRADEPIGEON_BROKER_OAUTH_SUCCESS') {
-        const { account } = event.data;
-        if (account) {
+        const { account, accounts } = event.data;
+        const allAccounts = accounts && accounts.length > 0 ? accounts : (account ? [account] : []);
+        if (allAccounts.length > 0) {
           soundFx.playSuccess();
           setAuthSuccess(true);
           setConnectingBroker(null);
 
           setTimeout(() => {
-            handleFinishOnboarding(false, account);
+            handleFinishOnboarding(false, allAccounts[0], allAccounts);
           }, 1200);
         }
       }
@@ -123,7 +124,8 @@ export default function OnboardingModal({ isOpen, onComplete }) {
       icon: TradovateLogo, 
       badge: 'OFFICIAL API',
       url: 'https://trader.tradovate.com',
-      sampleAcc: 'LFE05055647070018'
+      sampleAcc: 'LFE05055647070018',
+      sampleAccs: ['LFE05055647070018', 'LFE05055647070019', 'LFE05055647070020']
     },
     { 
       id: 'lucidtrading', 
@@ -132,7 +134,8 @@ export default function OnboardingModal({ isOpen, onComplete }) {
       icon: TradovateLogo, 
       badge: 'PROP FIRM MULTI-ACCOUNT',
       url: 'https://lucidtrading.com',
-      sampleAcc: 'LUCID-50K-01'
+      sampleAcc: 'LUCID-50K-01',
+      sampleAccs: ['LUCID-50K-01', 'LUCID-50K-02']
     },
     { 
       id: 'metatrader5', 
@@ -141,7 +144,8 @@ export default function OnboardingModal({ isOpen, onComplete }) {
       icon: MetaTrader5Logo, 
       badge: 'OFFICIAL WEBTERMINAL',
       url: 'https://trade.mql5.com/trade',
-      sampleAcc: '50192834'
+      sampleAcc: '50192834',
+      sampleAccs: ['50192834', '50192835']
     },
     { 
       id: 'tradelocker', 
@@ -150,7 +154,8 @@ export default function OnboardingModal({ isOpen, onComplete }) {
       icon: TradeLockerLogo, 
       badge: 'OFFICIAL LIVE WEB',
       url: 'https://live.tradelocker.com',
-      sampleAcc: 'TL-882910'
+      sampleAcc: 'TL-882910',
+      sampleAccs: ['TL-882910', 'TL-882911']
     },
     { 
       id: 'ninjatrader', 
@@ -159,14 +164,16 @@ export default function OnboardingModal({ isOpen, onComplete }) {
       icon: NinjaTraderLogo, 
       badge: 'OFFICIAL ACCOUNT PORTAL',
       url: 'https://account.ninjatrader.com/login',
-      sampleAcc: 'NT-109283'
+      sampleAcc: 'NT-109283',
+      sampleAccs: ['NT-109283', 'NT-109284']
     },
   ];
 
   const handleSelectPlatform = (platform) => {
     soundFx.playPop();
     setSelectedPlatform(platform);
-    setUsername(platform.sampleAcc || 'LFE05055647070018');
+    const initialAccs = platform.sampleAccs ? platform.sampleAccs.join(', ') : (platform.sampleAcc || 'LFE05055647070018');
+    setUsername(initialAccs);
     setCapital('50000');
     setSubAccountCount('1');
     setShowAdvanced(false);

@@ -33,7 +33,8 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
       badge: 'OFFICIAL API',
       url: 'https://trader.tradovate.com',
       color: '#FF6B00',
-      sampleAcc: 'LFE05055647070018'
+      sampleAcc: 'LFE05055647070018',
+      sampleAccs: ['LFE05055647070018', 'LFE05055647070019', 'LFE05055647070020']
     },
     { 
       id: 'lucidtrading', 
@@ -43,7 +44,8 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
       badge: 'PROP FIRM MULTI-ACCOUNT',
       url: 'https://lucidtrading.com',
       color: '#00E5FF',
-      sampleAcc: 'LUCID-50K-01'
+      sampleAcc: 'LUCID-50K-01',
+      sampleAccs: ['LUCID-50K-01', 'LUCID-50K-02']
     },
     { 
       id: 'metatrader5', 
@@ -53,7 +55,8 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
       badge: 'OFFICIAL WEBTERMINAL',
       url: 'https://trade.mql5.com/trade',
       color: '#1CB0F6',
-      sampleAcc: '50192834'
+      sampleAcc: '50192834',
+      sampleAccs: ['50192834', '50192835']
     },
     { 
       id: 'tradelocker', 
@@ -63,7 +66,8 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
       badge: 'OFFICIAL LIVE WEB',
       url: 'https://live.tradelocker.com',
       color: '#CE82FF',
-      sampleAcc: 'TL-882910'
+      sampleAcc: 'TL-882910',
+      sampleAccs: ['TL-882910', 'TL-882911']
     },
     { 
       id: 'ninjatrader', 
@@ -73,14 +77,16 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
       badge: 'OFFICIAL ACCOUNT PORTAL',
       url: 'https://account.ninjatrader.com/login',
       color: '#58CC02',
-      sampleAcc: 'NT-109283'
+      sampleAcc: 'NT-109283',
+      sampleAccs: ['NT-109283', 'NT-109284']
     },
   ];
 
   const handleSelectPlatform = (platform) => {
     soundFx.playPop();
     setSelectedPlatform(platform);
-    setUsername(platform.sampleAcc || 'LFE05055647070018');
+    const initialAccs = platform.sampleAccs ? platform.sampleAccs.join(', ') : (platform.sampleAcc || 'LFE05055647070018');
+    setUsername(initialAccs);
     setCapital('50000');
     setSubAccountCount('1');
     setShowAdvanced(false);
