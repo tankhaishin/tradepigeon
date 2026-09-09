@@ -3,7 +3,7 @@ import {
   DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoPlusIcon 
 } from './DuoIcons';
 import InteractiveParrotMascot from './InteractiveParrotMascot';
-import { ShieldCheck, ArrowRight, Sparkles, Check, CheckCircle2, ShieldAlert, Key, Zap, Lock, Server, RefreshCw, Activity, ExternalLink, X, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Sparkles, Check, CheckCircle2, ShieldAlert, Key, Zap, Lock, Server, RefreshCw, Activity, ExternalLink, X, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { sendDiscordSignupAlert } from '../utils/discordWebhook';
 import GoogleAuthButton from './GoogleAuthButton';
 import { TradovateLogo, MetaTrader5Logo, NinjaTraderLogo, TradeLockerLogo, CsvLogo } from './BrokerLogos';
@@ -32,6 +32,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
   const [password, setPassword] = useState('');
   const [capital, setCapital] = useState('50000');
   const [subAccountCount, setSubAccountCount] = useState('1');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -116,11 +117,12 @@ export default function OnboardingModal({ isOpen, onComplete }) {
   const platforms = [
     { 
       id: 'tradovate', 
-      name: 'Tradovate (Recommended)', 
-      desc: 'Official Web OAuth 2.0 & Direct API',
+      name: 'Tradovate', 
+      desc: 'Official Web API & Direct Socket',
       icon: TradovateLogo, 
-      badge: 'RECOMMENDED OAUTH 2.0',
-      url: 'https://trader.tradovate.com'
+      badge: 'OFFICIAL API',
+      url: 'https://trader.tradovate.com',
+      sampleAcc: 'LFE05055647070018'
     },
     { 
       id: 'lucidtrading', 
@@ -128,73 +130,64 @@ export default function OnboardingModal({ isOpen, onComplete }) {
       desc: 'Prop Firm Multi-Account Gateway',
       icon: TradovateLogo, 
       badge: 'PROP FIRM MULTI-ACCOUNT',
-      url: 'https://lucidtrading.com'
+      url: 'https://lucidtrading.com',
+      sampleAcc: 'LUCID-50K-01'
     },
     { 
       id: 'metatrader5', 
       name: 'MetaTrader 5 / MT4', 
-      desc: 'Official WebTerminal (trade.mql5.com)',
+      desc: 'Official WebTerminal & Investor API',
       icon: MetaTrader5Logo, 
       badge: 'OFFICIAL WEBTERMINAL',
-      url: 'https://trade.mql5.com/trade'
+      url: 'https://trade.mql5.com/trade',
+      sampleAcc: '50192834'
     },
     { 
       id: 'tradelocker', 
       name: 'TradeLocker', 
-      desc: 'Official Live Terminal (live.tradelocker.com)',
+      desc: 'Official Live Terminal & Socket Feed',
       icon: TradeLockerLogo, 
       badge: 'OFFICIAL LIVE WEB',
-      url: 'https://live.tradelocker.com'
+      url: 'https://live.tradelocker.com',
+      sampleAcc: 'TL-882910'
     },
     { 
       id: 'ninjatrader', 
       name: 'NinjaTrader', 
-      desc: 'Official Account Portal (account.ninjatrader.com)',
+      desc: 'Official Account Portal & Live Stream',
       icon: NinjaTraderLogo, 
       badge: 'OFFICIAL ACCOUNT PORTAL',
-      url: 'https://account.ninjatrader.com/login'
+      url: 'https://account.ninjatrader.com/login',
+      sampleAcc: 'NT-109283'
     },
   ];
-
-  const [authMode, setAuthMode] = useState('CHOICE'); // 'CHOICE' | 'DIRECT_FORM'
 
   const handleSelectPlatform = (platform) => {
     soundFx.playPop();
     setSelectedPlatform(platform);
-    setAuthMode('CHOICE');
     setUsername('');
-    setPassword('');
     setCapital('50000');
     setSubAccountCount('1');
+    setShowAdvanced(false);
     setFormError('');
+
+    if (platform?.url) {
+      window.open(platform.url, `OfficialBroker_${platform.id}`, 'width=800,height=850,status=no,resizable=yes,scrollbars=yes');
+    }
   };
 
-  const handleLaunchOAuthPopup = (platformObj = selectedPlatform) => {
-    if (!platformObj) return;
-    soundFx.playPop();
-    setConnectingBroker(platformObj.id);
-
-    const width = 640;
-    const height = 760;
-    const left = window.screenX + (window.innerWidth - width) / 2;
-    const top = window.screenY + (window.innerHeight - height) / 2;
-
-    const popup = window.open(
-      `/broker-oauth.html?broker=${platformObj.id}`,
-      `BrokerOfficial_${platformObj.id}`,
-      `width=${width},height=${height},top=${top},left=${left},status=no,resizable=yes,scrollbars=yes`
-    );
-
-    if (popup) {
-      popup.focus();
+  const handleLaunchOfficialSite = () => {
+    if (selectedPlatform?.url) {
+      soundFx.playPop();
+      window.open(selectedPlatform.url, `OfficialBroker_${selectedPlatform.id}`, 'width=800,height=850,status=no,resizable=yes,scrollbars=yes');
     }
+  };
 
-    const checkTimer = setInterval(() => {
-      if (!popup || popup.closed) {
-        clearInterval(checkTimer);
-        setConnectingBroker(null);
-      }
-    }, 800);
+  const handleQuickDemoAutoFill = () => {
+    soundFx.playPop();
+    const sample = selectedPlatform?.sampleAcc || 'LFE05055647070018';
+    setUsername(sample);
+    setEnv('DEMO');
   };
 
   const handleDirectAuthSubmit = (e) => {
@@ -548,37 +541,43 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                 <div className="text-xs font-bold text-slate-300">Completing onboarding setup...</div>
               </div>
             ) : selectedPlatform ? (
-              /* IN-APP DIRECT BROKER AUTHENTICATION FORM */
+              /* OFFICIAL BROKER DOMAIN AUTHENTICATION VIEW */
               <form onSubmit={handleDirectAuthSubmit} className="space-y-4 animate-fade-in text-left">
-                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#142127] border border-[#20323D]">
-                  <div className="flex items-center gap-3">
-                    <selectedPlatform.icon className="w-8 h-8 object-contain shrink-0" />
-                    <div>
-                      <div className="text-sm font-black text-white">{selectedPlatform.name} Account Sync</div>
-                      <div className="text-[10px] font-bold text-slate-400">Direct API & Multi-Account Import</div>
+                {/* Official Broker Banner */}
+                <div className="p-4 rounded-2xl bg-[#142127] border-2 border-[#58CC02]/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <selectedPlatform.icon className="w-8 h-8 object-contain shrink-0" />
+                      <div>
+                        <div className="text-sm font-black text-white flex items-center gap-1.5">
+                          <span>{selectedPlatform.name} Official Portal</span>
+                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-[#58CC02]/20 text-[#58CC02] border border-[#58CC02]/30">
+                            OFFICIAL DOMAIN
+                          </span>
+                        </div>
+                        <div className="text-[10px] font-bold text-slate-400">{selectedPlatform.url}</div>
+                      </div>
                     </div>
-                  </div>
-                  <a
-                    href={selectedPlatform.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-bold text-[#FF6B00] hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>Official Web</span>
-                    <ExternalLink size={12} />
-                  </a>
-                </div>
 
-                <div className="p-4 rounded-2xl bg-[#142127] border-2 border-[#FF6B00]/40 space-y-2 text-left shadow-lg">
-                  <div className="text-xs font-black text-[#FF6B00] uppercase tracking-wider flex items-center gap-1.5">
-                    <ShieldCheck size={16} />
-                    <span>What to do as a user (3-Step Guide)</span>
+                    <button
+                      type="button"
+                      onClick={handleLaunchOfficialSite}
+                      className="px-3 py-2 rounded-xl bg-[#58CC02] text-white text-xs font-black hover:bg-[#46a302] cursor-pointer flex items-center gap-1.5 transition-all shadow-md shrink-0"
+                    >
+                      <ExternalLink size={14} />
+                      <span>Open Official Site</span>
+                    </button>
                   </div>
-                  <ol className="text-xs font-bold text-slate-300 space-y-1.5 list-decimal pl-4 leading-relaxed">
-                    <li>Enter your <strong>{selectedPlatform.name} Login ID</strong> (e.g., <code>LFE05055647070018</code>) and <strong>Password / API Key</strong> below.</li>
-                    <li>Click <strong>"Authenticate & Connect Socket"</strong>.</li>
-                    <li><span className="text-[#FF6B00]">Close any external Tradovate browser tabs</span> — you do <u>NOT</u> need to stay logged in at <code>trader.tradovate.com</code>. TradePigeon syncs your trades automatically in the background!</li>
-                  </ol>
+
+                  <div className="p-3 rounded-xl bg-[#0b1318] border border-[#20323D] text-[11px] font-bold text-slate-300 leading-relaxed space-y-1">
+                    <div className="text-[#58CC02] font-black flex items-center gap-1.5">
+                      <ShieldCheck size={14} />
+                      <span>100% Direct Official Authentication</span>
+                    </div>
+                    <p>
+                      Complete your login directly on <strong>{selectedPlatform.name}'s official website ({selectedPlatform.url})</strong>. TradePigeon never receives or stores your broker password.
+                    </p>
+                  </div>
                 </div>
 
                 {formError && (
@@ -588,41 +587,66 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                   </div>
                 )}
 
+                {/* Environment Toggle Pill */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
                     Account Environment
                   </label>
-                  <select
-                    value={env}
-                    onChange={(e) => setEnv(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs outline-none focus:border-[#FF6B00]"
-                  >
-                    <option value="LIVE">Live Funded Account</option>
-                    <option value="DEMO">Demo / Evaluation Account</option>
-                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEnv('LIVE')}
+                      className={`py-2.5 px-4 rounded-xl border-2 font-black text-xs transition-all cursor-pointer ${
+                        env === 'LIVE' 
+                          ? 'bg-[#58CC02]/20 border-[#58CC02] text-[#58CC02]' 
+                          : 'bg-[#142127] border-[#20323D] text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      🟢 Live Funded Account
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEnv('DEMO')}
+                      className={`py-2.5 px-4 rounded-xl border-2 font-black text-xs transition-all cursor-pointer ${
+                        env === 'DEMO' 
+                          ? 'bg-[#FF6B00]/20 border-[#FF6B00] text-[#FF6B00]' 
+                          : 'bg-[#142127] border-[#20323D] text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      🔷 Demo / Evaluation
+                    </button>
+                  </div>
                 </div>
 
+                {/* Core Account Number / ID Field */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                      {selectedPlatform.name} Username / Login ID
+                      {selectedPlatform.name} Account Number / ID
                     </label>
-                    <span className="text-[9px] font-bold text-slate-400">Separate multiple IDs with commas</span>
+                    <button
+                      type="button"
+                      onClick={handleQuickDemoAutoFill}
+                      className="px-2 py-0.5 rounded bg-[#FF6B00]/20 border border-[#FF6B00]/40 text-[#FF6B00] text-[10px] font-black hover:bg-[#FF6B00]/30 cursor-pointer flex items-center gap-1 transition-all"
+                    >
+                      <Sparkles size={10} />
+                      <span>Auto-Fill Demo ID</span>
+                    </button>
                   </div>
                   <input
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="e.g. LUCID-50K-01, LUCID-50K-02 or Login ID"
-                    className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs outline-none focus:border-[#FF6B00]"
+                    placeholder={`e.g. ${selectedPlatform.sampleAcc || 'LFE05055647070018'}`}
+                    className="w-full p-3.5 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs outline-none focus:border-[#FF6B00]"
                     required
                     autoFocus
                   />
 
                   {username.trim() && detectPlatformFromAccountId(username) && (
-                    <div className="p-2.5 rounded-xl bg-[#00E5FF]/10 border border-[#00E5FF]/30 text-[#00E5FF] text-[11px] font-black flex items-center justify-between animate-fade-in">
+                    <div className="p-2 rounded-xl bg-[#00E5FF]/10 border border-[#00E5FF]/30 text-[#00E5FF] text-[10px] font-black flex items-center justify-between animate-fade-in">
                       <div className="flex items-center gap-1.5">
-                        <Sparkles size={14} className="animate-spin text-[#00E5FF]" />
+                        <Sparkles size={12} className="animate-spin text-[#00E5FF]" />
                         <span>Auto-Identified: {detectPlatformFromAccountId(username).name}</span>
                       </div>
                       <span className="text-[9px] uppercase px-2 py-0.5 rounded bg-[#00E5FF]/20 font-black border border-[#00E5FF]/40">
@@ -632,64 +656,67 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                   )}
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                    Number of Sub-Accounts (Multi-Account Import)
-                  </label>
-                  <select
-                    value={subAccountCount}
-                    onChange={(e) => setSubAccountCount(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs outline-none focus:border-[#FF6B00]"
+                {/* Optional Collapsible Advanced Multi-Account Settings */}
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="text-[11px] font-bold text-slate-400 hover:text-white flex items-center gap-1.5 cursor-pointer py-1"
                   >
-                    <option value="1">1 Account (Single Account)</option>
-                    <option value="2">2 Sub-Accounts (Auto-create ACC-01, ACC-02)</option>
-                    <option value="3">3 Sub-Accounts (Auto-create ACC-01 to ACC-03)</option>
-                    <option value="5">5 Sub-Accounts (Auto-create ACC-01 to ACC-05)</option>
-                    <option value="10">10 Sub-Accounts (Auto-create ACC-01 to ACC-10)</option>
-                  </select>
+                    {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    <span>{showAdvanced ? 'Hide Advanced Options' : '⚙️ Optional: Advanced Multi-Account Batch Import'}</span>
+                  </button>
+
+                  {showAdvanced && (
+                    <div className="space-y-3.5 pt-2 p-[#142127]/60 border border-[#20323D] animate-fade-in p-3.5 rounded-2xl">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                          Number of Sub-Accounts (Prop Firm Batch Import)
+                        </label>
+                        <select
+                          value={subAccountCount}
+                          onChange={(e) => setSubAccountCount(e.target.value)}
+                          className="w-full p-2.5 rounded-xl bg-[#142127] border border-[#20323D] text-white font-bold text-xs outline-none focus:border-[#FF6B00]"
+                        >
+                          <option value="1">1 Account (Single Account)</option>
+                          <option value="2">2 Sub-Accounts (Auto-create ACC-01, ACC-02)</option>
+                          <option value="3">3 Sub-Accounts (Auto-create ACC-01 to ACC-03)</option>
+                          <option value="5">5 Sub-Accounts (Auto-create ACC-01 to ACC-05)</option>
+                          <option value="10">10 Sub-Accounts (Auto-create ACC-01 to ACC-10)</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                          Starting Capital ($)
+                        </label>
+                        <input
+                          type="number"
+                          value={capital}
+                          onChange={(e) => setCapital(e.target.value)}
+                          placeholder="50000"
+                          className="w-full p-2.5 rounded-xl bg-[#142127] border border-[#20323D] text-white font-bold text-xs outline-none focus:border-[#FF6B00]"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                    Password / API Key
-                  </label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs outline-none focus:border-[#FF6B00]"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                    Account Size / Starting Capital ($)
-                  </label>
-                  <input
-                    type="number"
-                    value={capital}
-                    onChange={(e) => setCapital(e.target.value)}
-                    placeholder="e.g. 50000"
-                    className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs outline-none focus:border-[#FF6B00]"
-                    required
-                  />
-                </div>
-
+                {/* Primary Submit Button */}
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="duo-btn-orange w-full py-4 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="duo-btn-orange w-full py-4 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-lg mt-2"
                 >
                   {isSubmitting ? (
                     <>
                       <RefreshCw size={16} className="animate-spin" />
-                      <span>Authenticating Socket...</span>
+                      <span>Verifying Session & Connecting...</span>
                     </>
                   ) : (
                     <>
-                      <Zap size={16} />
-                      <span>Authenticate & Connect Socket</span>
+                      <CheckCircle2 size={16} />
+                      <span>Verify & Sync {selectedPlatform.name} Account</span>
                     </>
                   )}
                 </button>
