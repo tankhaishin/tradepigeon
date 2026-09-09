@@ -311,7 +311,7 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                  {selectedPlatform.name} Account Number / ID
+                  {selectedPlatform.name} Account ID(s) <span className="text-slate-500 font-normal">(Single or Comma-Separated)</span>
                 </label>
                 <span className="text-[9px] font-bold text-[#58CC02] flex items-center gap-1">
                   <CheckCircle2 size={10} />
@@ -322,11 +322,15 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={`e.g. ${selectedPlatform.sampleAcc || 'LFE05055647070018'}`}
+                placeholder={`e.g. ${selectedPlatform.sampleAcc || 'LFE05055647070018'}, ${selectedPlatform.sampleAcc ? selectedPlatform.sampleAcc + '-02' : 'LFE05055647070019'}`}
                 className="w-full p-3.5 rounded-xl bg-[#142127] border-2 border-[#58CC02]/50 text-white font-black text-xs outline-none focus:border-[#58CC02]"
                 required
                 autoFocus
               />
+
+              <div className="text-[10px] text-slate-400 font-semibold flex items-center justify-between px-1">
+                <span>💡 <strong>Multi-Account Sync:</strong> Separate multiple sub-accounts with commas (e.g. ACC1, ACC2)</span>
+              </div>
 
               {username.trim() && detectPlatformFromAccountId(username) && (
                 <div className="p-2 rounded-xl bg-[#00E5FF]/10 border border-[#00E5FF]/30 text-[#00E5FF] text-[10px] font-black flex items-center justify-between animate-fade-in">
