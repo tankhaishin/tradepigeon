@@ -33,7 +33,7 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-4 bg-rose-900/95 text-white rounded-2xl border-2 border-rose-500 text-xs font-mono max-w-sm m-4 z-50 fixed right-4 top-4 shadow-2xl space-y-2 animate-fade-in">
+        <div className="p-4 bg-rose-900/95 text-white rounded-2xl border-2 border-rose-500 text-xs font-mono max-w-lg m-4 z-50 fixed right-4 top-4 shadow-2xl space-y-2 animate-fade-in">
           <div className="flex items-center justify-between gap-2">
             <div className="font-bold text-rose-200 uppercase">Component Load Warning</div>
             <button
@@ -43,7 +43,12 @@ class ErrorBoundary extends React.Component {
               Dismiss & Retry
             </button>
           </div>
-          <div>{String(this.state.error?.message || this.state.error)}</div>
+          <div className="font-bold text-rose-100">{String(this.state.error?.message || this.state.error)}</div>
+          {this.state.error?.stack && (
+            <pre className="text-[9px] bg-black/50 p-2 rounded max-h-40 overflow-auto whitespace-pre-wrap font-mono text-rose-300">
+              {this.state.error.stack}
+            </pre>
+          )}
         </div>
       );
     }

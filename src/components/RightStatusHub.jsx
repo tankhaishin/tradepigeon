@@ -49,6 +49,13 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const [selectedTradeIds, setSelectedTradeIds] = useState([]);
   const [userStats, setUserStats] = useState(() => loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS));
   const [connectedAccounts, setConnectedAccounts] = useState(() => loadStoredData('goodtrader_accounts_data', []));
+  const [streakFreezes, setStreakFreezes] = useState(() => loadStoredData('goodtrader_streak_freezes', 1));
+  const [activeHubTab, setActiveHubTab] = useState('trades');
+  const [isHeatmapExpanded, setIsHeatmapExpanded] = useState(true);
+
+  const [sessionTrades, setSessionTrades] = useState(() => {
+    return loadStoredData(`goodtrader_session_trades_day_${currentDay}`, []);
+  });
 
   const [lastAutoSyncedTime, setLastAutoSyncedTime] = useState(null);
 
@@ -95,13 +102,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
     return () => clearInterval(autoSyncInterval);
   }, [sessionTrades, activeAuditDay]);
-  const [streakFreezes, setStreakFreezes] = useState(() => loadStoredData('goodtrader_streak_freezes', 1));
-  const [activeHubTab, setActiveHubTab] = useState('trades');
-  const [isHeatmapExpanded, setIsHeatmapExpanded] = useState(true);
-
-  const [sessionTrades, setSessionTrades] = useState(() => {
-    return loadStoredData(`goodtrader_session_trades_day_${currentDay}`, []);
-  });
 
   useEffect(() => {
     const loaded = loadStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, []);

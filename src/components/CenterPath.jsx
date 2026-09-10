@@ -1338,12 +1338,14 @@ export default function CenterPath() {
                   </div>
 
                   {(() => {
-                    const activeStrat = strategyLibrary.find(s => s.id === selectedPlaybookId) || strategyLibrary[0];
+                    const activeStrat = strategyLibrary.find(s => s.id === selectedPlaybookId) || strategyLibrary[0] || { name: 'Default Playbook', rules: [] };
                     const activeBaskets = basketsList.filter(b => {
                       if (b.isOffDuty || b.name.includes('Off-Duty') || b.name.includes('No Trade')) return false;
                       const accsInBasket = accountsData.filter(a => a.basketName === b.name);
                       return accsInBasket.length > 0;
                     });
+
+                    const rulesList = activeStrat?.rules || [];
 
                     return (
                       <div className="p-5 rounded-3xl bg-white border-4 border-slate-200 border-b-8 border-b-slate-300 text-slate-900 shadow-2xl space-y-4">
@@ -1386,7 +1388,7 @@ export default function CenterPath() {
                         <div className="space-y-2.5 pb-3 border-b-2 border-slate-100">
                           <div className="flex items-center justify-between text-xs font-black text-slate-400 uppercase tracking-wider">
                             <span>2. SELECT PLAYBOOK</span>
-                            <span className="text-[#1CB0F6] font-extrabold">{activeStrat ? activeStrat.name : ''}</span>
+                            <span className="text-[#1CB0F6] font-extrabold">{activeStrat?.name || ''}</span>
                           </div>
 
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -1429,10 +1431,10 @@ export default function CenterPath() {
                         {/* 3D Interactive Rule Verification Checklist */}
                         <div className="space-y-2.5">
                           <div className="flex items-center justify-between text-xs font-black uppercase text-slate-400 tracking-wider">
-                            <span>VERIFY ENTRY RULES ({checkedRuleIndices.length}/{activeStrat.rules.length} VERIFIED)</span>
+                            <span>VERIFY ENTRY RULES ({checkedRuleIndices.length}/{rulesList.length} VERIFIED)</span>
                           </div>
 
-                          {activeStrat.rules.length === 0 ? (
+                          {rulesList.length === 0 ? (
                             <div className="p-5 rounded-3xl bg-[#FFC800] border-4 border-[#E5B200] border-b-8 border-b-[#CC9E00] text-slate-900 text-center space-y-2 shadow-2xl my-3 select-none">
                               <div className="flex items-center justify-center gap-2 font-black text-base text-slate-900">
                                 <AlertCircle size={18} strokeWidth={3} />
@@ -1443,7 +1445,7 @@ export default function CenterPath() {
                               </p>
                             </div>
                           ) : (
-                            activeStrat.rules.map((rule, idx) => {
+                            rulesList.map((rule, idx) => {
                               const isChecked = checkedRuleIndices.includes(idx);
                               return (
                                 <div
@@ -1484,8 +1486,8 @@ export default function CenterPath() {
 
                   {/* Continue Button */}
                   {(() => {
-                    const activeStrat = strategyLibrary.find(s => s.id === selectedPlaybookId) || strategyLibrary[0];
-                    const hasZeroRules = activeStrat.rules.length === 0;
+                    const activeStrat = strategyLibrary.find(s => s.id === selectedPlaybookId) || strategyLibrary[0] || { name: 'Default Playbook', rules: [] };
+                    const hasZeroRules = (activeStrat?.rules?.length || 0) === 0;
 
                     return (
                       <button
