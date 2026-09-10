@@ -127,6 +127,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
         {/* Header CTAs */}
         <div className="flex items-center gap-2.5">
           <GoogleAuthButton 
+            onOpenAuthModal={() => setIsAuthModalOpen(true)}
             onAuthSuccess={(userObj) => {
               if (userObj && userObj.email) {
                 handleStart(userObj);
