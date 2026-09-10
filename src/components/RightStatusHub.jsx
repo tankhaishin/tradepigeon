@@ -12,6 +12,26 @@ import { soundFx } from '../utils/audioEngine';
 
 export default function RightStatusHub({ isExpanded = false, onToggleExpand, isMobileOpen = false, onCloseMobile, isInPage = false, onOpenCalendarTab }) {
   const [internalExpanded, setInternalExpanded] = useState(isExpanded);
+  const [tradingStatus, setTradingStatusState] = useState(() => loadStoredData('goodtrader_trading_status', 'TRADING'));
+
+  const defaultTasks = [
+    { id: 1, text: 'Pre-Market Mindset Check', completed: true, reward: '+50 DP' },
+    { id: 2, text: 'Review Live Equity Cockpit', completed: true, reward: '+50 DP' },
+    { id: 3, text: 'Tag 3 Fills with Setup Proof', completed: false, reward: '+100 DP' },
+    { id: 4, text: 'Complete Post-Session Audit @ Close', completed: false, reward: '+150 DP' },
+  ];
+
+  const [tasks, setTasks] = useState(() => {
+    try {
+      const loaded = loadStoredData(STORAGE_KEYS.QUESTS, defaultTasks);
+      if (Array.isArray(loaded) && loaded.length > 0 && loaded[0] && typeof loaded[0] === 'object') {
+        return loaded;
+      }
+    } catch (e) {
+      console.warn('Resetting corrupted tasks storage:', e);
+    }
+    return defaultTasks;
+  });
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(() => {
@@ -38,7 +58,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const [currentMonthIndex, setCurrentMonthIndex] = useState(2); // September 2026 (Index 2)
   const [newTaskText, setNewTaskText] = useState('');
   const [isAddingTask, setIsAddingTask] = useState(false);
-  const [tradingStatus, setTradingStatusState] = useState(() => loadStoredData('goodtrader_trading_status', 'TRADING'));
   const [isDebriefModalOpen, setIsDebriefModalOpen] = useState(false);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [showAuditPrompt, setShowAuditPrompt] = useState(false);
@@ -570,7 +589,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     setIsVacationModalOpen(false);
   };
 
-  const clearVacationRange = () => {
+  function clearVacationRange() {
     const baseMonths = Array.isArray(monthsData) && monthsData.length > 0 ? monthsData : defaultMonths;
     const updatedMonths = JSON.parse(JSON.stringify(baseMonths));
     const targetMonth = updatedMonths[safeMonthIndex] || updatedMonths[0];
@@ -588,26 +607,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       saveStoredData('goodtrader_months_data', updatedMonths);
     }
   };
-
-  // Default Daily Tasks Checklist
-  const defaultTasks = [
-    { id: 1, text: 'Pre-Market Mindset Check', completed: true, reward: '+50 DP' },
-    { id: 2, text: 'Review Live Equity Cockpit', completed: true, reward: '+50 DP' },
-    { id: 3, text: 'Tag 3 Fills with Setup Proof', completed: false, reward: '+100 DP' },
-    { id: 4, text: 'Complete Post-Session Audit @ Close', completed: false, reward: '+150 DP' },
-  ];
-
-  const [tasks, setTasks] = useState(() => {
-    try {
-      const loaded = loadStoredData(STORAGE_KEYS.QUESTS, defaultTasks);
-      if (Array.isArray(loaded) && loaded.length > 0 && loaded[0] && typeof loaded[0] === 'object') {
-        return loaded;
-      }
-    } catch (e) {
-      console.warn('Resetting corrupted tasks storage:', e);
-    }
-    return defaultTasks;
-  });
 
   useEffect(() => {
     saveStoredData(STORAGE_KEYS.QUESTS, tasks);

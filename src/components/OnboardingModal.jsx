@@ -60,6 +60,34 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     localStorage.removeItem(STORAGE_KEYS.ONBOARDING_DRAFT);
   };
 
+  const handleFinishOnboarding = async (skipBroker = false, connectedAccountParam = null, allAccountsParam = null) => {
+    clearDraftState();
+    const finalStrategyName = customPlaybookName.trim() || 'Strategy 1';
+    const finalRiskLimit = customMaxDailyLoss.trim() ? (riskType === 'FIXED_DOLLAR' ? `$${customMaxDailyLoss}` : `${customMaxDailyLoss}%`) : '$1,000';
+
+    const accountsToSave = allAccountsParam || (connectedAccountParam ? [connectedAccountParam] : []);
+    const connectedBrokerObj = connectedAccountParam || (accountsToSave.length > 0 ? accountsToSave[0] : null);
+
+    if (accountsToSave.length > 0) {
+      const existingAccounts = loadStoredData('goodtrader_accounts_data', []);
+      saveStoredData('goodtrader_accounts_data', [...accountsToSave, ...existingAccounts]);
+    }
+
+    sendDiscordSignupAlert({
+      username: 'Trader',
+      strategy: `${tradingStyle} — ${finalStrategyName}`,
+      experience: `Max Risk: ${finalRiskLimit} ${connectedBrokerObj ? `(Auto-Synced: ${connectedBrokerObj.name})` : ''}`,
+      email: 'Registered Trader'
+    });
+
+    onComplete({
+      tradingStyle,
+      strategyName: finalStrategyName,
+      maxDailyLoss: finalRiskLimit,
+      connectedBroker: connectedBrokerObj
+    });
+  };
+
   useEffect(() => {
     const handleOAuthMessage = (event) => {
       if (event.data?.type === 'TRADEPIGEON_BROKER_OAUTH_SUCCESS') {
@@ -254,34 +282,6 @@ export default function OnboardingModal({ isOpen, onComplete }) {
         handleFinishOnboarding(false, createdAccounts[0], createdAccounts);
       }, 1400);
     }, 1200);
-  };
-
-  const handleFinishOnboarding = async (skipBroker = false, connectedAccountParam = null, allAccountsParam = null) => {
-    clearDraftState();
-    const finalStrategyName = customPlaybookName.trim() || 'Strategy 1';
-    const finalRiskLimit = customMaxDailyLoss.trim() ? (riskType === 'FIXED_DOLLAR' ? `$${customMaxDailyLoss}` : `${customMaxDailyLoss}%`) : '$1,000';
-
-    const accountsToSave = allAccountsParam || (connectedAccountParam ? [connectedAccountParam] : []);
-    const connectedBrokerObj = connectedAccountParam || (accountsToSave.length > 0 ? accountsToSave[0] : null);
-
-    if (accountsToSave.length > 0) {
-      const existingAccounts = loadStoredData('goodtrader_accounts_data', []);
-      saveStoredData('goodtrader_accounts_data', [...accountsToSave, ...existingAccounts]);
-    }
-
-    sendDiscordSignupAlert({
-      username: 'Trader',
-      strategy: `${tradingStyle} — ${finalStrategyName}`,
-      experience: `Max Risk: ${finalRiskLimit} ${connectedBrokerObj ? `(Auto-Synced: ${connectedBrokerObj.name})` : ''}`,
-      email: 'Registered Trader'
-    });
-
-    onComplete({
-      tradingStyle,
-      strategyName: finalStrategyName,
-      maxDailyLoss: finalRiskLimit,
-      connectedBroker: connectedBrokerObj
-    });
   };
 
   return (

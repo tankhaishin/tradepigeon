@@ -19,6 +19,7 @@ export default function SetupsTab() {
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
   const [isManualTradeModalOpen, setIsManualTradeModalOpen] = useState(false);
   const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('goodtrader_stealth_mode', false));
+  const [playbookSetups, setPlaybookSetups] = useState(() => loadStoredData('goodtrader_playbook_setups', buildDefaultPlaybooks()));
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
@@ -176,8 +177,6 @@ export default function SetupsTab() {
   };
 
   // SECTION B: VERIFIED STRATEGY PLAYBOOKS (Clean Zero-State Initial Metrics)
-  const [playbookSetups, setPlaybookSetups] = useState(() => loadStoredData('goodtrader_playbook_setups', buildDefaultPlaybooks()));
-
   const [isNewSetupModalOpen, setIsNewSetupModalOpen] = useState(false);
   const [newSetupName, setNewSetupName] = useState('');
   const [newSetupRules, setNewSetupRules] = useState('');
