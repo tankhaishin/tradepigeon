@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Flame, Gem, Heart, Trophy, ChevronRight, ChevronLeft, ChevronDown, Lock, Calendar, CheckCircle2, ShieldAlert, CheckSquare, Plus, X, ShieldCheck, Check, Sparkles, Coffee, Activity, Moon, Trash2, AlertCircle, Zap, RotateCcw } from 'lucide-react';
-import { DuoLightningIcon, DuoIceIcon, DuoLockIcon, DuoChestIcon, DuoPlaneIcon, DuoPalmtreeIcon, DuoUndoIcon, DuoShieldIcon, DuoGemIcon, DuoStarIcon } from './DuoIcons';
+import { DuoLightningIcon, DuoIceIcon, DuoLockIcon, DuoChestIcon, DuoPlaneIcon, DuoPalmtreeIcon, DuoUndoIcon, DuoShieldIcon, DuoGemIcon, DuoStarIcon, DuoTrophyIcon } from './DuoIcons';
 import InteractiveParrotMascot from './InteractiveParrotMascot';
 import AiDebriefModal from './AiDebriefModal';
 import ManualTradeModal from './ManualTradeModal';
