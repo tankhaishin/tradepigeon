@@ -813,7 +813,14 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
             {/* Shortcut 2: Take Rest Day / Vacation */}
             <button
               type="button"
-              onClick={() => setTradingStatus(tradingStatus === 'VACATION' ? 'TRADING' : 'VACATION')}
+              onClick={() => {
+                if (tradingStatus === 'VACATION') {
+                  clearVacationRange();
+                  setTradingStatus('TRADING');
+                } else {
+                  setIsVacationModalOpen(true);
+                }
+              }}
               className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col items-start gap-1 text-left active:translate-y-0.5 ${
                 tradingStatus === 'VACATION'
                   ? 'bg-[#00F0FF]/20 border-[#00F0FF] text-[#00F0FF] border-b-4 border-b-[#00B3BF] shadow-md'
@@ -1574,6 +1581,76 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
         isOpen={isManualModalOpen} 
         onClose={() => setIsManualModalOpen(false)} 
       />
+
+      {/* DUOLINGO 3D VACATION / REST DURATION PICKER MODAL */}
+      {isVacationModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-[#070C1E]/95 backdrop-blur-xl flex items-center justify-center p-4 z-[9999] animate-fade-in">
+          <div className="duo-card max-w-sm w-full p-5 sm:p-6 space-y-5 border-2 border-[#00F0FF] relative shadow-2xl text-left">
+            <button
+              type="button"
+              onClick={() => setIsVacationModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#00F0FF]/20 border-2 border-[#00F0FF] flex items-center justify-center shrink-0">
+                <DuoPalmtreeIcon className="w-7 h-7 text-[#00F0FF]" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase text-[#00F0FF] tracking-wider block">DISCIPLINE STREAK FREEZE</span>
+                <h3 className="text-lg font-black text-white leading-tight">Plan Vacation & Rest</h3>
+              </div>
+            </div>
+
+            <p className="text-xs font-bold text-slate-300 leading-relaxed">
+              Freeze your discipline streak while taking time off from live market execution. No streak loss, no drawdown penalty.
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Select Vacation Duration</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { days: 1, label: '1 Day Rest' },
+                  { days: 3, label: '3 Days (Long Break)' },
+                  { days: 7, label: '7 Days (1 Week)' },
+                  { days: 14, label: '14 Days (2 Weeks)' },
+                ].map((opt) => (
+                  <button
+                    key={opt.days}
+                    type="button"
+                    onClick={() => setVacationDurationDays(opt.days)}
+                    className={`p-3 rounded-xl text-xs font-black cursor-pointer border-2 transition-all text-left flex flex-col gap-0.5 active:translate-y-0.5 ${
+                      vacationDurationDays === opt.days
+                        ? 'bg-[#00F0FF]/20 border-[#00F0FF] text-[#00F0FF] border-b-4 border-b-[#00B3BF]'
+                        : 'bg-[#142127] border-[#20323D] border-b-4 border-b-[#0E171B] text-slate-300 hover:border-[#00F0FF]/50'
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  handleApplyVacationRange(vacationDurationDays);
+                  setTradingStatusState('VACATION');
+                  saveStoredData('goodtrader_trading_status', 'VACATION');
+                }}
+                className="duo-btn-blue flex-1 py-3 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg cursor-pointer !bg-[#00F0FF] !text-slate-950 !border-[#00B3BF]"
+              >
+                <DuoPalmtreeIcon className="w-4 h-4 text-slate-950" />
+                <span>Activate Freeze ({vacationDurationDays} {vacationDurationDays === 1 ? 'Day' : 'Days'})</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </aside>
   </>
   );
