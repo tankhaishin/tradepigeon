@@ -537,83 +537,97 @@ export default function CenterPath() {
                         </span>
                       </div>
                     ) : (
-                      <div className="space-y-3 w-full">
-                        {/* UN-CALIBRATED TRADE ALERT BADGE (If trades placed before completing pre-market steps) */}
-                        {(!completedSteps.includes(1) || !completedSteps.includes(2)) && uncalibratedCount > 0 && (
-                          <div className="w-full p-4 rounded-2xl bg-[#FF6B00] border-2 border-[#E05E00] border-b-4 border-b-[#B84D00] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl text-left animate-fade-in">
-                            <div className="flex items-center gap-3">
-                              <InteractiveParrotMascot pose="alert" className="w-10 h-10 shrink-0 drop-shadow-md" />
-                              <div className="space-y-0.5">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-amber-100 flex items-center gap-1">
-                                  <AlertCircle size={12} className="text-yellow-200" />
-                                  <span>⚠️ {uncalibratedCount} UN-CALIBRATED TRADE {uncalibratedCount === 1 ? 'FILL' : 'FILLS'} DETECTED</span>
-                                </span>
-                                <h4 className="text-sm sm:text-base font-black text-white leading-tight">
-                                  Trade Placed Before Pre-Market Calibration
-                                </h4>
-                                <p className="text-[11px] text-amber-100 font-semibold">
-                                  Your fill was auto-captured! Complete Step 1 & 2 to unlock behavioral classification.
-                                </p>
+                      <div className="w-full">
+                        {/* UNIFIED SINGLE HERO ACTION CARD (Zero clutter, single choice) */}
+                        {(() => {
+                          const hasUncalibratedFills = (!completedSteps.includes(1) || !completedSteps.includes(2)) && uncalibratedCount > 0;
+                          const currentStepNum = !completedSteps.includes(1) ? 1 : !completedSteps.includes(2) ? 2 : !completedSteps.includes(3) ? 3 : 4;
+                          
+                          return (
+                            <div className={`w-full p-4 sm:p-5 rounded-2xl text-white space-y-3 shadow-xl text-left border-2 border-b-4 transition-all duration-200 ${
+                              hasUncalibratedFills
+                                ? 'bg-[#FF6B00] border-[#E05E00] border-b-[#B84D00]'
+                                : 'bg-[#1CB0F6] border-[#1899D6] border-b-[#147BB0]'
+                            }`}>
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="space-y-1 min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-lg flex items-center gap-1.5 ${
+                                      hasUncalibratedFills ? 'bg-amber-950/40 text-amber-200 border border-amber-300/30' : 'bg-black/20 text-sky-100 border border-white/20'
+                                    }`}>
+                                      {hasUncalibratedFills ? (
+                                        <>
+                                          <AlertCircle size={12} className="text-yellow-200 shrink-0" />
+                                          <span>{uncalibratedCount} UN-CALIBRATED {uncalibratedCount === 1 ? 'FILL' : 'FILLS'} DETECTED &bull; STEP {currentStepNum} OF 4</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Sparkles size={12} className="text-yellow-300 shrink-0" />
+                                          <span>CURRENT ACTION &bull; STEP {currentStepNum} OF 4</span>
+                                        </>
+                                      )}
+                                    </span>
+                                  </div>
+
+                                  <h4 className="text-base sm:text-lg font-black text-white leading-tight">
+                                    {!completedSteps.includes(1) 
+                                      ? "1. Complete Pre-Market Mindset Check" 
+                                      : !completedSteps.includes(2)
+                                      ? "2. Calibrate Playbook Risk & Drawdown"
+                                      : !completedSteps.includes(3)
+                                      ? "3. Active Trading & Telemetry Sync"
+                                      : "4. Complete Post-Market Journal Audit"}
+                                  </h4>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveStep(currentStepNum);
+                                    setIsStepModalOpen(true);
+                                    soundFx.playPop();
+                                  }}
+                                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider shadow-md cursor-pointer transition-all border-b-2 shrink-0 text-center active:translate-y-0.5 ${
+                                    hasUncalibratedFills
+                                      ? 'bg-white text-[#FF6B00] hover:bg-orange-50 border-b-orange-200'
+                                      : 'bg-white text-[#1CB0F6] hover:bg-sky-50 border-b-sky-200'
+                                  }`}
+                                >
+                                  <span>{!completedSteps.includes(1) ? 'Start Step 1 →' : !completedSteps.includes(2) ? 'Start Step 2 →' : !completedSteps.includes(3) ? 'View Telemetry →' : 'Log Audit →'}</span>
+                                </button>
+                              </div>
+
+                              <div className="p-3 rounded-xl bg-black/20 border border-white/15 text-[11px] font-bold text-white/90 leading-relaxed flex items-start gap-2">
+                                {hasUncalibratedFills ? (
+                                  <>
+                                    <AlertCircle size={14} className="text-yellow-300 shrink-0 mt-0.5" />
+                                    <span>Your fills were auto-captured! Complete Step 1 & 2 to unlock behavioral classification.</span>
+                                  </>
+                                ) : !completedSteps.includes(1) ? (
+                                  <>
+                                    <Sparkles size={14} className="text-yellow-300 shrink-0 mt-0.5" />
+                                    <span>Protocol Requirement: Complete your 60-second Mindset Check to prime your emotional discipline before placing any live trades.</span>
+                                  </>
+                                ) : !completedSteps.includes(2) ? (
+                                  <>
+                                    <ShieldAlert size={14} className="text-amber-300 shrink-0 mt-0.5" />
+                                    <span>Risk Requirement: Lock in your maximum daily drawdown limit and position size before execution.</span>
+                                  </>
+                                ) : !completedSteps.includes(3) ? (
+                                  <>
+                                    <Activity size={14} className="text-emerald-400 shrink-0 mt-0.5 animate-pulse" />
+                                    <span>Telemetry Active: Trade fills are auto-syncing in real time across your connected broker accounts.</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle2 size={14} className="text-sky-300 shrink-0 mt-0.5" />
+                                    <span>Post-Session Requirement: Log your 60-second Audit Journal to lock in today's streak and earn +150 DP!</span>
+                                  </>
+                                )}
                               </div>
                             </div>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const nextStepNum = !completedSteps.includes(1) ? 1 : 2;
-                                setActiveStep(nextStepNum);
-                                setIsStepModalOpen(true);
-                                soundFx.playPop();
-                              }}
-                              className="bg-white text-[#FF6B00] hover:bg-orange-50 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider shadow-md cursor-pointer transition-all border-b-2 border-b-orange-200 shrink-0 text-center"
-                            >
-                              <span>Complete Setup →</span>
-                            </button>
-                          </div>
-                        )}
-
-                        <div className="w-full p-4.5 rounded-2xl bg-[#1CB0F6] border-2 border-[#1899D6] border-b-4 border-b-[#147BB0] text-white space-y-3 shadow-xl text-left">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="space-y-0.5">
-                            <span className="text-[10px] font-black uppercase tracking-wider text-sky-100 flex items-center gap-1.5">
-                              <Sparkles size={13} className="text-yellow-300 animate-spin" />
-                              <span>CURRENT ACTION &bull; STEP {!completedSteps.includes(1) ? '1' : !completedSteps.includes(2) ? '2' : !completedSteps.includes(3) ? '3' : '4'} OF 4</span>
-                            </span>
-                            <h4 className="text-base sm:text-lg font-black text-white leading-tight">
-                              {!completedSteps.includes(1) 
-                                ? "1. Complete Pre-Market Mindset Check" 
-                                : !completedSteps.includes(2)
-                                ? "2. Calibrate Playbook Risk & Drawdown"
-                                : !completedSteps.includes(3)
-                                ? "3. Active Trading & Telemetry Sync"
-                                : "4. Complete Post-Market Journal Audit"}
-                            </h4>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const nextStepNum = !completedSteps.includes(1) ? 1 : !completedSteps.includes(2) ? 2 : !completedSteps.includes(3) ? 3 : 4;
-                              setActiveStep(nextStepNum);
-                              setIsStepModalOpen(true);
-                              soundFx.playPop();
-                            }}
-                            className="bg-white text-[#1CB0F6] hover:bg-sky-50 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider shadow-md cursor-pointer transition-all border-b-2 border-b-sky-200 shrink-0 text-center"
-                          >
-                            <span>{!completedSteps.includes(1) ? 'Start Step 1 →' : !completedSteps.includes(2) ? 'Start Step 2 →' : !completedSteps.includes(3) ? 'View Telemetry →' : 'Log Audit →'}</span>
-                          </button>
-                        </div>
-
-                        <div className="p-2.5 rounded-xl bg-black/20 border border-white/20 text-[11px] font-bold text-sky-100 leading-relaxed">
-                          {!completedSteps.includes(1) 
-                            ? "💡 Protocol Requirement: Complete your 60-second Mindset Check to prime your emotional discipline before placing any live trades."
-                            : !completedSteps.includes(2)
-                            ? "💡 Risk Requirement: Lock in your maximum daily drawdown limit and position size before execution."
-                            : !completedSteps.includes(3)
-                            ? "🟢 Telemetry Active: Trade fills are auto-syncing in real time across your connected broker accounts."
-                            : "📝 Post-Session Requirement: Log your 60-second Audit Journal to lock in today's streak and earn +150 DP!"}
-                        </div>
-                        </div>
+                          );
+                        })()}
                       </div>
                     )
                   )}
@@ -902,9 +916,10 @@ export default function CenterPath() {
                 onClick={() => {
                   soundFx.playTrophy();
                 }}
-                className="w-full py-3.5 rounded-2xl bg-black text-white font-black text-xs uppercase tracking-wider hover:bg-slate-900 transition-all cursor-pointer shadow-lg border-b-4 border-b-slate-800"
+                className="w-full py-3.5 rounded-2xl bg-black text-white font-black text-xs uppercase tracking-wider hover:bg-slate-900 transition-all cursor-pointer shadow-lg border-b-4 border-b-slate-800 flex items-center justify-center gap-2"
               >
-                🏆 Claim 30-Day Execution Badge
+                <DuoTrophyIcon className="w-4 h-4 text-yellow-400 shrink-0" />
+                <span>Claim 30-Day Execution Badge</span>
               </button>
             </div>
           </div>

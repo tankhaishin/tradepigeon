@@ -355,9 +355,9 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
   const getDynamicSyncButtonLabel = () => {
     if (selectedBasketFilter === 'ALL') {
-      return '⚡ Sync Live Telemetry';
+      return 'Sync Live Telemetry';
     }
-    return `⚡ Sync ${selectedBasketFilter} Telemetry`;
+    return `Sync ${selectedBasketFilter} Telemetry`;
   };
 
   const filteredTrades = sessionTrades.filter(t => selectedBasketFilter === 'ALL' || t.account === selectedBasketFilter);
@@ -371,7 +371,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     // Check if Pre-Session steps 1 & 2 are completed
     const completedSteps = loadStoredData('goodtrader_completed_steps', []);
     if (!completedSteps.includes(1) || !completedSteps.includes(2)) {
-      alert('⚠️ Behavioral Protocol Requirement: Please complete Pre-Session Mindset Check (Step 1) & Playbook Sizing (Step 2) before verifying post-session trades!');
+      alert('Behavioral Protocol Requirement: Please complete Pre-Session Mindset Check (Step 1) & Playbook Sizing (Step 2) before verifying post-session trades!');
       return;
     }
 
@@ -753,74 +753,84 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
         {/* ORPHAN PENDING ORDER RADAR */}
         <PendingOrdersRadar />
 
-        {/* 2. TRADING STATUS 3-STATE SEGMENTED CONTROL */}
-        <div className="p-3.5 rounded-2xl bg-[#142127] border-2 border-[#20323D] space-y-3 shadow-lg">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-black uppercase text-[#52656D] tracking-wider">
-              TRADING STATUS
-            </span>
-            <span className={`text-[10px] font-black px-3 py-1 rounded-xl uppercase border-2 flex items-center gap-1 shadow-md ${
-              tradingStatus === 'VACATION'
-                ? 'bg-[#00F0FF] text-slate-950 border-[#00F0FF] border-b-2 border-b-[#00B3BF]'
-                : tradingStatus === 'DONE'
-                ? 'bg-amber-500 text-slate-950 border-amber-500 border-b-2 border-b-amber-700'
-                : 'bg-[#58CC02] text-white border-[#58CC02] border-b-2 border-b-[#3C8901]'
-            }`}>
-              {tradingStatus === 'VACATION' ? (
-                <>
-                  <DuoPalmtreeIcon className="w-3.5 h-3.5 text-[#00F0FF] shrink-0" />
-                  <span>VACATION</span>
-                </>
-              ) : tradingStatus === 'DONE' ? (
-                <>
-                  <CheckCircle2 size={12} className="text-amber-300 shrink-0" />
-                  <span>DONE TODAY</span>
-                </>
-              ) : (
-                <>
-                  <Activity size={12} className="text-[#58CC02] animate-pulse shrink-0" />
-                  <span>TRADING</span>
-                </>
-              )}
+        {/* 2. REDESIGNED SESSION ACTION CONTROL BAR (CONCEPT A - 100% Responsive & Zero Emojis) */}
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-[#142127] border-2 border-[#20323D] space-y-3 shadow-lg text-left">
+          {/* Header with Status Indicator & Live Sync Badge */}
+          <div className="flex items-center justify-between gap-2 border-b border-[#20323D] pb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase text-[#52656D] tracking-wider block">
+                SESSION STATUS
+              </span>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#182830] border border-[#20323D]">
+                <span className={`w-2 h-2 rounded-full ${
+                  tradingStatus === 'VACATION'
+                    ? 'bg-[#00F0FF] animate-pulse'
+                    : tradingStatus === 'DONE' || tradingStatus === 'DONE_PENDING'
+                    ? 'bg-amber-400'
+                    : 'bg-[#58CC02] animate-pulse'
+                }`} />
+                <span className="text-[11px] font-black text-white uppercase tracking-wider">
+                  {tradingStatus === 'VACATION' 
+                    ? 'Rest Day Active' 
+                    : tradingStatus === 'DONE' || tradingStatus === 'DONE_PENDING' 
+                    ? 'Session Complete' 
+                    : 'Trading Live'}
+                </span>
+              </div>
+            </div>
+
+            <span className="text-[9px] font-black uppercase tracking-wider text-[#1CB0F6] px-2 py-0.5 rounded-lg bg-[#1CB0F6]/10 border border-[#1CB0F6]/30 flex items-center gap-1">
+              <Zap size={10} className="text-[#1CB0F6] shrink-0" />
+              <span>AUTO-SYNC</span>
             </span>
           </div>
 
-          {/* 3-WAY SEGMENTED BUTTON SWITCHER */}
-          <div className="grid grid-cols-3 gap-1 bg-[#182830] p-1 rounded-2xl border border-[#20323D]">
+          {/* Responsive Action Buttons (2-Column Grid on sm+, Stacked on tight sidebars) */}
+          <div className="grid grid-cols-2 gap-2">
+            {/* Shortcut 1: Finish / Wrap Up Session */}
             <button
-              onClick={() => setTradingStatus('TRADING')}
-              className={`py-2 px-1 rounded-xl text-xs font-black transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
-                tradingStatus === 'TRADING'
-                  ? 'bg-[#58CC02] text-white shadow-md border-b-2 border-b-[#3C8901]'
-                  : 'text-[#52656D] hover:text-white'
-              }`}
-            >
-              <Activity size={14} />
-              <span>Trading</span>
-            </button>
-
-            <button
-              onClick={() => setTradingStatus('DONE')}
-              className={`py-2 px-1 rounded-xl text-xs font-black transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+              type="button"
+              onClick={() => setTradingStatus(tradingStatus === 'DONE' ? 'TRADING' : 'DONE')}
+              className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col items-start gap-1 text-left active:translate-y-0.5 ${
                 tradingStatus === 'DONE' || tradingStatus === 'DONE_PENDING'
-                  ? 'bg-amber-500 text-slate-900 shadow-md font-black border-b-2 border-b-amber-700'
-                  : 'text-[#52656D] hover:text-white'
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-300 border-b-4 border-b-amber-700 shadow-md'
+                  : 'bg-[#182830] border-[#20323D] border-b-4 border-b-[#142127] text-white hover:border-[#1CB0F6]'
               }`}
             >
-              <CheckCircle2 size={14} />
-              <span>Done Today</span>
+              <div className="flex items-center gap-1.5 w-full justify-between">
+                <div className="flex items-center gap-1.5">
+                  <DuoTrophyIcon className="w-4 h-4 shrink-0 text-amber-400" />
+                  <span className="text-xs font-black uppercase tracking-wider">
+                    {tradingStatus === 'DONE' ? 'Resume' : 'Finish Session'}
+                  </span>
+                </div>
+              </div>
+              <span className="text-[9.5px] font-bold text-slate-400 leading-tight">
+                {tradingStatus === 'DONE' ? 'Re-open trading session' : 'Audit PnL & lock streak'}
+              </span>
             </button>
 
+            {/* Shortcut 2: Take Rest Day / Vacation */}
             <button
-              onClick={() => setTradingStatus('VACATION')}
-              className={`py-2 px-1 rounded-xl text-xs font-black transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+              type="button"
+              onClick={() => setTradingStatus(tradingStatus === 'VACATION' ? 'TRADING' : 'VACATION')}
+              className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col items-start gap-1 text-left active:translate-y-0.5 ${
                 tradingStatus === 'VACATION'
-                  ? 'bg-[#00F0FF] text-slate-900 shadow-md font-black border-b-2 border-b-[#00B3BF]'
-                  : 'text-[#52656D] hover:text-white'
+                  ? 'bg-[#00F0FF]/20 border-[#00F0FF] text-[#00F0FF] border-b-4 border-b-[#00B3BF] shadow-md'
+                  : 'bg-[#182830] border-[#20323D] border-b-4 border-b-[#142127] text-white hover:border-[#00F0FF]'
               }`}
             >
-              <DuoPalmtreeIcon className="w-3.5 h-3.5 shrink-0" />
-              <span>Vacation</span>
+              <div className="flex items-center gap-1.5 w-full justify-between">
+                <div className="flex items-center gap-1.5">
+                  <DuoPalmtreeIcon className="w-4 h-4 shrink-0 text-[#00F0FF]" />
+                  <span className="text-xs font-black uppercase tracking-wider">
+                    {tradingStatus === 'VACATION' ? 'Cancel Rest' : 'Take Rest Day'}
+                  </span>
+                </div>
+              </div>
+              <span className="text-[9.5px] font-bold text-slate-400 leading-tight">
+                {tradingStatus === 'VACATION' ? 'Return to active market' : 'Protect streak today'}
+              </span>
             </button>
           </div>
         </div>
@@ -1137,7 +1147,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                               className="duo-btn-green w-full py-2 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-md mt-1"
                             >
                               <CheckCircle2 size={13} />
-                              <span>✓ Confirm & Lock Trade Audit (+50 DP)</span>
+                              <span>Confirm & Lock Trade Audit (+50 DP)</span>
                             </button>
                           </div>
                         )}
