@@ -128,8 +128,22 @@ export function auditAndSanitizeCalendarState(cachedMonths = []) {
       let finalStatus = existing.status || refDay.status;
       let finalPnl = existing.pnl || refDay.pnl;
 
-      if (isTodayDate && finalStatus !== 'no_trade' && finalStatus !== 'holiday_freeze') {
-        finalStatus = 'today';
+      // 1. Reset stale 'today' status on any day that is NOT the actual current date
+      if (!isTodayDate && finalStatus === 'today') {
+        finalStatus = refDay.isWeekend ? 'weekend_rest' : 'upcoming';
+        if (!finalPnl || finalPnl === '$0.00' || finalPnl === '-') {
+          finalPnl = refDay.isWeekend ? 'MARKET CLOSED' : '-';
+        }
+      }
+
+      // 2. Set 'today' status ONLY for the actual current date (and handle weekends correctly)
+      if (isTodayDate) {
+        if (refDay.isWeekend && finalStatus !== 'win' && finalStatus !== 'good_loss' && finalStatus !== 'toxic_win' && finalStatus !== 'double_failure' && finalStatus !== 'no_trade') {
+          finalStatus = 'weekend_rest';
+          finalPnl = 'MARKET CLOSED';
+        } else if (finalStatus !== 'win' && finalStatus !== 'good_loss' && finalStatus !== 'toxic_win' && finalStatus !== 'double_failure' && finalStatus !== 'no_trade' && finalStatus !== 'holiday_freeze') {
+          finalStatus = 'today';
+        }
       }
 
       return {
