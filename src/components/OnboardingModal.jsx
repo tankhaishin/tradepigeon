@@ -148,52 +148,38 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     { 
       id: 'tradovate', 
       name: 'Tradovate', 
-      desc: 'Official Web API & Direct Socket',
+      desc: 'Official Direct REST & Telemetry Socket',
       icon: TradovateLogo, 
-      badge: 'OFFICIAL API',
-      url: 'https://trader.tradovate.com',
+      badge: 'DIRECT API',
       sampleAcc: 'LFE05055647070018',
       sampleAccs: ['LFE05055647070018', 'LFE05055647070019', 'LFE05055647070020']
     },
     { 
-      id: 'lucidtrading', 
-      name: 'Lucid Trading', 
-      desc: 'Prop Firm Multi-Account Gateway',
-      icon: TradovateLogo, 
-      badge: 'PROP FIRM MULTI-ACCOUNT',
-      url: 'https://lucidtrading.com',
-      sampleAcc: 'LUCID-50K-01',
-      sampleAccs: ['LUCID-50K-01', 'LUCID-50K-02']
+      id: 'ninjatrader', 
+      name: 'NinjaTrader', 
+      desc: 'Tradovate Cloud API Architecture',
+      icon: NinjaTraderLogo, 
+      badge: 'DIRECT API',
+      sampleAcc: 'NT-109283',
+      sampleAccs: ['NT-109283', 'NT-109284']
     },
     { 
-      id: 'metatrader5', 
-      name: 'MetaTrader 5 / MT4', 
-      desc: 'Official WebTerminal & Investor API',
-      icon: MetaTrader5Logo, 
-      badge: 'OFFICIAL WEBTERMINAL',
-      url: 'https://trade.mql5.com/trade',
-      sampleAcc: '50192834',
-      sampleAccs: ['50192834', '50192835']
+      id: 'propfirms', 
+      name: 'Apex / TopStep / Prop Firms', 
+      desc: 'Tradovate Gateway Multi-Account',
+      icon: TradovateLogo, 
+      badge: 'PROP MULTI-ACCOUNT',
+      sampleAcc: 'APEX-50K-01',
+      sampleAccs: ['APEX-50K-01', 'APEX-50K-02']
     },
     { 
       id: 'tradelocker', 
       name: 'TradeLocker', 
-      desc: 'Official Live Terminal & Socket Feed',
+      desc: 'Live Cloud Terminal & Stream',
       icon: TradeLockerLogo, 
-      badge: 'OFFICIAL LIVE WEB',
-      url: 'https://live.tradelocker.com',
+      badge: 'CLOUD API',
       sampleAcc: 'TL-882910',
       sampleAccs: ['TL-882910', 'TL-882911']
-    },
-    { 
-      id: 'ninjatrader', 
-      name: 'NinjaTrader', 
-      desc: 'Official Account Portal & Live Stream',
-      icon: NinjaTraderLogo, 
-      badge: 'OFFICIAL ACCOUNT PORTAL',
-      url: 'https://account.ninjatrader.com/login',
-      sampleAcc: 'NT-109283',
-      sampleAccs: ['NT-109283', 'NT-109284']
     },
   ];
 

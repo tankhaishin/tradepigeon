@@ -3,7 +3,7 @@ import {
   CheckCircle2, ShieldAlert, ShieldCheck, Lock, Key, RefreshCw, X, Zap, 
   Activity, ArrowLeft, Sparkles, ChevronRight, Eye, EyeOff, Layers, CheckSquare, Square
 } from 'lucide-react';
-import { TradovateLogo, MetaTrader5Logo, NinjaTraderLogo, TradeLockerLogo } from './BrokerLogos';
+import { TradovateLogo, NinjaTraderLogo, TradeLockerLogo } from './BrokerLogos';
 import { loadStoredData, saveStoredData } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 import { detectPlatformFromAccountId } from '../utils/platformDetector';
@@ -33,7 +33,7 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
     { 
       id: 'tradovate', 
       name: 'Tradovate', 
-      subtitle: 'Official Direct API & Telemetry Socket',
+      subtitle: 'Official Direct REST & Telemetry Socket',
       icon: TradovateLogo, 
       badge: 'DIRECT API',
       color: '#FF6B00',
@@ -41,41 +41,31 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
       sampleAccs: ['LFE05055647070018', 'LFE05055647070019', 'LFE05055647070020']
     },
     { 
-      id: 'lucidtrading', 
-      name: 'Lucid Trading', 
-      subtitle: 'Prop Firm Multi-Account Gateway',
-      icon: TradovateLogo, 
-      badge: 'PROP MULTI-ACCOUNT',
-      color: '#00E5FF',
-      sampleAcc: 'LUCID-50K-01',
-      sampleAccs: ['LUCID-50K-01', 'LUCID-50K-02']
-    },
-    { 
       id: 'ninjatrader', 
       name: 'NinjaTrader', 
-      subtitle: 'Tradovate / CQG API Bridge',
+      subtitle: 'Tradovate Cloud API Architecture',
       icon: NinjaTraderLogo, 
-      badge: 'API BRIDGE',
+      badge: 'DIRECT API',
       color: '#58CC02',
       sampleAcc: 'NT-109283',
       sampleAccs: ['NT-109283', 'NT-109284']
     },
     { 
-      id: 'metatrader5', 
-      name: 'MetaTrader 5 / MT4', 
-      subtitle: 'Official WebTerminal & Investor API',
-      icon: MetaTrader5Logo, 
-      badge: 'INVESTOR API',
-      color: '#1CB0F6',
-      sampleAcc: '50192834',
-      sampleAccs: ['50192834', '50192835']
+      id: 'propfirms', 
+      name: 'Apex / TopStep / Prop Firms', 
+      subtitle: 'Tradovate Gateway Multi-Account',
+      icon: TradovateLogo, 
+      badge: 'PROP MULTI-ACCOUNT',
+      color: '#00E5FF',
+      sampleAcc: 'APEX-50K-01',
+      sampleAccs: ['APEX-50K-01', 'APEX-50K-02', 'APEX-50K-03']
     },
     { 
       id: 'tradelocker', 
       name: 'TradeLocker', 
-      subtitle: 'Live Terminal & Socket Stream',
+      subtitle: 'Live Cloud Terminal & Stream',
       icon: TradeLockerLogo, 
-      badge: 'LIVE SOCKET',
+      badge: 'CLOUD API',
       color: '#CE82FF',
       sampleAcc: 'TL-882910',
       sampleAccs: ['TL-882910', 'TL-882911']
