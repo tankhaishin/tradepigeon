@@ -27,7 +27,10 @@ router.post('/auth', async (req, res) => {
   }
 
   try {
-    const response = await fetch(`${TRADOVATE_REST_URL}/auth/accesstokenrequest`, {
+    const env = req.body.env || 'LIVE';
+    const restUrl = env === 'DEMO' ? 'https://demo.tradovateapi.com/v1' : 'https://live.tradovateapi.com/v1';
+
+    const response = await fetch(`${restUrl}/auth/accesstokenrequest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -48,6 +51,34 @@ router.post('/auth', async (req, res) => {
 
     const accessToken = data.accessToken;
     const userId = data.userId;
+    const expirationTime = data.expirationTime;
+
+    // Discover sub-accounts
+    let accountsList = [];
+    try {
+      const accRes = await fetch(`${restUrl}/account/list`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const accountsData = await accRes.json();
+      if (Array.isArray(accountsData)) {
+        accountsList = accountsData.map(acc => ({
+          id: acc.id,
+          name: acc.name,
+          accountType: acc.accountType || (env === 'DEMO' ? 'Demo' : 'Funded'),
+          active: acc.active !== false
+        }));
+      }
+    } catch (accErr) {
+      console.warn('Failed to query Tradovate sub-accounts:', accErr);
+    }
+
+    if (accountsList.length === 0) {
+      accountsList = [{ id: userId || 'primary', name: name, accountType: env === 'DEMO' ? 'Demo' : 'Live Funded', active: true }];
+    }
 
     // Start background WebSocket Telemetry listener for this user
     startTradovateWebSocketListener(userId, accessToken);
@@ -56,6 +87,9 @@ router.post('/auth', async (req, res) => {
       success: true,
       accessToken,
       userId,
+      expirationTime,
+      environment: env,
+      accounts: accountsList,
       accountName: name,
       message: 'Tradovate API authenticated successfully. Telemetry listener active.'
     });

@@ -206,17 +206,6 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     setSubAccountCount('1');
     setShowAdvanced(false);
     setFormError('');
-
-    if (platform?.url) {
-      brokerPopupRef.current = window.open(platform.url, `OfficialBroker_${platform.id}`, 'width=800,height=850,status=no,resizable=yes,scrollbars=yes');
-    }
-  };
-
-  const handleLaunchOfficialSite = () => {
-    if (selectedPlatform?.url) {
-      soundFx.playPop();
-      brokerPopupRef.current = window.open(selectedPlatform.url, `OfficialBroker_${selectedPlatform.id}`, 'width=800,height=850,status=no,resizable=yes,scrollbars=yes');
-    }
   };
 
   const handleQuickDemoAutoFill = () => {
@@ -236,15 +225,6 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     setIsSubmitting(true);
     setFormError('');
     soundFx.playPop();
-
-    // Auto-close opened official broker window upon verification
-    if (brokerPopupRef.current && !brokerPopupRef.current.closed) {
-      try {
-        brokerPopupRef.current.close();
-      } catch (err) {
-        console.log('Broker window closed:', err);
-      }
-    }
 
     setTimeout(() => {
       const rawBalance = parseFloat(capital) || 50000;
@@ -599,9 +579,10 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                     <p>
                       Sign in on <strong>{selectedPlatform.name}'s official portal ({selectedPlatform.url})</strong>. TradePigeon auto-links your session ID <strong>{username || selectedPlatform.sampleAcc}</strong> — zero password entry needed!
                     </p>
-                    <div className="text-[10px] text-[#FF6B00] font-black pt-1 border-t border-[#20323D]/60 flex items-center gap-1">
-                      <span>⚡ 1-Click Sync:</span>
-                      <span className="text-slate-300 font-bold">Click the big button below to finalize sync and auto-close the broker window.</span>
+                    <div className="text-[10px] text-[#FF6B00] font-black pt-1 border-t border-[#20323D]/60 flex items-center gap-1.5">
+                      <Zap size={12} className="text-[#FF6B00]" />
+                      <span>Direct In-App Sync:</span>
+                      <span className="text-slate-300 font-bold">Telemetry and execution fills track automatically into your session hub.</span>
                     </div>
                   </div>
                 </div>
@@ -622,24 +603,26 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                     <button
                       type="button"
                       onClick={() => setEnv('LIVE')}
-                      className={`py-2.5 px-4 rounded-xl border-2 font-black text-xs transition-all cursor-pointer ${
+                      className={`py-2.5 px-4 rounded-xl border-2 font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
                         env === 'LIVE' 
                           ? 'bg-[#58CC02]/20 border-[#58CC02] text-[#58CC02]' 
                           : 'bg-[#142127] border-[#20323D] text-slate-400 hover:text-white'
                       }`}
                     >
-                      🟢 Live Funded Account
+                      <span className={`w-2 h-2 rounded-full ${env === 'LIVE' ? 'bg-[#58CC02] animate-pulse' : 'bg-slate-500'}`} />
+                      <span>Live Funded Account</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setEnv('DEMO')}
-                      className={`py-2.5 px-4 rounded-xl border-2 font-black text-xs transition-all cursor-pointer ${
+                      className={`py-2.5 px-4 rounded-xl border-2 font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
                         env === 'DEMO' 
                           ? 'bg-[#FF6B00]/20 border-[#FF6B00] text-[#FF6B00]' 
                           : 'bg-[#142127] border-[#20323D] text-slate-400 hover:text-white'
                       }`}
                     >
-                      🔷 Demo / Evaluation
+                      <span className={`w-2 h-2 rounded-full ${env === 'DEMO' ? 'bg-[#FF6B00]' : 'bg-slate-500'}`} />
+                      <span>Demo / Evaluation</span>
                     </button>
                   </div>
                 </div>
@@ -665,8 +648,9 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                     autoFocus
                   />
 
-                  <div className="text-[10px] text-slate-400 font-semibold flex items-center justify-between px-1">
-                    <span>💡 <strong>Multi-Account Sync:</strong> Separate multiple sub-accounts with commas (e.g. ACC1, ACC2)</span>
+                  <div className="text-[10px] text-slate-400 font-semibold flex items-center gap-1.5 px-1">
+                    <Sparkles size={11} className="text-[#00E5FF] shrink-0" />
+                    <span><strong>Multi-Account Sync:</strong> Separate multiple sub-accounts with commas (e.g. ACC1, ACC2)</span>
                   </div>
 
                   {username.trim() && detectPlatformFromAccountId(username) && (
@@ -690,7 +674,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                     className="text-[11px] font-bold text-slate-400 hover:text-white flex items-center gap-1.5 cursor-pointer py-1"
                   >
                     {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    <span>{showAdvanced ? 'Hide Advanced Options' : '⚙️ Optional: Advanced Multi-Account Batch Import'}</span>
+                    <span>{showAdvanced ? 'Hide Advanced Options' : 'Optional: Advanced Multi-Account Batch Import'}</span>
                   </button>
 
                   {showAdvanced && (
@@ -742,7 +726,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                   ) : (
                     <>
                       <Zap size={16} />
-                      <span>⚡ 1-Click Sync {selectedPlatform.name} ({username || 'Account'})</span>
+                      <span>Connect & Sync {selectedPlatform.name} ({username || 'Account'})</span>
                     </>
                   )}
                 </button>

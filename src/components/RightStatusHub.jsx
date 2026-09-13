@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Flame, Gem, Heart, Trophy, ChevronRight, ChevronLeft, ChevronDown, Lock, Calendar, CheckCircle2, ShieldAlert, CheckSquare, Plus, X, ShieldCheck, Check, Sparkles, Coffee, Activity, Moon, Trash2, AlertCircle, Zap, RotateCcw } from 'lucide-react';
+import { Flame, Gem, Heart, Trophy, ChevronRight, ChevronLeft, ChevronDown, Lock, Calendar, CheckCircle2, ShieldAlert, CheckSquare, Plus, X, ShieldCheck, Check, Sparkles, Coffee, Activity, Moon, Trash2, AlertCircle, Zap, RotateCcw, Layers, RefreshCw } from 'lucide-react';
 import { DuoLightningIcon, DuoIceIcon, DuoLockIcon, DuoChestIcon, DuoPlaneIcon, DuoPalmtreeIcon, DuoUndoIcon, DuoShieldIcon, DuoGemIcon, DuoStarIcon, DuoTrophyIcon } from './DuoIcons';
 import InteractiveParrotMascot from './InteractiveParrotMascot';
 import AiDebriefModal from './AiDebriefModal';
 import ManualTradeModal from './ManualTradeModal';
 import PendingOrdersRadar from './PendingOrdersRadar';
+import BrokerConnectModal from './BrokerConnectModal';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS } from '../utils/storage';
 import { auditAndSanitizeCalendarState } from '../utils/calendarEngine';
 import { soundFx } from '../utils/audioEngine';
@@ -136,11 +137,23 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   ])];
 
   const [isAddTradeModalOpen, setIsAddTradeModalOpen] = useState(false);
+  const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
   const [newTradeSymbol, setNewTradeSymbol] = useState('NQ1!');
   const [newTradeSide, setNewTradeSide] = useState('LONG');
   const [newTradePnl, setNewTradePnl] = useState('+$500.00');
   const [newTradeType, setNewTradeType] = useState('win');
   const [newTradeAccount, setNewTradeAccount] = useState(primaryAccountName);
+
+  const handleDisconnectAccount = (accId) => {
+    soundFx.playPop();
+    const current = loadStoredData('goodtrader_accounts_data', []);
+    const remaining = current.filter(a => a.id !== accId && a.accountNumber !== accId);
+    setConnectedAccounts(remaining);
+    saveStoredData('goodtrader_accounts_data', remaining);
+    if (selectedBasketFilter === accId) {
+      setSelectedBasketFilter('ALL');
+    }
+  };
 
   const handleVerifyTrade = (tradeId, newType) => {
     soundFx.playPop();
@@ -285,7 +298,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     // Fetch stored connected accounts
     const storedAccounts = loadStoredData('goodtrader_accounts_data', []);
     if (!storedAccounts || storedAccounts.length === 0) {
-      setIsAddTradeModalOpen(true);
+      setIsBrokerModalOpen(true);
       return;
     }
 
@@ -978,31 +991,161 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 <button
                   onClick={() => {
                     soundFx.playPop();
-                    setIsAddTradeModalOpen(true);
+                    setIsBrokerModalOpen(true);
                   }}
-                  className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-[#142127] hover:bg-[#20323D] border border-[#20323D] text-[#1CB0F6] cursor-pointer transition-all flex items-center gap-1"
+                  className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-[#1CB0F6]/20 hover:bg-[#1CB0F6]/30 border border-[#1CB0F6]/40 text-[#1CB0F6] cursor-pointer transition-all flex items-center gap-1 shadow-sm"
+                  title="Connect Tradovate, NinjaTrader, or prop firm account"
                 >
                   <Plus size={10} />
-                  <span>Add Trade</span>
+                  <span>Connect Broker</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    soundFx.playPop();
+                    setIsAddTradeModalOpen(true);
+                  }}
+                  className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-[#142127] hover:bg-[#20323D] border border-[#20323D] text-slate-300 hover:text-white cursor-pointer transition-all flex items-center gap-1"
+                >
+                  <Plus size={10} />
+                  <span>Manual Fill</span>
                 </button>
               </div>
             </div>
 
-            {/* Account / Risk Basket Source Filter Pills */}
-            <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
-              {availableBaskets.map((basket) => (
+            {/* Connected Accounts Cockpit */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between px-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${connectedAccounts.length > 0 ? 'bg-[#58CC02] animate-pulse' : 'bg-slate-500'}`} />
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">
+                    Accounts ({connectedAccounts.length})
+                  </span>
+                  {lastAutoSyncedTime && (
+                    <span className="text-[9px] font-mono text-slate-500">
+                      • {lastAutoSyncedTime}
+                    </span>
+                  )}
+                </div>
+
                 <button
-                  key={basket}
-                  onClick={() => setSelectedBasketFilter(basket)}
-                  className={`text-[9px] font-black px-2 py-0.5 rounded-md transition-all cursor-pointer whitespace-nowrap border ${
-                    selectedBasketFilter === basket
-                      ? 'bg-[#1CB0F6] text-white border-[#147BB0]'
-                      : 'bg-[#142127] text-slate-400 border-[#20323D] hover:text-white'
-                  }`}
+                  type="button"
+                  onClick={handleSyncLiveBrokerTelemetry}
+                  className="text-[9px] font-black text-[#58CC02] hover:underline flex items-center gap-1 cursor-pointer"
+                  title="Poll latest execution telemetry"
                 >
-                  {basket === 'ALL' ? 'ALL ACCOUNTS' : basket}
+                  <RefreshCw size={9} />
+                  <span>Sync All</span>
                 </button>
-              ))}
+              </div>
+
+              {connectedAccounts.length > 0 ? (
+                /* Multi-Account Cards Tray */
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {/* Consolidated "ALL ACCOUNTS" card */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundFx.playPop();
+                      setSelectedBasketFilter('ALL');
+                    }}
+                    className={`px-2.5 py-1.5 rounded-xl border text-left cursor-pointer transition-all shrink-0 flex items-center gap-2 ${
+                      selectedBasketFilter === 'ALL'
+                        ? 'bg-[#1CB0F6]/20 border-[#1CB0F6] text-white shadow-sm'
+                        : 'bg-[#142127] border-[#20323D] text-slate-400 hover:text-white hover:border-slate-600'
+                    }`}
+                  >
+                    <Layers size={13} className={selectedBasketFilter === 'ALL' ? 'text-[#1CB0F6]' : 'text-slate-500'} />
+                    <div>
+                      <div className="text-[10px] font-black leading-tight">ALL ACCOUNTS</div>
+                      <div className="text-[9px] font-mono font-bold text-slate-400">
+                        {sessionTrades.length} Trade{sessionTrades.length !== 1 ? 's' : ''}
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Individual Account Cards */}
+                  {connectedAccounts.map((acc) => {
+                    const accKey = acc.name || acc.id;
+                    const isSelected = selectedBasketFilter === accKey;
+                    const accTrades = sessionTrades.filter(t => t.account === accKey || (acc.accountNumber && t.account?.includes(acc.accountNumber)));
+                    const accPnl = accTrades.reduce((total, t) => {
+                      const clean = parseFloat(String(t.pnl).replace(/[^0-9.-]+/g, ''));
+                      return total + (isNaN(clean) ? 0 : clean);
+                    }, 0);
+                    const formattedAccPnl = accTrades.length > 0
+                      ? `${accPnl >= 0 ? '+' : '-'}$${Math.abs(accPnl).toFixed(2)}`
+                      : (acc.balance || '$50,000');
+
+                    return (
+                      <div
+                        key={acc.id || acc.accountNumber}
+                        className={`px-2.5 py-1.5 rounded-xl border transition-all shrink-0 flex items-center gap-2 group relative ${
+                          isSelected
+                            ? 'bg-[#58CC02]/15 border-[#58CC02] text-white shadow-sm'
+                            : 'bg-[#142127] border-[#20323D] text-slate-400 hover:text-white hover:border-slate-600'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            soundFx.playPop();
+                            setSelectedBasketFilter(accKey);
+                          }}
+                          className="flex items-center gap-2 text-left cursor-pointer"
+                        >
+                          <div className="w-2 h-2 rounded-full bg-[#58CC02] animate-pulse shrink-0" />
+                          <div>
+                            <div className="text-[10px] font-black text-white leading-tight truncate max-w-[120px]">
+                              {acc.name || acc.accountNumber || 'Account'}
+                            </div>
+                            <div className="text-[9px] font-mono font-bold text-slate-400 flex items-center gap-1">
+                              <span className={accTrades.length > 0 ? (accPnl >= 0 ? 'text-[#58CC02]' : 'text-rose-400') : 'text-slate-400'}>
+                                {formattedAccPnl}
+                              </span>
+                              <span>• {acc.broker ? acc.broker.split(' ')[0] : 'Live'}</span>
+                            </div>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDisconnectAccount(acc.id);
+                          }}
+                          className="text-slate-600 hover:text-rose-400 p-0.5 rounded cursor-pointer transition-colors ml-1 opacity-0 group-hover:opacity-100"
+                          title="Disconnect Account"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Empty State: No Accounts Connected */
+                <div className="p-3 rounded-xl bg-[#142127] border border-[#20323D] text-center space-y-2 animate-fade-in">
+                  <div className="text-xs font-black text-white flex items-center justify-center gap-1.5">
+                    <Activity size={13} className="text-[#1CB0F6]" />
+                    <span>No Live Broker Connected</span>
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-400">
+                    Connect your Tradovate or prop firm account to stream real fills without leaving TradePigeon.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundFx.playPop();
+                      setIsBrokerModalOpen(true);
+                    }}
+                    className="duo-btn-blue px-3 py-1.5 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 mx-auto cursor-pointer shadow-md"
+                  >
+                    <Zap size={11} />
+                    <span>Connect Trading Broker</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Dynamic Combined Net PnL Summary Banner */}
@@ -1650,6 +1793,21 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
           </div>
         </div>,
         document.body
+      )}
+
+      {/* Direct Broker Connection Modal */}
+      {isBrokerModalOpen && (
+        <BrokerConnectModal
+          isOpen={isBrokerModalOpen}
+          onClose={() => setIsBrokerModalOpen(false)}
+          onAccountAdded={({ account, accounts }) => {
+            const allAccs = loadStoredData('goodtrader_accounts_data', []);
+            setConnectedAccounts(allAccs);
+            if (account?.name) {
+              setSelectedBasketFilter(account.name);
+            }
+          }}
+        />
       )}
     </aside>
   </>
