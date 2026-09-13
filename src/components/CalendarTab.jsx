@@ -29,15 +29,21 @@ export default function CalendarTab() {
   const modalCategoryTotals = useMemo(() => {
     let disciplinedWin = 0;
     let disciplinedLoss = 0;
+    let disciplinedBe = 0;
     let toxicWin = 0;
+    let toxicBe = 0;
     let doubleFailure = 0;
+    let missedTradeCount = 0;
 
     modalDayTrades.forEach(t => {
       const clean = parseFloat(String(t.pnl || '').replace(/[^0-9.-]+/g, ''));
       const val = isNaN(clean) ? 0 : clean;
       if (t.type === 'win') disciplinedWin += val;
-      else if (t.type === 'good_loss' || t.type === 'breakeven') disciplinedLoss += val;
+      else if (t.type === 'good_loss') disciplinedLoss += val;
+      else if (t.type === 'breakeven') disciplinedBe += val;
       else if (t.type === 'toxic_win' || t.type === 'violate_win') toxicWin += val;
+      else if (t.type === 'toxic_be') toxicBe += val;
+      else if (t.type === 'missed_trade') missedTradeCount++;
       else doubleFailure += val;
     });
 
@@ -46,8 +52,11 @@ export default function CalendarTab() {
     return {
       disciplinedWin: formatPnl(disciplinedWin),
       disciplinedLoss: formatPnl(disciplinedLoss),
+      disciplinedBe: formatPnl(disciplinedBe),
       toxicWin: formatPnl(toxicWin),
+      toxicBe: formatPnl(toxicBe),
       doubleFailure: formatPnl(doubleFailure),
+      missedTradeCount,
       hasTrades: modalDayTrades.length > 0
     };
   }, [modalDayTrades]);
@@ -735,61 +744,89 @@ export default function CalendarTab() {
                 </div>
               </div>
 
-              {/* 2. THE 4 TYPES OF TRADES SOLID 3D COLOR TILES */}
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                {/* Tile 1: Solid Duolingo Green */}
-                <div 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    soundFx.playPop();
-                  }}
-                  className="p-4 rounded-2xl bg-[#58CC02] border-b-4 border-[#388202] text-white space-y-1 shadow-lg hover:-translate-y-1 hover:scale-105 active:translate-y-0.5 cursor-pointer transition-all duration-150 ring-2 ring-white/20"
-                >
-                  <span className="text-[10px] font-black uppercase tracking-wider text-white/95 block">DISCIPLINED WIN</span>
-                  <div className="text-xl font-black text-white">
-                    {modalCategoryTotals.hasTrades ? modalCategoryTotals.disciplinedWin : (activeModalDay.status === 'win' ? activeModalDay.pnl : '+$0.00')}
+              {/* 2. THE 7 TYPES OF TRADES EXECUTION BREAKDOWN TILES */}
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center justify-between px-0.5">
+                  <span className="text-[10px] font-black uppercase text-[#1CB0F6] tracking-widest">
+                    THE 7 EXECUTION TYPES BREAKDOWN
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-slate-400">
+                    {modalDayTrades.length} Total Logs
+                  </span>
+                </div>
+
+                {/* Section A: 3 Disciplined Types */}
+                <div className="grid grid-cols-3 gap-2.5">
+                  {/* 1: Disciplined Win */}
+                  <div className="p-3 rounded-2xl bg-[#58CC02] border-b-4 border-[#388202] text-white space-y-1 shadow-md hover:-translate-y-0.5 transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-white/95 truncate">DISCIPLINED WIN</span>
+                      <DuoDisciplinedWinIcon className="w-4 h-4 shrink-0 drop-shadow" />
+                    </div>
+                    <div className="text-sm sm:text-base font-black text-white truncate">
+                      {modalCategoryTotals.hasTrades ? modalCategoryTotals.disciplinedWin : (activeModalDay.status === 'win' ? activeModalDay.pnl : '+$0.00')}
+                    </div>
+                  </div>
+
+                  {/* 2: Disciplined Loss */}
+                  <div className="p-3 rounded-2xl bg-[#1CB0F6] border-b-4 border-[#147BB0] text-white space-y-1 shadow-md hover:-translate-y-0.5 transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-white/95 truncate">DISCIPLINED LOSS</span>
+                      <DuoDisciplinedLossIcon className="w-4 h-4 shrink-0 drop-shadow" />
+                    </div>
+                    <div className="text-sm sm:text-base font-black text-white truncate">
+                      {modalCategoryTotals.hasTrades ? modalCategoryTotals.disciplinedLoss : (activeModalDay.status === 'good_loss' ? activeModalDay.pnl : '-$0.00')}
+                    </div>
+                  </div>
+
+                  {/* 3: Disciplined BE */}
+                  <div className="p-3 rounded-2xl bg-[#CE82FF] border-b-4 border-[#9D28EC] text-white space-y-1 shadow-md hover:-translate-y-0.5 transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-white/95 truncate">DISCIPLINED BE</span>
+                      <DuoDisciplinedBeIcon className="w-4 h-4 shrink-0 drop-shadow" />
+                    </div>
+                    <div className="text-sm sm:text-base font-black text-white truncate">
+                      {modalCategoryTotals.disciplinedBe}
+                    </div>
                   </div>
                 </div>
 
-                {/* Tile 2: Solid Duolingo Cyan */}
-                <div 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    soundFx.playPop();
-                  }}
-                  className="p-4 rounded-2xl bg-[#1CB0F6] border-b-4 border-[#147BB0] text-white space-y-1 shadow-lg hover:-translate-y-1 hover:scale-105 active:translate-y-0.5 cursor-pointer transition-all duration-150 ring-2 ring-white/20"
-                >
-                  <span className="text-[10px] font-black uppercase tracking-wider text-white/95 block">DISCIPLINED LOSS</span>
-                  <div className="text-xl font-black text-white">
-                    {modalCategoryTotals.hasTrades ? modalCategoryTotals.disciplinedLoss : (activeModalDay.status === 'good_loss' ? activeModalDay.pnl : '-$0.00')}
+                {/* Section B: 4 Toxic & Missed Types */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {/* 4: Toxic Win */}
+                  <div className="p-3 rounded-2xl bg-[#182830] border-2 border-[#20323D] hover:border-[#FFC800] text-slate-300 space-y-1 shadow-sm transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-[#FFC800] truncate">TOXIC WIN</span>
+                      <DuoToxicWinIcon className="w-4 h-4 shrink-0" />
+                    </div>
+                    <div className="text-sm font-black text-white truncate">{modalCategoryTotals.toxicWin}</div>
                   </div>
-                </div>
 
-                {/* Tile 3: Solid Duolingo Gold */}
-                <div 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    soundFx.playPop();
-                  }}
-                  className="p-4 rounded-2xl bg-[#182830] border-2 border-[#20323D] text-slate-300 hover:border-[#FFC800] space-y-1 shadow-md hover:-translate-y-1 hover:scale-105 active:translate-y-0.5 cursor-pointer transition-all duration-150"
-                >
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-300 block">TOXIC WIN</span>
-                  <div className="text-xl font-black text-slate-300">
-                    {modalCategoryTotals.toxicWin}
+                  {/* 5: Toxic BE */}
+                  <div className="p-3 rounded-2xl bg-[#182830] border-2 border-[#20323D] hover:border-[#00F0FF] text-slate-300 space-y-1 shadow-sm transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-[#00F0FF] truncate">TOXIC BE</span>
+                      <DuoToxicBeIcon className="w-4 h-4 shrink-0" />
+                    </div>
+                    <div className="text-sm font-black text-white truncate">{modalCategoryTotals.toxicBe}</div>
                   </div>
-                </div>
 
-                {/* Tile 4: Solid Duolingo Red */}
-                <div 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    soundFx.playPop();
-                  }}
-                  className="p-4 rounded-2xl bg-[#182830] border-2 border-[#20323D] text-slate-300 hover:border-[#FF4B4B] space-y-1 shadow-md hover:-translate-y-1 hover:scale-105 active:translate-y-0.5 cursor-pointer transition-all duration-150"
-                >
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-300 block">DOUBLE FAILURE</span>
-                  <div className="text-xl font-black text-slate-300">
-                    {modalCategoryTotals.doubleFailure}
+                  {/* 6: Double Failure */}
+                  <div className="p-3 rounded-2xl bg-[#182830] border-2 border-[#20323D] hover:border-[#FF4B4B] text-slate-300 space-y-1 shadow-sm transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-[#FF4B4B] truncate">DOUBLE FAIL</span>
+                      <DuoDoubleFailureIcon className="w-4 h-4 shrink-0" />
+                    </div>
+                    <div className="text-sm font-black text-white truncate">{modalCategoryTotals.doubleFailure}</div>
+                  </div>
+
+                  {/* 7: Missed Setup */}
+                  <div className="p-3 rounded-2xl bg-[#182830] border-2 border-[#20323D] hover:border-[#FF9600] text-slate-300 space-y-1 shadow-sm transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-[#FF9600] truncate">MISSED SETUP</span>
+                      <DuoMissedTradeIcon className="w-4 h-4 shrink-0" />
+                    </div>
+                    <div className="text-sm font-black text-white truncate">{modalCategoryTotals.missedTradeCount} Logged</div>
                   </div>
                 </div>
               </div>
