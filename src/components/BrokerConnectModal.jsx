@@ -26,6 +26,7 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
   const [discoveredAccounts, setDiscoveredAccounts] = useState([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState([]);
   const [accountNicknames, setAccountNicknames] = useState({});
+  const [sessionToken, setSessionToken] = useState(null);
 
   if (!isOpen) return null;
 
@@ -122,6 +123,7 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
           if (data.success && Array.isArray(data.accounts) && data.accounts.length > 0) {
             accountsToOffer = data.accounts;
             token = data.accessToken;
+            setSessionToken(data.accessToken);
           }
         }
       } catch (apiErr) {
@@ -183,6 +185,7 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
         broker: `${selectedPlatform.name} (${env})`,
         platformId: selectedPlatform.id,
         accountNumber: a.id,
+        accessToken: sessionToken || null,
         status: 'SYNCED (LIVE)',
         balance: formattedBalance,
         pnl: '+$0.00',
