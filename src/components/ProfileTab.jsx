@@ -1,20 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { User, Flame, Gem, Heart, Calendar, ShieldCheck, Award, TrendingUp, CheckCircle2, AlertCircle, Cpu, RefreshCw, BarChart3, Activity, Sparkles, Trash2 } from 'lucide-react';
+import { User, Flame, Gem, Heart, Calendar, ShieldCheck, Award, TrendingUp, CheckCircle2, AlertCircle, Cpu, RefreshCw, BarChart3, Activity, Sparkles, Trash2, RotateCcw, ShieldAlert, CheckSquare, Square, X } from 'lucide-react';
 import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoProfileIcon, DuoTrophyIcon } from './DuoIcons';
 import GoogleAuthButton from './GoogleAuthButton';
 import MobileAlertSettings from './MobileAlertSettings';
 import { soundFx } from '../utils/audioEngine';
-import { loadStoredData, saveStoredData, subscribeToStorageUpdate, DEFAULT_USER_STATS } from '../utils/storage';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, DEFAULT_USER_STATS, factoryResetCleanSlate } from '../utils/storage';
 
 export default function ProfileTab() {
   const [activeSubTab, setActiveSubTab] = useState('DEBRIEF_HISTORY');
   const [isProcessingStripe, setIsProcessingStripe] = useState(false);
   const [profileToast, setProfileToast] = useState('');
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [keepBrokersOnReset, setKeepBrokersOnReset] = useState(true);
 
   const triggerToast = (msg) => {
     soundFx.playPop();
     setProfileToast(msg);
     setTimeout(() => setProfileToast(''), 3500);
+  };
+
+  const handleWipeTodayTrades = () => {
+    soundFx.playPop();
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('goodtrader_session_trades_')) {
+        localStorage.removeItem(k);
+      }
+    }
+    window.dispatchEvent(new CustomEvent('goodtrader-storage-update', { detail: { key: 'trades_cleared', value: Date.now() } }));
+    triggerToast("Today's session trades wiped clean.");
+  };
+
+  const handleExecuteFactoryReset = () => {
+    if (resetConfirmText.trim().toUpperCase() !== 'RESET') return;
+    soundFx.playSuccess();
+    factoryResetCleanSlate({ keepBrokerAccounts: keepBrokersOnReset });
   };
 
   const handleStripeCheckout = async () => {
@@ -163,6 +184,17 @@ export default function ProfileTab() {
         >
           Connected Broker Accounts
         </button>
+        <button
+          onClick={() => setActiveSubTab('RESET_ZONE')}
+          className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeSubTab === 'RESET_ZONE'
+              ? 'duo-btn-orange !bg-rose-600 !border-rose-700'
+              : 'duo-btn-dark hover:text-rose-400'
+          }`}
+        >
+          <RotateCcw size={13} />
+          <span>Clean Slate & Reset</span>
+        </button>
       </div>
 
       {/* SUB-TAB 2: DEBRIEF HISTORY */}
@@ -275,6 +307,157 @@ export default function ProfileTab() {
           {/* MOBILE PHONE PUSH NOTIFICATION SETTINGS */}
           <div className="pt-4">
             <MobileAlertSettings />
+          </div>
+        </div>
+      )}
+
+      {/* SUB-TAB 4: CLEAN SLATE & RESET ZONE */}
+      {activeSubTab === 'RESET_ZONE' && (
+        <div className="space-y-6 animate-fade-in text-left">
+          {/* Card 1: Wipe Today's Session */}
+          <div className="duo-card p-6 space-y-4 border-2 border-[#20323D]">
+            <div className="flex items-center justify-between pb-3 border-b border-[#20323D]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                  <RotateCcw size={16} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Reset Today's Session Trades</h3>
+                  <p className="text-[11px] font-bold text-slate-400">Clear today's fills without affecting your streak or calendar history</p>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs font-bold text-slate-300 leading-relaxed">
+              If your broker synced test fills or you want to start today's trading journal over, this clears all trades logged for today and resets today's net PnL back to $0.00. Your historical streak, discipline points, and previous days remain completely intact.
+            </p>
+
+            <button
+              type="button"
+              onClick={handleWipeTodayTrades}
+              className="duo-btn-dark px-4 py-2.5 text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer hover:border-amber-500 hover:text-amber-400"
+            >
+              <RotateCcw size={14} />
+              <span>Wipe Today's Trades</span>
+            </button>
+          </div>
+
+          {/* Card 2: Factory Reset / Complete Clean Slate */}
+          <div className="duo-card p-6 space-y-4 border-2 border-rose-500/40 bg-rose-500/5">
+            <div className="flex items-center justify-between pb-3 border-b border-rose-500/20">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center">
+                  <Trash2 size={16} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-rose-400">Complete Clean Slate (Factory Reset)</h3>
+                  <p className="text-[11px] font-bold text-slate-400">Permanent reset to pristine Day 1 state</p>
+                </div>
+              </div>
+              <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                DANGER ZONE
+              </span>
+            </div>
+
+            <p className="text-xs font-bold text-slate-300 leading-relaxed">
+              Ready to start your trading journal fresh from Day 1? This permanently wipes all historical session trades, debrief audits, discipline streaks, and restores your calendar back to an uncompleted state.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                soundFx.playPop();
+                setResetConfirmText('');
+                setIsResetModalOpen(true);
+              }}
+              className="duo-btn-orange !bg-rose-600 !border-rose-700 !border-b-rose-800 px-5 py-3 text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-lg"
+            >
+              <Trash2 size={14} />
+              <span>Start with a Clean Slate...</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 3D CLEAN SLATE FACTORY RESET MODAL */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 z-50 animate-fade-in text-left">
+          <div className="duo-card max-w-md w-full p-6 space-y-5 border-2 border-rose-500 relative shadow-2xl">
+            <button
+              onClick={() => setIsResetModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-3 pb-3 border-b border-[#20323D]">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center shrink-0">
+                <ShieldAlert size={22} />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase text-rose-400 tracking-wider block">PERMANENT ACTION</span>
+                <h3 className="text-lg font-black text-white">Confirm Clean Slate Reset</h3>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-[#142127] border border-rose-500/30 text-xs font-bold text-slate-300 space-y-2">
+              <p>This action will permanently wipe:</p>
+              <ul className="list-disc pl-4 space-y-1 text-slate-400 text-[11px]">
+                <li>All historical trade logs and executions</li>
+                <li>All AI debrief reviews and report scores</li>
+                <li>Your current discipline streak (resets to 0)</li>
+                <li>Your calendar path (resets to Day 1)</li>
+              </ul>
+            </div>
+
+            {/* Checkbox to keep broker logins */}
+            <button
+              type="button"
+              onClick={() => setKeepBrokersOnReset(!keepBrokersOnReset)}
+              className="flex items-center gap-2.5 cursor-pointer text-left py-1"
+            >
+              <div className={keepBrokersOnReset ? 'text-[#1CB0F6]' : 'text-slate-500'}>
+                {keepBrokersOnReset ? <CheckSquare size={18} /> : <Square size={18} />}
+              </div>
+              <div>
+                <div className="text-xs font-black text-white">Keep connected broker accounts</div>
+                <div className="text-[10px] font-bold text-slate-400">You won't need to re-enter your broker credentials</div>
+              </div>
+            </button>
+
+            {/* Confirmation typing field */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                Type <span className="text-rose-400 font-mono">RESET</span> to confirm:
+              </label>
+              <input
+                type="text"
+                value={resetConfirmText}
+                onChange={(e) => setResetConfirmText(e.target.value)}
+                placeholder="Type RESET"
+                className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs outline-none focus:border-rose-500 uppercase tracking-widest font-mono"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                className="duo-btn-dark flex-1 py-3 text-xs font-black uppercase tracking-wider cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteFactoryReset}
+                disabled={resetConfirmText.trim().toUpperCase() !== 'RESET'}
+                className="duo-btn-orange !bg-rose-600 !border-rose-700 flex-1 py-3 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-lg"
+              >
+                <Trash2 size={14} />
+                <span>Confirm Reset</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

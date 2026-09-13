@@ -1043,6 +1043,24 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                   <Plus size={10} />
                   <span>Manual Fill</span>
                 </button>
+
+                {sessionTrades.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm("Clear all of today's trades?")) {
+                        soundFx.playPop();
+                        setSessionTrades([]);
+                        saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, []);
+                      }
+                    }}
+                    className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 cursor-pointer transition-all flex items-center gap-1"
+                    title="Clear today's logged trades"
+                  >
+                    <Trash2 size={10} />
+                    <span>Clear Today</span>
+                  </button>
+                )}
               </div>
             </div>
 

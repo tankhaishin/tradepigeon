@@ -259,4 +259,43 @@ export const buildDefaultPlaybooks = (tradingStyle = 'BLANK', strategyName = '')
   ];
 };
 
+export const resetTodaySession = (activeDay) => {
+  if (typeof window === 'undefined') return;
+  const dayKey = `goodtrader_session_trades_day_${activeDay}`;
+  localStorage.removeItem(dayKey);
+  window.dispatchEvent(new CustomEvent('goodtrader-storage-update', { detail: { key: dayKey, value: [] } }));
+};
+
+export const factoryResetCleanSlate = ({ keepBrokerAccounts = true } = {}) => {
+  if (typeof window === 'undefined') return;
+  
+  const savedAccounts = keepBrokerAccounts ? localStorage.getItem('goodtrader_accounts_data') : null;
+
+  // 1. Remove all session trades and history
+  const keysToRemove = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && (k.startsWith('goodtrader_session_trades_') || k === 'goodtrader_debrief_history' || k === 'goodtrader_trading_status' || k === 'goodtrader_calendar_data')) {
+      keysToRemove.push(k);
+    }
+  }
+  keysToRemove.forEach(k => localStorage.removeItem(k));
+
+  // 2. Reset user stats & DP
+  localStorage.setItem('goodtrader_user_stats', JSON.stringify(DEFAULT_USER_STATS));
+  localStorage.setItem('goodtrader_user_dp', '0');
+  localStorage.setItem('goodtrader_debrief_history', '[]');
+  localStorage.setItem('goodtrader_trading_status', JSON.stringify('TRADING'));
+
+  // 3. Handle broker accounts
+  if (keepBrokerAccounts && savedAccounts) {
+    localStorage.setItem('goodtrader_accounts_data', savedAccounts);
+  } else {
+    localStorage.removeItem('goodtrader_accounts_data');
+  }
+
+  // 4. Reload page to initialize pristine clean slate
+  window.location.reload();
+};
+
 export { STORAGE_KEYS };
