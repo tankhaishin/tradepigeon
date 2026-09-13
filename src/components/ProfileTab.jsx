@@ -1,10 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { User, Flame, Gem, Heart, Calendar, ShieldCheck, Award, TrendingUp, CheckCircle2, AlertCircle, Cpu, RefreshCw, BarChart3, Activity, Sparkles, Trash2, RotateCcw, ShieldAlert, CheckSquare, Square, X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { User, Flame, Gem, Heart, Calendar, ShieldCheck, Award, TrendingUp, CheckCircle2, AlertCircle, Cpu, RefreshCw, BarChart3, Activity, Sparkles, Trash2, RotateCcw, ShieldAlert, CheckSquare, Square, X, Download, Upload, FileText, Check } from 'lucide-react';
 import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoProfileIcon, DuoTrophyIcon } from './DuoIcons';
 import GoogleAuthButton from './GoogleAuthButton';
 import MobileAlertSettings from './MobileAlertSettings';
 import { soundFx } from '../utils/audioEngine';
-import { loadStoredData, saveStoredData, subscribeToStorageUpdate, DEFAULT_USER_STATS, factoryResetCleanSlate } from '../utils/storage';
+import { 
+  loadStoredData, 
+  saveStoredData, 
+  subscribeToStorageUpdate, 
+  DEFAULT_USER_STATS, 
+  factoryResetCleanSlate,
+  exportFullBackup,
+  importFullBackup,
+  wipeAccountTrades
+} from '../utils/storage';
 
 export default function ProfileTab() {
   const [activeSubTab, setActiveSubTab] = useState('DEBRIEF_HISTORY');
@@ -13,11 +22,52 @@ export default function ProfileTab() {
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState('');
   const [keepBrokersOnReset, setKeepBrokersOnReset] = useState(true);
+  
+  // Account Specific Wipe / Disconnect modal
+  const [accountActionTarget, setAccountActionTarget] = useState(null);
+  const fileInputRef = useRef(null);
 
   const triggerToast = (msg) => {
     soundFx.playPop();
     setProfileToast(msg);
     setTimeout(() => setProfileToast(''), 3500);
+  };
+
+  const handleExportBackup = () => {
+    soundFx.playSuccess();
+    exportFullBackup();
+    triggerToast('Journal backup downloaded (JSON)');
+  };
+
+  const handleTriggerFileImport = () => {
+    soundFx.playPop();
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleImportFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target.result;
+        const res = importFullBackup(text);
+        if (res.success) {
+          soundFx.playSuccess();
+          triggerToast(`Restored ${res.count} items! Reloading...`);
+          setTimeout(() => window.location.reload(), 1200);
+        } else {
+          soundFx.playPop();
+          alert(res.error || 'Failed to import backup');
+        }
+      } catch (err) {
+        alert('Corrupted JSON file');
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleWipeTodayTrades = () => {
@@ -90,6 +140,29 @@ export default function ProfileTab() {
     setConnectedAccounts(updated);
     saveStoredData('goodtrader_accounts_data', updated);
     triggerToast('Account disconnected successfully');
+  };
+
+  const handleExecuteAccountAction = (action) => {
+    if (!accountActionTarget) return;
+    const acc = accountActionTarget;
+    soundFx.playPop();
+
+    if (action === 'DISCONNECT_KEEP_TRADES') {
+      const updated = connectedAccounts.filter((a) => a.id !== acc.id && a.name !== acc.name);
+      setConnectedAccounts(updated);
+      saveStoredData('goodtrader_accounts_data', updated);
+      triggerToast(`Disconnected ${acc.name}. Historical trades preserved.`);
+    } else if (action === 'WIPE_TRADES_KEEP_ACCOUNT') {
+      const wipedCount = wipeAccountTrades(acc.name || acc.id);
+      triggerToast(`Wiped ${wipedCount} trades for ${acc.name}. Account remains active.`);
+    } else if (action === 'DISCONNECT_AND_PURGE') {
+      const wipedCount = wipeAccountTrades(acc.name || acc.id);
+      const updated = connectedAccounts.filter((a) => a.id !== acc.id && a.name !== acc.name);
+      setConnectedAccounts(updated);
+      saveStoredData('goodtrader_accounts_data', updated);
+      triggerToast(`Disconnected ${acc.name} & purged ${wipedCount} trades.`);
+    }
+    setAccountActionTarget(null);
   };
 
   const handleClearAllAccounts = () => {
@@ -275,12 +348,15 @@ export default function ProfileTab() {
                     <span className="text-[10px] font-black text-white bg-[#58CC02] border border-[#46A302] px-2 py-0.5 rounded-md">{acc.status}</span>
                     <button
                       type="button"
-                      onClick={() => handleDisconnectAccount(acc.id || acc.name)}
+                      onClick={() => {
+                        soundFx.playPop();
+                        setAccountActionTarget(acc);
+                      }}
                       className="text-xs font-black text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 px-2 py-1 rounded-lg border border-rose-500/30 flex items-center gap-1.5 cursor-pointer transition-all"
-                      title="Disconnect & remove this account"
+                      title="Manage, wipe trades, or disconnect this account"
                     >
                       <Trash2 size={12} />
-                      <span>Disconnect</span>
+                      <span>Manage / Disconnect</span>
                     </button>
                   </div>
 
@@ -314,6 +390,55 @@ export default function ProfileTab() {
       {/* SUB-TAB 4: CLEAN SLATE & RESET ZONE */}
       {activeSubTab === 'RESET_ZONE' && (
         <div className="space-y-6 animate-fade-in text-left">
+          {/* Card 0: Full Journal Backup & Restore */}
+          <div className="duo-card p-6 space-y-4 border-2 border-sky-500/30 bg-sky-500/5">
+            <div className="flex items-center justify-between pb-3 border-b border-sky-500/20">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#1CB0F6]/20 border border-[#1CB0F6]/40 text-[#1CB0F6] flex items-center justify-center">
+                  <Download size={16} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Full Journal Backup & Restore</h3>
+                  <p className="text-[11px] font-bold text-slate-400">Export or restore your complete trading history, debrief logs, and accounts</p>
+                </div>
+              </div>
+              <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-sky-500/20 text-[#1CB0F6] border border-sky-500/30">
+                JSON PORTABILITY
+              </span>
+            </div>
+
+            <p className="text-xs font-bold text-slate-300 leading-relaxed">
+              Never worry about losing your journal. Export a clean JSON snapshot of your entire trading database before resetting, or restore from a previously exported backup file anytime.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={handleExportBackup}
+                className="duo-btn-blue px-4 py-2.5 text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-md"
+              >
+                <Download size={14} />
+                <span>Export Full Backup (JSON)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleTriggerFileImport}
+                className="duo-btn-dark px-4 py-2.5 text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer hover:border-sky-500 hover:text-sky-300"
+              >
+                <Upload size={14} />
+                <span>Restore from Backup</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleImportFileChange}
+                className="hidden"
+              />
+            </div>
+          </div>
+
           {/* Card 1: Wipe Today's Session */}
           <div className="duo-card p-6 space-y-4 border-2 border-[#20323D]">
             <div className="flex items-center justify-between pb-3 border-b border-[#20323D]">
@@ -458,6 +583,89 @@ export default function ProfileTab() {
                 <span>Confirm Reset</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* SELECTIVE ACCOUNT WIPE / DISCONNECT MODAL */}
+      {accountActionTarget && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 z-50 animate-fade-in text-left">
+          <div className="duo-card max-w-md w-full p-6 space-y-5 border-2 border-[#1CB0F6] relative shadow-2xl">
+            <button
+              onClick={() => setAccountActionTarget(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-3 pb-3 border-b border-[#20323D]">
+              <div className="w-10 h-10 rounded-2xl bg-[#1CB0F6]/20 border border-[#1CB0F6]/40 text-[#1CB0F6] flex items-center justify-center shrink-0">
+                <Cpu size={22} />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase text-[#1CB0F6] tracking-wider block">ACCOUNT CONTROL</span>
+                <h3 className="text-lg font-black text-white">{accountActionTarget.name || 'Trading Account'}</h3>
+              </div>
+            </div>
+
+            <p className="text-xs font-bold text-slate-300 leading-relaxed">
+              Select how to handle this account's connection and past trade history:
+            </p>
+
+            <div className="space-y-2.5">
+              {/* Option 1: Disconnect only */}
+              <button
+                type="button"
+                onClick={() => handleExecuteAccountAction('DISCONNECT_KEEP_TRADES')}
+                className="w-full p-3.5 rounded-2xl bg-[#182830] border-2 border-[#2B3D47] hover:border-[#1CB0F6] text-left transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-white group-hover:text-[#1CB0F6]">Disconnect Only</span>
+                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-sky-500/20 text-sky-400">SAFE</span>
+                </div>
+                <p className="text-[11px] font-bold text-slate-400 mt-1">
+                  Unlinks the broker credentials. All previous trade fills and performance remain in your journal.
+                </p>
+              </button>
+
+              {/* Option 2: Wipe trades for this account */}
+              <button
+                type="button"
+                onClick={() => handleExecuteAccountAction('WIPE_TRADES_KEEP_ACCOUNT')}
+                className="w-full p-3.5 rounded-2xl bg-[#182830] border-2 border-amber-500/30 hover:border-amber-500 text-left transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-amber-400">Wipe Account Trades Only</span>
+                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-400">RESET TRADES</span>
+                </div>
+                <p className="text-[11px] font-bold text-slate-400 mt-1">
+                  Removes all session trades logged under this account. The broker stays connected (ideal for prop evaluation resets).
+                </p>
+              </button>
+
+              {/* Option 3: Disconnect and purge */}
+              <button
+                type="button"
+                onClick={() => handleExecuteAccountAction('DISCONNECT_AND_PURGE')}
+                className="w-full p-3.5 rounded-2xl bg-rose-500/10 border-2 border-rose-500/40 hover:border-rose-500 text-left transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-rose-400">Disconnect & Purge All Trades</span>
+                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-rose-500/20 text-rose-400">FULL PURGE</span>
+                </div>
+                <p className="text-[11px] font-bold text-slate-400 mt-1">
+                  Unlinks this account and wipes every execution associated with it from your journal.
+                </p>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setAccountActionTarget(null)}
+              className="duo-btn-dark w-full py-2.5 text-xs font-black uppercase tracking-wider cursor-pointer"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}

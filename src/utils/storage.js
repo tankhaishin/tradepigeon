@@ -298,4 +298,88 @@ export const factoryResetCleanSlate = ({ keepBrokerAccounts = true } = {}) => {
   window.location.reload();
 };
 
+export const exportFullBackup = () => {
+  if (typeof window === 'undefined') return;
+  const backup = {
+    version: '1.0',
+    appName: 'TradePigeon',
+    exportedAt: new Date().toISOString(),
+    data: {}
+  };
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('goodtrader_')) {
+      try {
+        backup.data[key] = JSON.parse(localStorage.getItem(key));
+      } catch (e) {
+        backup.data[key] = localStorage.getItem(key);
+      }
+    }
+  }
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `tradepigeon_journal_backup_${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+export const importFullBackup = (backupInput) => {
+  if (typeof window === 'undefined') return { success: false, error: 'No browser environment' };
+  try {
+    const parsed = typeof backupInput === 'string' ? JSON.parse(backupInput) : backupInput;
+    if (!parsed || !parsed.data || typeof parsed.data !== 'object') {
+      return { success: false, error: 'Invalid backup file. Missing data payload.' };
+    }
+    const keys = Object.keys(parsed.data);
+    if (keys.length === 0) {
+      return { success: false, error: 'Backup file contains no TradePigeon data.' };
+    }
+    keys.forEach(k => {
+      if (k.startsWith('goodtrader_')) {
+        const val = parsed.data[k];
+        localStorage.setItem(k, typeof val === 'string' ? val : JSON.stringify(val));
+      }
+    });
+    return { success: true, count: keys.length };
+  } catch (err) {
+    return { success: false, error: err.message || 'Failed to parse JSON backup.' };
+  }
+};
+
+export const wipeAccountTrades = (accountIdentifier) => {
+  if (typeof window === 'undefined' || !accountIdentifier) return 0;
+  let totalWiped = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('goodtrader_session_trades_')) {
+      try {
+        const trades = JSON.parse(localStorage.getItem(key)) || [];
+        if (Array.isArray(trades)) {
+          const remaining = trades.filter(t => {
+            const acc = t.account || '';
+            const match = acc === accountIdentifier || 
+                          String(acc).includes(accountIdentifier) || 
+                          String(accountIdentifier).includes(acc);
+            return !match;
+          });
+          const removed = trades.length - remaining.length;
+          if (removed > 0) {
+            totalWiped += removed;
+            localStorage.setItem(key, JSON.stringify(remaining));
+            window.dispatchEvent(new CustomEvent('goodtrader-storage-update', { detail: { key, value: remaining } }));
+          }
+        }
+      } catch (e) {
+        // ignore parse error
+      }
+    }
+  }
+  return totalWiped;
+};
+
 export { STORAGE_KEYS };

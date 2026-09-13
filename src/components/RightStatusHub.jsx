@@ -196,12 +196,47 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, updated);
   };
 
+  const [deletedTradesBackup, setDeletedTradesBackup] = useState(null);
+
+  useEffect(() => {
+    if (deletedTradesBackup) {
+      const timer = setTimeout(() => {
+        setDeletedTradesBackup(null);
+      }, 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [deletedTradesBackup]);
+
   const handleDeleteTrade = (tradeId) => {
     soundFx.playPop();
+    const tradeToDelete = sessionTrades.find(t => t.id === tradeId);
+    if (tradeToDelete) {
+      setDeletedTradesBackup({ trades: [tradeToDelete], timestamp: Date.now() });
+    }
     const updated = sessionTrades.filter(t => t.id !== tradeId);
     setSessionTrades(updated);
     setSelectedTradeIds(selectedTradeIds.filter(id => id !== tradeId));
     saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, updated);
+  };
+
+  const handleDeleteSelectedTrades = () => {
+    if (selectedTradeIds.length === 0) return;
+    soundFx.playPop();
+    const tradesToDelete = sessionTrades.filter(t => selectedTradeIds.includes(t.id));
+    setDeletedTradesBackup({ trades: tradesToDelete, timestamp: Date.now() });
+    const remaining = sessionTrades.filter(t => !selectedTradeIds.includes(t.id));
+    setSessionTrades(remaining);
+    setSelectedTradeIds([]);
+    saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, remaining);
+  };
+
+  const handleUndoDeleteTrades = () => {
+    if (!deletedTradesBackup || !deletedTradesBackup.trades) return;
+    soundFx.playSuccess();
+    const restored = [...deletedTradesBackup.trades, ...sessionTrades];
+    setSessionTrades(restored);
+    saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, restored);
+    setDeletedTradesBackup(null);
   };
 
   const toggleSelectTrade = (tradeId) => {
@@ -986,6 +1021,16 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                     <span>Merge ({selectedTradeIds.length}) Fills</span>
                   </button>
                 )}
+                {selectedTradeIds.length >= 1 && (
+                  <button
+                    onClick={handleDeleteSelectedTrades}
+                    className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/40 cursor-pointer transition-all flex items-center gap-1 shadow-sm"
+                    title="Delete selected trade fills"
+                  >
+                    <Trash2 size={10} />
+                    <span>Delete ({selectedTradeIds.length})</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     soundFx.playPop();
@@ -1163,7 +1208,9 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDisconnectAccount(acc.id);
+                            if (window.confirm(`Disconnect account "${acc.name || acc.accountNumber}"? Historical trades will remain in your journal.`)) {
+                              handleDisconnectAccount(acc.id);
+                            }
                           }}
                           className="text-slate-600 hover:text-rose-400 p-0.5 rounded cursor-pointer transition-colors ml-1 opacity-0 group-hover:opacity-100"
                           title="Disconnect Account"
@@ -1208,6 +1255,24 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 <span className={totalFilteredPnL >= 0 ? 'text-[#58CC02] font-black' : 'text-rose-400 font-black'}>
                   {formattedTotalPnL}
                 </span>
+              </div>
+            )}
+
+            {/* UNDO DELETION BANNER */}
+            {deletedTradesBackup && (
+              <div className="p-2 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-between text-xs animate-fade-in shadow-sm">
+                <div className="flex items-center gap-1.5 text-rose-300 font-bold text-[10px]">
+                  <RotateCcw size={11} className="animate-spin text-rose-400" />
+                  <span>Deleted {deletedTradesBackup.trades.length} fill{deletedTradesBackup.trades.length > 1 ? 's' : ''}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleUndoDeleteTrades}
+                  className="text-[9px] font-black text-white bg-rose-600 hover:bg-rose-500 px-2.5 py-0.5 rounded-lg transition-all cursor-pointer shadow flex items-center gap-1"
+                >
+                  <RotateCcw size={10} />
+                  <span>Undo</span>
+                </button>
               </div>
             )}
 

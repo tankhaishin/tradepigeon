@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, Download, Share2, 
-  Flame, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, XCircle, TrendingUp, Sparkles, Eye, Filter
+  Flame, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, XCircle, TrendingUp, Sparkles, Eye, Filter, X
 } from 'lucide-react';
 import { DuoCalendarIcon, DuoShieldIcon, DuoLightningIcon, DuoGemIcon, DuoTrophyIcon, DuoDisciplinedWinIcon, DuoDisciplinedLossIcon, DuoDisciplinedBeIcon, DuoToxicWinIcon, DuoToxicBeIcon, DuoDoubleFailureIcon, DuoMissedTradeIcon } from './DuoIcons';
 import { Duo3dCheckBadge, Duo3dZenBadge } from './DuolingoFeatureBadges';
 import InteractiveParrotMascot from './InteractiveParrotMascot';
-import { loadStoredData, saveStoredData } from '../utils/storage';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS } from '../utils/storage';
+import { auditAndSanitizeCalendarState } from '../utils/calendarEngine';
 import { soundFx } from '../utils/audioEngine';
 
 export default function CalendarTab() {
@@ -20,104 +21,97 @@ export default function CalendarTab() {
   const [activeCategoryFilter, setActiveCategoryFilter] = useState('ALL'); // 'ALL' | 'win' | 'good_loss' | 'toxic_win' | 'double_failure'
   const [activeModalDay, setActiveModalDay] = useState(null);
 
-  const monthsData = [
-    {
-      monthName: 'JULY 2026',
-      totalPnl: '$0.00',
-      totalPnlNum: 0,
-      disciplineScore: '0%',
-      startOffset: 2, // July 1, 2026 is Wednesday (Mon=0, Tue=1, Wed=2)
-      weeklySummaries: [
-        { weekLabel: 'Week 1', pnl: '$0.00', count: '0 trades' },
-        { weekLabel: 'Week 2', pnl: '$0.00', count: '0 trades' },
-        { weekLabel: 'Week 3', pnl: '$0.00', count: '0 trades' },
-        { weekLabel: 'Week 4', pnl: '$0.00', count: '0 trades' },
-        { weekLabel: 'Week 5', pnl: '$0.00', count: '0 trades' },
-      ],
-      days: [
-        { date: 1, dayOfWeek: 'W', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 2, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 3, dayOfWeek: 'F', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 4, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 5, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 6, dayOfWeek: 'M', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 7, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 8, dayOfWeek: 'W', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 9, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 10, dayOfWeek: 'F', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 11, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 12, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 13, dayOfWeek: 'M', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 14, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 15, dayOfWeek: 'W', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 16, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 17, dayOfWeek: 'F', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 18, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 19, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 20, dayOfWeek: 'M', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 21, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 22, dayOfWeek: 'W', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 23, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 24, dayOfWeek: 'F', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 25, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 26, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 27, dayOfWeek: 'M', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 28, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 29, dayOfWeek: 'W', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 30, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 31, dayOfWeek: 'F', status: 'upcoming', pnl: '-', count: '-' }
-      ]
-    },
-    {
-      monthName: 'AUGUST 2026',
-      totalPnl: '$0.00',
-      totalPnlNum: 0,
-      disciplineScore: '0%',
-      startOffset: 5, // August 1, 2026 is Saturday (Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sa=5)
-      weeklySummaries: [
-        { weekLabel: 'Week 1', pnl: '$0.00', count: '0 trades' },
-        { weekLabel: 'Week 2', pnl: '$0.00', count: '0 trades' },
-        { weekLabel: 'Week 3', pnl: '$0.00', count: '0 trades' },
-        { weekLabel: 'Week 4', pnl: '$0.00', count: '0 trades' },
-        { weekLabel: 'Week 5', pnl: '$0.00', count: '0 trades' },
-      ],
-      days: [
-        { date: 1, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 2, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 3, dayOfWeek: 'M', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 4, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 5, dayOfWeek: 'W', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 6, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 7, dayOfWeek: 'F', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 8, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 9, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 10, dayOfWeek: 'M', status: 'today', pnl: '$0.00', count: '0 trades' },
-        { date: 11, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 12, dayOfWeek: 'W', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 13, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 14, dayOfWeek: 'F', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 15, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 16, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 17, dayOfWeek: 'M', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 18, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 19, dayOfWeek: 'W', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 20, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 21, dayOfWeek: 'F', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 22, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 23, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 24, dayOfWeek: 'M', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 25, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 26, dayOfWeek: 'W', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 27, dayOfWeek: 'T', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 28, dayOfWeek: 'F', status: 'upcoming', pnl: '-', count: '-' },
-        { date: 29, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 30, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED', count: '-' },
-        { date: 31, dayOfWeek: 'M', status: 'upcoming', pnl: '-', count: '-' }
-      ]
-    }
-  ];
+  const modalDayTrades = useMemo(() => {
+    if (!activeModalDay) return [];
+    return loadStoredData(`goodtrader_session_trades_day_${activeModalDay.date}`, []);
+  }, [activeModalDay]);
 
-  const currentMonth = monthsData[currentMonthIndex] || monthsData[1];
+  const modalCategoryTotals = useMemo(() => {
+    let disciplinedWin = 0;
+    let disciplinedLoss = 0;
+    let toxicWin = 0;
+    let doubleFailure = 0;
+
+    modalDayTrades.forEach(t => {
+      const clean = parseFloat(String(t.pnl || '').replace(/[^0-9.-]+/g, ''));
+      const val = isNaN(clean) ? 0 : clean;
+      if (t.type === 'win') disciplinedWin += val;
+      else if (t.type === 'good_loss' || t.type === 'breakeven') disciplinedLoss += val;
+      else if (t.type === 'toxic_win' || t.type === 'violate_win') toxicWin += val;
+      else doubleFailure += val;
+    });
+
+    const formatPnl = (n) => `${n >= 0 ? '+' : '-'}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    return {
+      disciplinedWin: formatPnl(disciplinedWin),
+      disciplinedLoss: formatPnl(disciplinedLoss),
+      toxicWin: formatPnl(toxicWin),
+      doubleFailure: formatPnl(doubleFailure),
+      hasTrades: modalDayTrades.length > 0
+    };
+  }, [modalDayTrades]);
+
+  // Dynamic storage-backed Calendar State
+  const [monthsData, setMonthsData] = useState(() => {
+    try {
+      const loaded = loadStoredData(STORAGE_KEYS.CALENDAR_DATA, null);
+      return auditAndSanitizeCalendarState(loaded || []);
+    } catch (e) {
+      return auditAndSanitizeCalendarState([]);
+    }
+  });
+
+  useEffect(() => {
+    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
+      if (key === STORAGE_KEYS.CALENDAR_DATA && value) {
+        setMonthsData(auditAndSanitizeCalendarState(value));
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const rawMonth = monthsData[currentMonthIndex] || monthsData[0] || { days: [], monthName: 'AUGUST 2026' };
+
+  const currentMonth = useMemo(() => {
+    if (!rawMonth) return { days: [], totalPnl: '$0.00', disciplineScore: '100%', weeklySummaries: [] };
+    let totalPnlNum = 0;
+    let disciplinedDays = 0;
+    let totalTradeDays = 0;
+
+    const days = (rawMonth.days || []).map(day => {
+      const clean = parseFloat(String(day.pnl || '').replace(/[^0-9.-]+/g, ''));
+      if (!isNaN(clean) && day.pnl !== '-' && !String(day.pnl).includes('CLOSED')) {
+        totalPnlNum += clean;
+        totalTradeDays++;
+        if (day.status === 'win' || day.status === 'good_loss' || day.status === 'breakeven') {
+          disciplinedDays++;
+        }
+      }
+      return day;
+    });
+
+    const calculatedTotalPnl = `${totalPnlNum >= 0 ? '+' : '-'}$${Math.abs(totalPnlNum).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const calculatedDisciplineScore = totalTradeDays > 0 ? `${Math.round((disciplinedDays / totalTradeDays) * 100)}%` : '100%';
+
+    const weeklySummaries = rawMonth.weeklySummaries && rawMonth.weeklySummaries.length > 0 
+      ? rawMonth.weeklySummaries 
+      : [
+          { weekLabel: 'Week 1', pnl: '$0.00', count: '0 trades' },
+          { weekLabel: 'Week 2', pnl: '$0.00', count: '0 trades' },
+          { weekLabel: 'Week 3', pnl: '$0.00', count: '0 trades' },
+          { weekLabel: 'Week 4', pnl: '$0.00', count: '0 trades' },
+          { weekLabel: 'Week 5', pnl: '$0.00', count: '0 trades' },
+        ];
+
+    return {
+      ...rawMonth,
+      days,
+      totalPnl: rawMonth.totalPnl && rawMonth.totalPnl !== '$0.00' && rawMonth.totalPnl !== '-' ? rawMonth.totalPnl : calculatedTotalPnl,
+      disciplineScore: rawMonth.disciplineScore && rawMonth.disciplineScore !== '0%' ? rawMonth.disciplineScore : calculatedDisciplineScore,
+      weeklySummaries
+    };
+  }, [rawMonth]);
 
   const handlePrevMonth = () => {
     soundFx.playPop();
@@ -300,7 +294,7 @@ export default function CalendarTab() {
 
   const handleCopyScreenshotSummary = () => {
     soundFx.playSuccess();
-    const text = `🦅 TRADEPIGEON VERIFIED PERFORMANCE CALENDAR\n📅 Month: ${currentMonth.monthName}\n💰 Monthly Net P&L: ${currentMonth.totalPnl}\n🎯 Discipline Score: ${currentMonth.disciplineScore} Flawless\n🔥 Streak: 14 Days Active\n#TradePigeon #PropTrading #Discipline`;
+    const text = `[TRADEPIGEON VERIFIED PERFORMANCE CALENDAR]\nMonth: ${currentMonth.monthName}\nMonthly Net P&L: ${currentMonth.totalPnl}\nDiscipline Score: ${currentMonth.disciplineScore} Flawless\nStreak: 14 Days Active\n#TradePigeon #PropTrading #Discipline`;
     navigator.clipboard.writeText(text);
     setCopiedToast(true);
     setTimeout(() => setCopiedToast(false), 3500);
@@ -690,9 +684,9 @@ export default function CalendarTab() {
                 soundFx.playPop();
                 setActiveModalDay(null);
               }}
-              className="absolute top-4 right-4 p-2 rounded-xl bg-[#20323D] text-slate-400 hover:text-white cursor-pointer font-black text-xs"
+              className="absolute top-4 right-4 p-2 rounded-xl bg-[#20323D] text-slate-400 hover:text-white cursor-pointer"
             >
-              ✕
+              <X size={16} />
             </button>
 
             <div className="flex items-center gap-3">
@@ -752,7 +746,9 @@ export default function CalendarTab() {
                   className="p-4 rounded-2xl bg-[#58CC02] border-b-4 border-[#388202] text-white space-y-1 shadow-lg hover:-translate-y-1 hover:scale-105 active:translate-y-0.5 cursor-pointer transition-all duration-150 ring-2 ring-white/20"
                 >
                   <span className="text-[10px] font-black uppercase tracking-wider text-white/95 block">DISCIPLINED WIN</span>
-                  <div className="text-xl font-black text-white">+$1,290.00</div>
+                  <div className="text-xl font-black text-white">
+                    {modalCategoryTotals.hasTrades ? modalCategoryTotals.disciplinedWin : (activeModalDay.status === 'win' ? activeModalDay.pnl : '+$0.00')}
+                  </div>
                 </div>
 
                 {/* Tile 2: Solid Duolingo Cyan */}
@@ -764,7 +760,9 @@ export default function CalendarTab() {
                   className="p-4 rounded-2xl bg-[#1CB0F6] border-b-4 border-[#147BB0] text-white space-y-1 shadow-lg hover:-translate-y-1 hover:scale-105 active:translate-y-0.5 cursor-pointer transition-all duration-150 ring-2 ring-white/20"
                 >
                   <span className="text-[10px] font-black uppercase tracking-wider text-white/95 block">DISCIPLINED LOSS</span>
-                  <div className="text-xl font-black text-white">-$425.00</div>
+                  <div className="text-xl font-black text-white">
+                    {modalCategoryTotals.hasTrades ? modalCategoryTotals.disciplinedLoss : (activeModalDay.status === 'good_loss' ? activeModalDay.pnl : '-$0.00')}
+                  </div>
                 </div>
 
                 {/* Tile 3: Solid Duolingo Gold */}
@@ -776,7 +774,9 @@ export default function CalendarTab() {
                   className="p-4 rounded-2xl bg-[#182830] border-2 border-[#20323D] text-slate-300 hover:border-[#FFC800] space-y-1 shadow-md hover:-translate-y-1 hover:scale-105 active:translate-y-0.5 cursor-pointer transition-all duration-150"
                 >
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-300 block">TOXIC WIN</span>
-                  <div className="text-xl font-black text-slate-300">$0.00</div>
+                  <div className="text-xl font-black text-slate-300">
+                    {modalCategoryTotals.toxicWin}
+                  </div>
                 </div>
 
                 {/* Tile 4: Solid Duolingo Red */}
@@ -788,9 +788,39 @@ export default function CalendarTab() {
                   className="p-4 rounded-2xl bg-[#182830] border-2 border-[#20323D] text-slate-300 hover:border-[#FF4B4B] space-y-1 shadow-md hover:-translate-y-1 hover:scale-105 active:translate-y-0.5 cursor-pointer transition-all duration-150"
                 >
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-300 block">DOUBLE FAILURE</span>
-                  <div className="text-xl font-black text-slate-300">$0.00</div>
+                  <div className="text-xl font-black text-slate-300">
+                    {modalCategoryTotals.doubleFailure}
+                  </div>
                 </div>
               </div>
+
+              {/* EXECUTED FILLS FOR THIS DAY */}
+              {modalDayTrades.length > 0 && (
+                <div className="space-y-2 pt-3 border-t border-[#1C2A4E]">
+                  <div className="text-[10px] font-black uppercase text-[#1CB0F6] tracking-wider">
+                    EXECUTIONS LOGGED ({modalDayTrades.length})
+                  </div>
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {modalDayTrades.map((t, idx) => (
+                      <div key={t.id || idx} className="p-2.5 rounded-xl bg-[#142127] border border-[#20323D] flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${t.side === 'LONG' ? 'bg-[#58CC02]/20 text-[#58CC02]' : 'bg-rose-500/20 text-rose-400'}`}>
+                            {t.side || 'TRADE'}
+                          </span>
+                          <span className="font-black text-white text-[11px]">{t.symbol}</span>
+                          <span className="text-[9px] font-bold text-slate-500">{t.time}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono text-slate-400">{t.account}</span>
+                          <span className={`text-xs font-black font-mono ${String(t.pnl).startsWith('-') ? 'text-rose-400' : 'text-[#58CC02]'}`}>
+                            {t.pnl}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <button
@@ -828,9 +858,9 @@ export default function CalendarTab() {
                 soundFx.playPop();
                 setIsScorecardModalOpen(false);
               }}
-              className="absolute top-4 right-4 p-2.5 rounded-xl bg-[#20323D] text-slate-400 hover:text-white cursor-pointer font-black text-xs"
+              className="absolute top-4 right-4 p-2.5 rounded-xl bg-[#20323D] text-slate-400 hover:text-white cursor-pointer"
             >
-              ✕
+              <X size={16} />
             </button>
 
             <div className="flex items-center gap-3">
