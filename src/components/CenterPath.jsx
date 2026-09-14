@@ -668,15 +668,36 @@ export default function CenterPath() {
 
                       {/* 2. PROCESS-FIRST BEHAVIORAL MATRIX (VIBRANT ONLY FOR CATEGORIES WITH TRADES TAKEN) */}
                       {(() => {
+                        const dayTrades = loadStoredData(`goodtrader_session_trades_day_${dayNum}`, []);
                         const savedCounts = loadStoredData(`goodtrader_trade_counts_day_${dayNum}`, { winCount: 0, goodLossCount: 0, toxicWinCount: 0, doubleFailureCount: 0 });
+
+                        const winCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'win').length : (savedCounts.winCount || 0);
+                        const goodLossCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'good_loss').length : (savedCounts.goodLossCount || 0);
+                        const breakevenCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'breakeven').length : 0;
+                        const toxicWinCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'toxic_win' || t.type === 'violate_win').length : (savedCounts.toxicWinCount || 0);
+                        const toxicBeCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'toxic_be').length : 0;
+                        const doubleFailureCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'double_failure' || t.type === 'violate_loss').length : (savedCounts.doubleFailureCount || 0);
+                        const missedCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'missed_trade').length : 0;
+
+                        const calcPnlStr = (typeId, fallbackCount) => {
+                          if (dayTrades.length > 0) {
+                            const sum = dayTrades.filter(t => t.type === typeId).reduce((acc, t) => {
+                              const p = t.pnlValue !== undefined ? t.pnlValue : (parseFloat(t.pnl?.replace(/[^0-9.-]+/g, '')) || 0);
+                              return acc + p;
+                            }, 0);
+                            return `${sum >= 0 ? '+' : '-'}$${Math.abs(sum).toFixed(2)}`;
+                          }
+                          return fallbackCount ? 'Recorded' : '$0.00';
+                        };
+
                         const categories = [
-                          { id: 'win', label: 'DISCIPLINED WIN', count: savedCounts.winCount || 0, pnl: savedCounts.winCount ? 'Recorded' : '$0.00', activeBg: 'bg-[#58CC02] border-b-4 border-[#388202] text-white shadow-[#58CC02]/25' },
-                          { id: 'good_loss', label: 'DISCIPLINED LOSS', count: savedCounts.goodLossCount || 0, pnl: savedCounts.goodLossCount ? 'Recorded' : '$0.00', activeBg: 'bg-[#1CB0F6] border-b-4 border-[#147BB0] text-white shadow-[#1CB0F6]/25' },
-                          { id: 'breakeven', label: 'DISCIPLINED BE', count: 0, pnl: '$0.00', activeBg: 'bg-[#CE82FF] border-b-4 border-[#9D28EC] text-white' },
-                          { id: 'toxic_win', label: 'TOXIC WIN', count: savedCounts.toxicWinCount || 0, pnl: savedCounts.toxicWinCount ? 'Recorded' : '$0.00', activeBg: 'bg-[#FFC800] border-b-4 border-[#8A6B00] text-slate-950' },
-                          { id: 'toxic_be', label: 'TOXIC BE', count: 0, pnl: '$0.00', activeBg: 'bg-[#00F0FF] border-b-4 border-[#00B3BF] text-slate-950' },
-                          { id: 'double_failure', label: 'DOUBLE FAILURE', count: savedCounts.doubleFailureCount || 0, pnl: savedCounts.doubleFailureCount ? 'Recorded' : '$0.00', activeBg: 'bg-[#FF4B4B] border-b-4 border-[#C62828] text-white' },
-                          { id: 'missed_trade', label: 'MISSED TRADE', count: 0, pnl: '0 Setups', activeBg: 'bg-amber-500 border-b-4 border-amber-700 text-slate-950', isFullWidth: true },
+                          { id: 'win', label: 'DISCIPLINED WIN', count: winCount, pnl: calcPnlStr('win', savedCounts.winCount), activeBg: 'bg-[#58CC02] border-b-4 border-[#388202] text-white shadow-[#58CC02]/25' },
+                          { id: 'good_loss', label: 'DISCIPLINED LOSS', count: goodLossCount, pnl: calcPnlStr('good_loss', savedCounts.goodLossCount), activeBg: 'bg-[#1CB0F6] border-b-4 border-[#147BB0] text-white shadow-[#1CB0F6]/25' },
+                          { id: 'breakeven', label: 'DISCIPLINED BE', count: breakevenCount, pnl: calcPnlStr('breakeven', 0), activeBg: 'bg-[#CE82FF] border-b-4 border-[#9D28EC] text-white' },
+                          { id: 'toxic_win', label: 'TOXIC WIN', count: toxicWinCount, pnl: calcPnlStr('toxic_win', savedCounts.toxicWinCount), activeBg: 'bg-[#FFC800] border-b-4 border-[#8A6B00] text-slate-950' },
+                          { id: 'toxic_be', label: 'TOXIC BE', count: toxicBeCount, pnl: calcPnlStr('toxic_be', 0), activeBg: 'bg-[#00F0FF] border-b-4 border-[#00B3BF] text-slate-950' },
+                          { id: 'double_failure', label: 'DOUBLE FAILURE', count: doubleFailureCount, pnl: calcPnlStr('double_failure', savedCounts.doubleFailureCount), activeBg: 'bg-[#FF4B4B] border-b-4 border-[#C62828] text-white' },
+                          { id: 'missed_trade', label: 'MISSED SETUP', count: missedCount, pnl: missedCount ? `${missedCount} Setups` : '$0.00', activeBg: 'bg-amber-500 border-b-4 border-amber-700 text-slate-950', isFullWidth: true },
                         ];
 
                         return (

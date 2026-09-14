@@ -170,7 +170,7 @@ function parseMT5HtmlReport(htmlText, baseRisk = 350) {
 }
 
 /**
- * Evaluates trade logs against trader risk rules and calculates real 4-Quadrants matrix stats
+ * Evaluates trade logs against trader risk rules and calculates real 7 Execution Types matrix stats
  */
 export function calculateExecutionMatrix(tradeLogs, maxDailyLossLimit = 500) {
   let followWinCount = 0, followWinPnl = 0;
@@ -179,11 +179,20 @@ export function calculateExecutionMatrix(tradeLogs, maxDailyLossLimit = 500) {
   let violateWinCount = 0, violateWinPnl = 0;
   let violateBeCount = 0, violateBePnl = 0;
   let violateLossCount = 0, violateLossPnl = 0;
+  let missedTradeCount = 0;
 
   const totalTrades = tradeLogs.length || 1;
 
   tradeLogs.forEach(trade => {
     const pnl = trade.pnlNum !== undefined ? trade.pnlNum : parseFloat(trade.pnl?.replace(/[^0-9.-]+/g, '')) || 0;
+    const isMissed = trade.type === 'MISSED_TRADE' || trade.type === 'missed_trade' || trade.side === 'MISSED' || trade.setup?.toLowerCase().includes('missed');
+
+    if (isMissed) {
+      missedTradeCount++;
+      trade.type = 'MISSED_TRADE';
+      return;
+    }
+
     const isBe = Math.abs(pnl) < 10;
     const isWin = pnl >= 10;
     const isLoss = pnl <= -10;
@@ -274,6 +283,15 @@ export function calculateExecutionMatrix(tradeLogs, maxDailyLossLimit = 500) {
       pnl: formatPnl(violateLossPnl), 
       color: '#FF4B4B', 
       badgeBg: 'bg-rose-500/15 text-rose-400'
+    },
+    { 
+      id: 'MISSED_TRADE', 
+      title: 'Missed Setup', 
+      percent: Math.round((missedTradeCount / totalTrades) * 100),
+      count: formatCount(missedTradeCount), 
+      pnl: '$0.00', 
+      color: '#FF9600', 
+      badgeBg: 'bg-amber-500/15 text-amber-400'
     }
   ];
 }

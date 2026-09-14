@@ -75,13 +75,13 @@ export default function LandingPage({ onGetStarted, onLogin }) {
     window.location.href = targetUrl;
   };
 
-  const handleQuadrantHover = (pose, speech) => {
+  const handleExecutionTypeHover = (pose, speech) => {
     soundFx.playPop();
     setActiveMascotPose(pose);
     setSpeechText(speech);
   };
 
-  const handleQuadrantLeave = () => {
+  const handleExecutionTypeLeave = () => {
     setActiveMascotPose(mascotQuotes[quoteIndex].pose);
     setSpeechText(mascotQuotes[quoteIndex].text);
   };

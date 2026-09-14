@@ -1388,6 +1388,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                                 { id: 'toxic_win', label: 'Toxic Win', color: 'bg-[#FFC800] border-[#8A6B00] text-slate-950' },
                                 { id: 'toxic_be', label: 'Toxic BE', color: 'bg-[#00F0FF] border-[#00B3BF] text-slate-950' },
                                 { id: 'double_failure', label: 'Double Failure', color: 'bg-[#FF4B4B] border-[#C62828] text-white' },
+                                { id: 'missed_trade', label: 'Missed Setup', color: 'bg-[#FF9600] border-[#B86C00] text-white', colSpan: 'col-span-3' },
                               ].map((typeOption) => {
                                 const isSelected = trade.type === typeOption.id;
                                 return (
@@ -1395,7 +1396,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                                     key={typeOption.id}
                                     type="button"
                                     onClick={() => handleVerifyTrade(trade.id, typeOption.id)}
-                                    className={`py-1 px-0.5 rounded-lg text-[8px] font-black transition-all cursor-pointer border text-center truncate ${
+                                    className={`py-1 px-0.5 rounded-lg text-[8px] font-black transition-all cursor-pointer border text-center truncate ${typeOption.colSpan || ''} ${
                                       isSelected
                                         ? `${typeOption.color} font-black scale-[1.02] shadow-sm`
                                         : 'bg-[#182830] border-[#20323D] text-slate-400 hover:text-white'
@@ -1822,13 +1823,16 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                   {[
                     { id: 'win', label: 'Disciplined Win' },
                     { id: 'good_loss', label: 'Disciplined Loss' },
+                    { id: 'breakeven', label: 'Disciplined BE' },
                     { id: 'toxic_win', label: 'Toxic Win' },
+                    { id: 'toxic_be', label: 'Toxic BE' },
                     { id: 'double_failure', label: 'Double Failure' },
+                    { id: 'missed_trade', label: 'Missed Setup', isFullWidth: true },
                   ].map((opt) => (
                     <button
                       key={opt.id}
                       onClick={() => setNewTradeType(opt.id)}
-                      className={`p-2 rounded-xl text-[10px] font-black cursor-pointer border-2 text-left ${
+                      className={`p-2 rounded-xl text-[10px] font-black cursor-pointer border-2 text-left ${opt.isFullWidth ? 'col-span-2 text-center' : ''} ${
                         newTradeType === opt.id
                           ? 'bg-[#1CB0F6] text-white border-[#147BB0]'
                           : 'bg-[#142127] border-[#20323D] text-slate-300'

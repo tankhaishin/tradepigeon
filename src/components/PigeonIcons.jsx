@@ -326,7 +326,7 @@ export function PigeonHeartIcon({ className = "w-7 h-7" }) {
   );
 }
 
-// 4 TYPES OF TRADES SIGNATURE BOLD & SIMPLE 3D DUOICONS
+// 7 TYPES OF TRADES SIGNATURE BOLD & SIMPLE 3D DUOICONS
 
 export function PigeonDisciplinedWinIcon({ className = "w-7 h-7" }) {
   return (

@@ -4,7 +4,7 @@ import {
   DollarSign, Brain, BarChart3, AlertCircle, RefreshCw, Layers, Check, 
   Clock, Shield, Award, Cpu, Zap, Lock, ArrowUpRight, CheckSquare, XCircle, AlertTriangle, FileText, PieChart, Upload, Filter, Calendar, X, BookOpen, Pencil
 } from 'lucide-react';
-import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoUndoIcon, DuoPlusIcon, DuoFileSheetIcon, DuoGemIcon, DuoCalendarIcon, DuoCheckCircleIcon, DuoHazardIcon, DuoBookIcon, DuoChartIcon, DuoTrophyIcon, DuoBrainIcon, DuoDisciplinedWinIcon, DuoDisciplinedLossIcon, DuoDisciplinedBeIcon, DuoToxicWinIcon, DuoToxicBeIcon, DuoDoubleFailureIcon } from './DuoIcons';
+import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoUndoIcon, DuoPlusIcon, DuoFileSheetIcon, DuoGemIcon, DuoCalendarIcon, DuoCheckCircleIcon, DuoHazardIcon, DuoBookIcon, DuoChartIcon, DuoTrophyIcon, DuoBrainIcon, DuoDisciplinedWinIcon, DuoDisciplinedLossIcon, DuoDisciplinedBeIcon, DuoToxicWinIcon, DuoToxicBeIcon, DuoDoubleFailureIcon, DuoMissedTradeIcon } from './DuoIcons';
 import BrokerConnectModal from './BrokerConnectModal';
 import ManualTradeModal from './ManualTradeModal';
 import { parseTradeFile, calculateExecutionMatrix, calculateSetupExpectancy, formatCurrencyOrR } from '../utils/tradeParser';
@@ -544,7 +544,7 @@ export default function SetupsTab() {
           </div>
         </div>
 
-        {/* 2x2 QUADRANT GRAPH MATRIX & DONUT BREAKDOWN */}
+        {/* 7 EXECUTION TYPES MATRIX & DONUT BREAKDOWN */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
           {/* PRECISION DONUT + DISCIPLINE INDEX CENTER */}
           <div className="xl:col-span-4 flex flex-col items-center justify-center p-6 bg-[#142127] rounded-3xl border-2 border-[#20323D] relative shadow-inner shrink-0">
@@ -597,6 +597,7 @@ export default function SetupsTab() {
           <div className="xl:col-span-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3 gap-3.5 min-w-0">
             {executionMatrix.map((item) => {
               const isFollow = item.id.startsWith('FOLLOW');
+              const isMissed = item.id === 'MISSED_TRADE';
               const countVal = parseInt(item.count) || 0;
               const hasTrades = countVal > 0;
 
@@ -606,6 +607,7 @@ export default function SetupsTab() {
               if (item.id === 'VIOLATE_WIN') activeCardStyle = 'bg-[#FFC800] border-[#D9AA00] border-b-4 text-slate-950';
               if (item.id === 'VIOLATE_BE') activeCardStyle = 'bg-[#00F0FF] border-[#00D8E6] border-b-4 text-slate-950';
               if (item.id === 'VIOLATE_LOSS') activeCardStyle = 'bg-[#FF4B4B] border-[#E03A3A] border-b-4 text-white';
+              if (item.id === 'MISSED_TRADE') activeCardStyle = 'bg-[#FF9600] border-[#D97D00] border-b-4 text-white';
 
               const isDarkText = item.id === 'VIOLATE_WIN' || item.id === 'VIOLATE_BE';
 
@@ -626,10 +628,11 @@ export default function SetupsTab() {
                       {item.id === 'VIOLATE_WIN' && <DuoToxicWinIcon className="w-8 h-8 shrink-0 drop-shadow" />}
                       {item.id === 'VIOLATE_BE' && <DuoToxicBeIcon className="w-8 h-8 shrink-0 drop-shadow" />}
                       {item.id === 'VIOLATE_LOSS' && <DuoDoubleFailureIcon className="w-8 h-8 shrink-0 drop-shadow" />}
+                      {item.id === 'MISSED_TRADE' && <DuoMissedTradeIcon className="w-8 h-8 shrink-0 drop-shadow" />}
                       <div className="min-w-0">
                         <h4 className="text-xs sm:text-sm font-black leading-tight tracking-tight whitespace-nowrap truncate">{item.title}</h4>
                         <span className="text-[9px] font-black uppercase tracking-wider opacity-75 block truncate">
-                          {isFollow ? 'DISCIPLINED' : 'VIOLATION'}
+                          {isMissed ? 'HESITATION' : isFollow ? 'DISCIPLINED' : 'VIOLATION'}
                         </span>
                       </div>
                     </div>
@@ -1138,11 +1141,13 @@ export default function SetupsTab() {
                                 `3: Disciplined BE\n` +
                                 `4: Toxic Win\n` +
                                 `5: Toxic BE\n` +
-                                `6: Double Failure`
+                                `6: Double Failure\n` +
+                                `7: Missed Setup`
                               );
                               const typeMap = {
                                 '1': 'FOLLOW_WIN', '2': 'FOLLOW_LOSS', '3': 'FOLLOW_BE',
-                                '4': 'VIOLATE_WIN', '5': 'VIOLATE_BE', '6': 'VIOLATE_LOSS'
+                                '4': 'VIOLATE_WIN', '5': 'VIOLATE_BE', '6': 'VIOLATE_LOSS',
+                                '7': 'MISSED_TRADE'
                               };
                               if (choice && typeMap[choice.trim()]) {
                                 const updated = tradeLogs.map(t => t.id === log.id ? { ...t, type: typeMap[choice.trim()] } : t);
@@ -1162,13 +1167,15 @@ export default function SetupsTab() {
                             log.type === 'FOLLOW_BE' ? 'bg-[#CE82FF]/20 text-[#CE82FF] border border-[#CE82FF]/30' :
                             log.type === 'VIOLATE_WIN' ? 'bg-[#FFC800]/20 text-[#FFC800] border border-[#FFC800]/30' :
                             log.type === 'VIOLATE_BE' ? 'bg-[#00F0FF]/20 text-[#00F0FF] border border-[#00F0FF]/30' :
+                            log.type === 'MISSED_TRADE' ? 'bg-[#FF9600]/20 text-[#FF9600] border border-[#FF9600]/30' :
                             'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                           }`}>
                             {log.type === 'FOLLOW_WIN' ? 'Disciplined Win' :
                              log.type === 'FOLLOW_LOSS' ? 'Disciplined Loss' :
                              log.type === 'FOLLOW_BE' ? 'Disciplined BE' :
                              log.type === 'VIOLATE_WIN' ? 'Toxic Win' :
-                             log.type === 'VIOLATE_BE' ? 'Toxic BE' : 'Double Failure'}
+                             log.type === 'VIOLATE_BE' ? 'Toxic BE' :
+                             log.type === 'MISSED_TRADE' ? 'Missed Setup' : 'Double Failure'}
                           </span>
                         )}
                       </td>
