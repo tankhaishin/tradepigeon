@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, LifeBuoy, LogOut, Volume2, VolumeX } from 'lucide-react';
+import { Eye, EyeOff, LifeBuoy, LogOut, Volume2, VolumeX, User } from 'lucide-react';
 import { DuoHomeIcon, DuoShieldIcon, DuoChestIcon, DuoShopIcon, DuoProfileIcon, DuoTrophyIcon, DuoCalendarIcon, DuoLightningIcon, DuoBookIcon } from './DuoIcons';
 import SupportFeedbackModal from './SupportFeedbackModal';
 import GuidebookModal from './GuidebookModal';
 import LegalModal from './LegalModal';
 import ComingSoonModal from './ComingSoonModal';
+import AuthModal from './AuthModal';
+import { useAuth } from '../context/AuthContext';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 
 export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, onOpenCalendar }) {
+  const { user, signOutUser } = useAuth();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [isLegalTermsOpen, setIsLegalTermsOpen] = useState(false);
   const [isLegalPrivacyOpen, setIsLegalPrivacyOpen] = useState(false);
@@ -17,6 +21,12 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
   const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('goodtrader_stealth_mode', false));
   const [isMuted, setIsMuted] = useState(() => soundFx.isMuted);
   const [googleUser, setGoogleUser] = useState(() => loadStoredData('goodtrader_google_user', null));
+
+  const activeUser = user ? {
+    name: user.displayName || (user.email ? user.email.split('@')[0] : 'Trader'),
+    email: user.email,
+    picture: user.photoURL
+  } : googleUser;
 
   const toggleSound = () => {
     const next = soundFx.toggleMute();
@@ -36,9 +46,14 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
     return unsubscribe;
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     soundFx.playPop();
     if (window.confirm('Are you sure you want to log out of TradePigeon?')) {
+      try {
+        await signOutUser();
+      } catch (err) {
+        console.error('Sign out error:', err);
+      }
       saveStoredData('goodtrader_google_user', null);
       if (onToggleLanding) onToggleLanding();
     }
@@ -166,35 +181,49 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
             <span className="hidden xl:inline">Help & Feedback</span>
           </button>
 
-          {/* User Account & Prominent Log Out Button */}
+          {/* User Account & Prominent Auth Controls */}
           <div className="pt-2 border-t border-[#1C2A4E] space-y-2">
-            {googleUser && (
-              <div 
-                onClick={() => setActiveTab('profile')}
-                className="hidden xl:flex items-center gap-3 p-2 bg-[#0D1635] hover:bg-[#131F42] rounded-2xl border border-[#1C2A4E] cursor-pointer transition-all"
-                title="View Profile Settings"
-              >
-                <img
-                  src={googleUser.picture || '/parrot_logo.png'}
-                  alt={googleUser.name || 'Trader'}
-                  className="w-8 h-8 rounded-xl object-cover border border-[#FF6B00] shrink-0"
-                  onError={(e) => { e.target.src = '/parrot_logo.png'; }}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-black text-white truncate">{googleUser.name || 'Trader'}</div>
-                  <div className="text-[10px] font-bold text-slate-400 truncate">{googleUser.email || 'trader@tradepigeon.com'}</div>
+            {activeUser ? (
+              <>
+                <div 
+                  onClick={() => setActiveTab('profile')}
+                  className="hidden xl:flex items-center gap-3 p-2 bg-[#0D1635] hover:bg-[#131F42] rounded-2xl border border-[#1C2A4E] cursor-pointer transition-all"
+                  title="View Profile Settings"
+                >
+                  <img
+                    src={activeUser.picture || '/parrot_logo.png'}
+                    alt={activeUser.name || 'Trader'}
+                    className="w-8 h-8 rounded-xl object-cover border border-[#FF6B00] shrink-0"
+                    onError={(e) => { e.target.src = '/parrot_logo.png'; }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-black text-white truncate">{activeUser.name || 'Trader'}</div>
+                    <div className="text-[10px] font-bold text-slate-400 truncate">{activeUser.email || 'trader@tradepigeon.com'}</div>
+                  </div>
                 </div>
-              </div>
-            )}
 
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center justify-center xl:justify-start gap-3 p-3 xl:px-4 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border-2 border-rose-500/30 hover:border-rose-500 border-b-4 border-b-rose-700/60 text-xs font-black text-rose-400 hover:text-rose-200 transition-all cursor-pointer shadow-sm active:translate-y-0.5"
-              title="Sign Out of TradePigeon"
-            >
-              <LogOut size={18} className="shrink-0 text-rose-400" />
-              <span className="hidden xl:inline">Log Out</span>
-            </button>
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center justify-center xl:justify-start gap-3 p-3 xl:px-4 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border-2 border-rose-500/30 hover:border-rose-500 border-b-4 border-b-rose-700/60 text-xs font-black text-rose-400 hover:text-rose-200 transition-all cursor-pointer shadow-sm active:translate-y-0.5"
+                  title="Sign Out of TradePigeon"
+                >
+                  <LogOut size={18} className="shrink-0 text-rose-400" />
+                  <span className="hidden xl:inline">Log Out</span>
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => {
+                  soundFx.playPop();
+                  setIsAuthModalOpen(true);
+                }}
+                className="w-full flex items-center justify-center xl:justify-start gap-3 p-3 xl:px-4 rounded-2xl bg-[#58CC02] hover:bg-[#46A302] border-2 border-[#46A302] border-b-4 border-b-[#347A01] text-xs font-black text-white transition-all cursor-pointer shadow-md active:translate-y-0.5"
+                title="Sign In or Create Account to Sync Data Across Devices"
+              >
+                <User size={18} className="shrink-0 text-white" />
+                <span className="hidden xl:inline">Sign In / Sync</span>
+              </button>
+            )}
           </div>
 
           {/* Legal Compliance Footer Links (XL screen only) */}
@@ -236,6 +265,11 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
         isOpen={Boolean(comingSoonFeature)}
         onClose={() => setComingSoonFeature(null)}
         featureName={comingSoonFeature || 'Feature'}
+      />
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
       />
 
       {/* MOBILE BOTTOM NAVIGATION BAR (Ultra-Clean 5-Tab Native Mobile Architecture) */}

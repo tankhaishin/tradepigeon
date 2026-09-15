@@ -1,120 +1,53 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useAuth } from '../context/AuthContext';
 import { soundFx } from '../utils/audioEngine';
-import { loadStoredData, saveStoredData } from '../utils/storage';
 
 export default function GoogleAuthButton({ onAuthSuccess, onOpenAuthModal, className = '', buttonText = 'Sign in with Google' }) {
-  const [user, setUser] = useState(() => {
-    const saved = loadStoredData('goodtrader_google_user', null);
-    if (saved && (saved.email === 'alex.trader@gmail.com' || saved.name === 'Alex Trader' || saved.email === 'trader@tradepigeon.com')) {
-      saveStoredData('goodtrader_google_user', null);
-      return null;
-    }
-    return saved;
-  });
+  const { user, signInWithGoogle, signOutUser } = useAuth();
 
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-
-  const loadGoogleScript = () => {
-    return new Promise((resolve) => {
-      if (typeof window !== 'undefined' && window.google?.accounts?.oauth2) {
-        return resolve(true);
-      }
-      const script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.head.appendChild(script);
-    });
-  };
-
-  const handleGoogleSignInClick = async (e) => {
+  const handleSignInClick = async (e) => {
     e?.preventDefault();
     e?.stopPropagation();
-    try { soundFx.playPop(); } catch (_) {}
+    soundFx.playPop();
 
-    const isLoaded = await loadGoogleScript();
-
-    if (isLoaded && typeof window !== 'undefined' && window.google?.accounts?.oauth2 && clientId && !clientId.includes('example')) {
-      try {
-        const client = window.google.accounts.oauth2.initTokenClient({
-          client_id: clientId,
-          scope: 'openid profile email',
-          callback: async (tokenResponse) => {
-            if (tokenResponse && tokenResponse.access_token) {
-              try {
-                const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                  headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-                });
-                const payload = await res.json();
-                const googleUser = {
-                  name: payload.name || payload.given_name || 'Verified Trader',
-                  email: payload.email || 'trader@gmail.com',
-                  picture: payload.picture || '/parrot_logo.png',
-                  sub: payload.sub || Date.now().toString(),
-                  authenticatedAt: new Date().toISOString()
-                };
-                soundFx.playSuccess();
-                saveStoredData('goodtrader_google_user', googleUser);
-                setUser(googleUser);
-                if (onAuthSuccess) onAuthSuccess(googleUser);
-              } catch (err) {
-                console.warn('[Google UserInfo Error]:', err);
-                if (onOpenAuthModal) onOpenAuthModal();
-              }
-            }
-          },
-          error_callback: () => {
-            if (onOpenAuthModal) onOpenAuthModal();
-          }
-        });
-        client.requestAccessToken();
-      } catch (err) {
-        if (onOpenAuthModal) onOpenAuthModal();
-      }
-    } else if (onOpenAuthModal) {
+    if (onOpenAuthModal) {
       onOpenAuthModal();
-    } else {
-      // Fallback auth for preview/demo mode
-      const fallbackUser = {
-        name: 'Verified Trader',
-        email: 'trader@tradepigeon.com',
-        picture: '/parrot_logo.png',
-        sub: Date.now().toString(),
-        authenticatedAt: new Date().toISOString()
-      };
-      soundFx.playSuccess();
-      saveStoredData('goodtrader_google_user', fallbackUser);
-      setUser(fallbackUser);
-      if (onAuthSuccess) onAuthSuccess(fallbackUser);
+      return;
+    }
+
+    try {
+      const loggedUser = await signInWithGoogle();
+      if (onAuthSuccess && loggedUser) onAuthSuccess(loggedUser);
+    } catch (err) {
+      console.warn('[Google Auth Error]:', err);
+      if (onOpenAuthModal) onOpenAuthModal();
     }
   };
 
-  const handleSignOut = (e) => {
+  const handleSignOutClick = (e) => {
     e?.stopPropagation();
     soundFx.playPop();
-    try {
-      localStorage.removeItem('goodtrader_google_user');
-      saveStoredData('goodtrader_google_user', null);
-    } catch (err) {
-      console.warn('[Storage Clear]:', err);
-    }
-    setUser(null);
+    signOutUser();
   };
 
   if (user) {
     return (
-      <div className={`flex items-center gap-3 p-2 px-3 rounded-2xl bg-[#182830] border-2 border-[#58CC02] border-b-4 border-b-[#46A302] ${className}`}>
-        <img src={user.picture} alt={user.name} className="w-7 h-7 rounded-xl object-cover border border-[#58CC02]" onError={(e) => { e.target.src = '/parrot_logo.png'; }} />
-        <div className="text-left leading-tight hidden sm:block">
-          <div className="text-xs font-black text-white">{user.name}</div>
-          <div className="text-[9px] font-bold text-[#58CC02]">{user.email}</div>
+      <div className={`flex items-center gap-3 p-2 px-3 rounded-2xl bg-[#0D1635] border-2 border-[#58CC02] border-b-4 border-b-[#46A302] ${className}`}>
+        <img 
+          src={user.picture || '/parrot_logo.png'} 
+          alt={user.name || 'Trader'} 
+          className="w-7 h-7 rounded-xl object-cover border border-[#58CC02] shrink-0" 
+          onError={(e) => { e.target.src = '/parrot_logo.png'; }} 
+        />
+        <div className="text-left leading-tight hidden sm:block min-w-0">
+          <div className="text-xs font-black text-white truncate max-w-[140px]">{user.name || 'Trader'}</div>
+          <div className="text-[9px] font-bold text-[#58CC02] truncate max-w-[140px]">{user.email || 'Cloud Synced'}</div>
         </div>
         <button
-          onClick={handleSignOut}
-          className="text-[9px] font-black uppercase text-slate-400 hover:text-rose-400 ml-1 px-2 py-0.5 rounded-lg bg-[#131F24] border border-[#20323D] cursor-pointer"
-          title="Sign out of Google Account"
+          type="button"
+          onClick={handleSignOutClick}
+          className="text-[9px] font-black uppercase text-slate-400 hover:text-rose-400 ml-1 px-2 py-1 rounded-lg bg-[#142127] border border-[#20323D] hover:border-rose-500/40 cursor-pointer transition-colors shrink-0"
+          title="Sign out of Account"
         >
           Sign Out
         </button>
@@ -124,7 +57,8 @@ export default function GoogleAuthButton({ onAuthSuccess, onOpenAuthModal, class
 
   return (
     <button
-      onClick={handleGoogleSignInClick}
+      type="button"
+      onClick={handleSignInClick}
       className={`duo-btn-orange font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl cursor-pointer ${className}`}
     >
       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">

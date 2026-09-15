@@ -1,4 +1,6 @@
-// TradePigeon LocalStorage Persistence Manager
+// TradePigeon LocalStorage & Cloud Firestore Persistence Manager
+import { db, auth, isFirebaseConfigured } from '../config/firebase';
+import { doc, setDoc, onSnapshot, collection } from 'firebase/firestore';
 
 const STORAGE_KEYS = {
   USER_STATS: 'goodtrader_user_stats',
@@ -71,7 +73,12 @@ export const loadStoredData = (key, fallback) => {
   }
 };
 
+// In-flight write debouncing map
+const pendingCloudWrites = new Map();
+let cloudUnsubscribe = null;
+
 export const saveStoredData = (key, value) => {
+  // 1. Instant local write (0ms latency for UI)
   try {
     localStorage.setItem(key, JSON.stringify(value));
     if (typeof window !== 'undefined') {
@@ -80,11 +87,119 @@ export const saveStoredData = (key, value) => {
   } catch (err) {
     console.warn(`[TradePigeon Storage] Failed to save ${key}:`, err);
     if (err && (err.name === 'QuotaExceededError' || err.code === 22)) {
-      console.error('[TradePigeon Storage] LocalStorage quota exceeded. Please export and archive older trades.');
+      console.error('[TradePigeon Storage] LocalStorage quota exceeded.');
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('tradepigeon-storage-quota-exceeded', { detail: { key } }));
       }
     }
+  }
+
+  // 2. Dual-tier Cloud Firestore write when user is authenticated
+  if (typeof window !== 'undefined' && isFirebaseConfigured && db && auth?.currentUser?.uid) {
+    const uid = auth.currentUser.uid;
+    if (pendingCloudWrites.has(key)) {
+      clearTimeout(pendingCloudWrites.get(key));
+    }
+
+    const timer = setTimeout(async () => {
+      pendingCloudWrites.delete(key);
+      try {
+        const safeDocId = key.replace(/\//g, '_');
+        const docRef = doc(db, 'users', uid, 'journal', safeDocId);
+        await setDoc(docRef, {
+          key,
+          value,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (cloudErr) {
+        console.warn(`[Firestore Cloud Write Notice on ${key}]:`, cloudErr.message);
+      }
+    }, 300);
+
+    pendingCloudWrites.set(key, timer);
+  }
+};
+
+/**
+ * Initializes real-time two-way sync with Cloud Firestore for the authenticated user.
+ * Enables live desktop <-> mobile synchronicity.
+ */
+export const initCloudFirestoreSync = (uid) => {
+  if (typeof window === 'undefined') return () => {};
+
+  // Clean up any existing listener
+  if (cloudUnsubscribe) {
+    try { cloudUnsubscribe(); } catch (_) {}
+    cloudUnsubscribe = null;
+  }
+
+  if (!isFirebaseConfigured || !db || !uid) return () => {};
+
+  try {
+    const colRef = collection(db, 'users', uid, 'journal');
+    
+    cloudUnsubscribe = onSnapshot(colRef, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added' || change.type === 'modified') {
+          const docData = change.doc.data();
+          if (docData && docData.key && docData.value !== undefined) {
+            try {
+              const currentRaw = localStorage.getItem(docData.key);
+              const currentParsed = currentRaw ? JSON.parse(currentRaw) : null;
+              
+              if (JSON.stringify(currentParsed) !== JSON.stringify(docData.value)) {
+                localStorage.setItem(docData.key, JSON.stringify(docData.value));
+                window.dispatchEvent(new CustomEvent('goodtrader-storage-update', { 
+                  detail: { key: docData.key, value: docData.value, isFromCloud: true } 
+                }));
+              }
+            } catch (_) {}
+          }
+        }
+      });
+    }, (snapErr) => {
+      console.warn('[Firestore Sync Listener Notice]:', snapErr.message);
+    });
+
+    // Automatic Migration: Migrate local keys to Cloud Firestore if user has existing local journal data
+    setTimeout(async () => {
+      const keysToMigrate = [
+        STORAGE_KEYS.USER_STATS,
+        STORAGE_KEYS.CALENDAR_DATA,
+        'goodtrader_accounts_data',
+        'goodtrader_playbook_setups',
+        'goodtrader_baskets_list',
+        'goodtrader_user_dp',
+        'goodtrader_debrief_history',
+        'goodtrader_trading_status',
+        'goodtrader_stealth_mode'
+      ];
+
+      for (const k of keysToMigrate) {
+        const localVal = loadStoredData(k, null);
+        if (localVal !== null && localVal !== undefined) {
+          try {
+            const safeDocId = k.replace(/\//g, '_');
+            const docRef = doc(db, 'users', uid, 'journal', safeDocId);
+            await setDoc(docRef, {
+              key: k,
+              value: localVal,
+              updatedAt: new Date().toISOString()
+            }, { merge: true });
+          } catch (_) {}
+        }
+      }
+    }, 1500);
+
+    return () => {
+      if (cloudUnsubscribe) {
+        try { cloudUnsubscribe(); } catch (_) {}
+        cloudUnsubscribe = null;
+      }
+    };
+  } catch (err) {
+    console.warn('[Firestore Sync Init Notice]:', err.message);
+    return () => {};
   }
 };
 
