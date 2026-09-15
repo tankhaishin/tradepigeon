@@ -1,8 +1,17 @@
-// GoodTrader 2.0 Web Audio Sound Generator (Duolingo Style)
+// TradePigeon Web Audio Sound Generator (Duolingo Style)
 
 class AudioEngine {
   constructor() {
     this.ctx = null;
+    this.isMuted = typeof window !== 'undefined' ? localStorage.getItem('tradepigeon_sound_muted') === 'true' : false;
+  }
+
+  toggleMute() {
+    this.isMuted = !this.isMuted;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tradepigeon_sound_muted', String(this.isMuted));
+    }
+    return this.isMuted;
   }
 
   init() {
@@ -16,6 +25,7 @@ class AudioEngine {
 
   // Tactile Haptic Vibration Engine (Web Vibrate API)
   triggerHaptic(pattern = [10]) {
+    if (this.isMuted) return;
     if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       try {
         navigator.vibrate(pattern);
@@ -27,6 +37,7 @@ class AudioEngine {
 
   // Play crisp Duolingo-style Success Chime (Two-tone arpeggio) + Haptic Pulse
   playSuccess() {
+    if (this.isMuted) return;
     this.triggerHaptic([15, 30, 15]);
     try {
       this.init();
@@ -65,6 +76,7 @@ class AudioEngine {
 
   // Play Level-Up Fanfare + Haptic Burst
   playLevelUp() {
+    if (this.isMuted) return;
     this.triggerHaptic([20, 40, 20, 40, 30]);
     try {
       this.init();
@@ -92,6 +104,7 @@ class AudioEngine {
 
   // Play Mascot Click Pop + Light Haptic Tap
   playPop() {
+    if (this.isMuted) return;
     this.triggerHaptic(12);
     try {
       this.init();

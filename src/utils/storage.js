@@ -34,15 +34,17 @@ export const sanitizeAccountsList = (accounts = []) => {
     const nameLower = String(acc.name || '').toLowerCase();
     const brokerLower = String(acc.broker || '').toLowerCase();
     const accNumLower = String(acc.accountNumber || '').toLowerCase();
+    const idLower = String(acc.id || '').toLowerCase();
     
     // Explicitly purge unauthenticated placeholder dummy strings
-    if (dummyKeywords.some(kw => nameLower.includes(kw) || brokerLower.includes(kw) || accNumLower.includes(kw))) {
+    if (dummyKeywords.some(kw => nameLower.includes(kw) || brokerLower.includes(kw) || accNumLower.includes(kw) || idLower.includes(kw))) {
       return false;
     }
     
-    // Retain valid accounts with proper account numbers
-    if (acc.accountNumber && String(acc.accountNumber).trim() !== '' && !dummyKeywords.some(kw => accNumLower.includes(kw))) return true;
-    if (acc.id && (String(acc.id).startsWith('BROKER-') || String(acc.id).startsWith('ACC-') || String(acc.id).startsWith('TRADOVATE-'))) return true;
+    // Retain valid accounts with proper identification
+    if (acc.accountNumber && String(acc.accountNumber).trim() !== '') return true;
+    if (acc.id && String(acc.id).trim() !== '') return true;
+    if (acc.name && String(acc.name).trim() !== '') return true;
     return false;
   });
 };

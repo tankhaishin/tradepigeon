@@ -163,6 +163,18 @@ export default function ConnectionsTab() {
     }
   };
 
+  // Remove individual sub-account
+  const handleRemoveSubAccount = (accId, accName) => {
+    soundFx.playPop();
+    if (window.confirm(`Remove sub-account "${accName || accId}" from TradePigeon? Historical trade debriefs will be preserved.`)) {
+      const updated = accounts.filter(a => a.id !== accId && a.accountNumber !== accId);
+      setAccounts(updated);
+      saveStoredData('goodtrader_accounts_data', updated);
+      setToastMsg(`Removed ${accName || accId} successfully.`);
+      setTimeout(() => setToastMsg(''), 3000);
+    }
+  };
+
   // Sync fills
   const handleSyncAllFills = () => {
     setIsSyncing(true);
@@ -467,6 +479,7 @@ export default function ConnectionsTab() {
                           <th className="py-3 px-4 hidden sm:table-cell text-right">Balance</th>
                           <th className="py-3 px-4 text-right">Day PNL</th>
                           <th className="py-3 px-4 text-center">Status</th>
+                          <th className="py-3 px-4 text-center w-12">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5 font-medium">
@@ -597,6 +610,18 @@ export default function ConnectionsTab() {
                                 }`}>
                                   {isActive ? 'LIVE' : 'PAUSED'}
                                 </span>
+                              </td>
+
+                              {/* Remove Single Sub-Account Action */}
+                              <td className="py-3.5 px-4 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveSubAccount(acc.id || acc.accountNumber, acc.name)}
+                                  className="p-1.5 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/15 transition-all cursor-pointer"
+                                  title={`Remove ${acc.name || acc.accountNumber}`}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
                               </td>
                             </tr>
                           );

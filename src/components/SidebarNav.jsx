@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, LifeBuoy, LogOut } from 'lucide-react';
+import { Eye, EyeOff, LifeBuoy, LogOut, Volume2, VolumeX } from 'lucide-react';
 import { DuoHomeIcon, DuoShieldIcon, DuoChestIcon, DuoShopIcon, DuoProfileIcon, DuoTrophyIcon, DuoCalendarIcon, DuoLightningIcon, DuoBookIcon } from './DuoIcons';
 import SupportFeedbackModal from './SupportFeedbackModal';
 import GuidebookModal from './GuidebookModal';
@@ -15,7 +15,14 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
   const [isGuidebookOpen, setIsGuidebookOpen] = useState(false);
   const [comingSoonFeature, setComingSoonFeature] = useState(null);
   const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('goodtrader_stealth_mode', false));
+  const [isMuted, setIsMuted] = useState(() => soundFx.isMuted);
   const [googleUser, setGoogleUser] = useState(() => loadStoredData('goodtrader_google_user', null));
+
+  const toggleSound = () => {
+    const next = soundFx.toggleMute();
+    setIsMuted(next);
+    if (!next) soundFx.playPop();
+  };
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
@@ -115,18 +122,33 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
 
         {/* Footer Bottom Lock, Legal & Support Trigger */}
         <div className="space-y-2">
-          <button
-            onClick={toggleStealthMode}
-            className={`w-full flex items-center justify-center xl:justify-start gap-3 p-3 xl:px-4 rounded-2xl border transition-all cursor-pointer shadow-sm text-xs font-black ${
-              isStealthMode
-                ? 'bg-[#FF6B00]/15 border-[#FF6B00]/40 text-[#FF6B00]'
-                : 'bg-[#182830] border-[#20323D] text-slate-300 hover:text-white'
-            }`}
-            title={isStealthMode ? 'Stealth Mode Active — PnL shown in R-Multiples' : 'Dollar View Active — PnL shown in Dollars'}
-          >
-            {isStealthMode ? <EyeOff size={18} className="shrink-0" /> : <Eye size={18} className="shrink-0" />}
-            <span className="hidden xl:inline">{isStealthMode ? 'Stealth Mode' : 'Dollar View'}</span>
-          </button>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
+            <button
+              onClick={toggleStealthMode}
+              className={`w-full flex items-center justify-center gap-2 p-3 xl:px-3 rounded-2xl border transition-all cursor-pointer shadow-sm text-xs font-black ${
+                isStealthMode
+                  ? 'bg-[#FF6B00]/15 border-[#FF6B00]/40 text-[#FF6B00]'
+                  : 'bg-[#182830] border-[#20323D] text-slate-300 hover:text-white'
+              }`}
+              title={isStealthMode ? 'Stealth Mode Active — PnL in R-Multiples' : 'Dollar View Active — PnL in USD'}
+            >
+              {isStealthMode ? <EyeOff size={16} className="shrink-0" /> : <Eye size={16} className="shrink-0" />}
+              <span className="hidden xl:inline">{isStealthMode ? 'Stealth' : 'Values'}</span>
+            </button>
+
+            <button
+              onClick={toggleSound}
+              className={`w-full flex items-center justify-center gap-2 p-3 xl:px-3 rounded-2xl border transition-all cursor-pointer shadow-sm text-xs font-black ${
+                isMuted
+                  ? 'bg-[#182830] border-[#20323D] text-slate-500 hover:text-slate-300'
+                  : 'bg-[#58CC02]/15 border-[#58CC02]/40 text-[#58CC02]'
+              }`}
+              title={isMuted ? 'Sound FX Muted — Click to Enable' : 'Sound FX Active — Click to Mute'}
+            >
+              {isMuted ? <VolumeX size={16} className="shrink-0" /> : <Volume2 size={16} className="shrink-0" />}
+              <span className="hidden xl:inline">{isMuted ? 'Muted' : 'Sound'}</span>
+            </button>
+          </div>
 
           <button
             onClick={() => setIsGuidebookOpen(true)}

@@ -17,10 +17,10 @@ export default function WhitePigeonMascot({
   const [isAnimating, setIsAnimating] = useState(false);
 
   const cooQuotes = [
-    "Coo! 🕊️",
+    "Coo! Coo!",
     "Stay disciplined!",
-    "Follow your playbook 📜",
-    "Don't FOMO in! 🛡️",
+    "Follow your playbook!",
+    "Don't FOMO in!",
     "Coo coo! +10 DP",
     "Mindset check first!"
   ];
