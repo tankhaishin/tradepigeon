@@ -996,7 +996,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-[#58CC02]"></span>
                   </span>
                   <span className="text-[9px] font-black uppercase text-[#58CC02] tracking-wider">
-                    LIVE BROKER TELEMETRY ACTIVE ({connectedAccounts.length} {connectedAccounts.length === 1 ? 'BROKER' : 'BROKERS'})
+                    LIVE BROKER SYNC ACTIVE ({connectedAccounts.length} {connectedAccounts.length === 1 ? 'BROKER' : 'BROKERS'})
                   </span>
                 </div>
                 <span className="text-[9px] font-mono text-slate-400">
@@ -1018,7 +1018,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                     onClick={handleMergeSelectedTrades}
                     className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-[#FFC800] text-slate-950 hover:bg-amber-400 border border-amber-500 cursor-pointer transition-all flex items-center gap-1 shadow-sm animate-pulse"
                   >
-                    <span>Merge ({selectedTradeIds.length}) Fills</span>
+                    <span>Merge ({selectedTradeIds.length})</span>
                   </button>
                 )}
                 {selectedTradeIds.length >= 1 && (
@@ -1050,7 +1050,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                     setSessionTrades(updated);
                     saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, updated);
                   }}
-                  className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 cursor-pointer transition-all flex items-center gap-1"
+                  className="text-[9px] font-black px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-400 cursor-pointer transition-all flex items-center gap-1"
                   title="Log a setup that presented but you hesitated or missed"
                 >
                   <AlertCircle size={10} />
@@ -1058,35 +1058,14 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 </button>
 
                 <button
-                  onClick={handleSyncLiveBrokerTelemetry}
-                  className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-[#58CC02]/20 hover:bg-[#58CC02]/30 border border-[#58CC02]/40 text-[#58CC02] cursor-pointer transition-all flex items-center gap-1 shadow-sm"
-                  title="Sync live executed trade fills from connected broker accounts"
-                >
-                  <Zap size={10} />
-                  <span>Sync Telemetry</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    soundFx.playPop();
-                    setIsBrokerModalOpen(true);
-                  }}
-                  className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-[#1CB0F6]/20 hover:bg-[#1CB0F6]/30 border border-[#1CB0F6]/40 text-[#1CB0F6] cursor-pointer transition-all flex items-center gap-1 shadow-sm"
-                  title="Connect Tradovate, NinjaTrader, or prop firm account"
-                >
-                  <Plus size={10} />
-                  <span>Connect Broker</span>
-                </button>
-
-                <button
                   onClick={() => {
                     soundFx.playPop();
                     setIsAddTradeModalOpen(true);
                   }}
-                  className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-[#142127] hover:bg-[#20323D] border border-[#20323D] text-slate-300 hover:text-white cursor-pointer transition-all flex items-center gap-1"
+                  className="text-[9px] font-black px-2.5 py-1 rounded-lg bg-[#142127] hover:bg-[#20323D] border border-[#20323D] text-slate-300 hover:text-white cursor-pointer transition-all flex items-center gap-1"
                 >
                   <Plus size={10} />
-                  <span>Manual Fill</span>
+                  <span>+ Manual Fill</span>
                 </button>
 
                 {sessionTrades.length > 0 && (
@@ -1099,11 +1078,11 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                         saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, []);
                       }
                     }}
-                    className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 cursor-pointer transition-all flex items-center gap-1"
+                    className="text-[9px] font-black px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 cursor-pointer transition-all flex items-center gap-1"
                     title="Clear today's logged trades"
                   >
                     <Trash2 size={10} />
-                    <span>Clear Today</span>
+                    <span>Clear</span>
                   </button>
                 )}
               </div>
@@ -1124,15 +1103,29 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleSyncLiveBrokerTelemetry}
-                  className="text-[9px] font-black text-[#58CC02] hover:underline flex items-center gap-1 cursor-pointer"
-                  title="Poll latest execution telemetry"
-                >
-                  <RefreshCw size={9} />
-                  <span>Sync All</span>
-                </button>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundFx.playPop();
+                      setIsBrokerModalOpen(true);
+                    }}
+                    className="text-[9px] font-black text-[#1CB0F6] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus size={10} />
+                    <span>Connect</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSyncLiveBrokerTelemetry}
+                    className="text-[9px] font-black text-[#58CC02] hover:underline flex items-center gap-1 cursor-pointer"
+                    title="Poll latest execution fills"
+                  >
+                    <RefreshCw size={9} />
+                    <span>Sync Fills</span>
+                  </button>
+                </div>
               </div>
 
               {connectedAccounts.length > 0 ? (

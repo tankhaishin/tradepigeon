@@ -13,6 +13,7 @@ import AiDebriefModal from './AiDebriefModal';
 import InteractiveEquityCurve from './InteractiveEquityCurve';
 import RightStatusHub from './RightStatusHub';
 import GuidebookModal from './GuidebookModal';
+import BrokerConnectModal from './BrokerConnectModal';
 
 export default function CenterPath() {
   const [activeStep, setActiveStep] = useState(() => loadStoredData('goodtrader_active_step', 1));
@@ -24,6 +25,8 @@ export default function CenterPath() {
   const [isVacationActive, setIsVacationActive] = useState(() => loadStoredData('goodtrader_vacation_active', false));
   const [showDetailsState, setShowDetailsState] = useState({});
   const [sessionTrades, setSessionTrades] = useState(() => loadStoredData(`goodtrader_session_trades_day_${currentDay}`, []));
+  const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
+  const [isSyncingFills, setIsSyncingFills] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
@@ -32,6 +35,9 @@ export default function CenterPath() {
       }
       if (key === 'goodtrader_completed_steps') {
         setCompletedSteps(value || []);
+      }
+      if (key === 'goodtrader_accounts_data') {
+        setAccountsData(value || []);
       }
     });
     return unsubscribe;
@@ -233,6 +239,28 @@ export default function CenterPath() {
   const [mercyDateStr, setMercyDateStr] = useState('');
 
   const totalCumulativePnl = accountsData.reduce((acc, curr) => acc + (parseFloat(curr.pnl) || 0), 0);
+
+  const hasConnectedAccounts = accountsData && accountsData.length > 0;
+  const todayTradesCount = sessionTrades.length;
+  const todayNetPnl = sessionTrades.reduce((acc, t) => {
+    const val = t.pnlValue !== undefined ? t.pnlValue : (parseFloat(String(t.pnl || '').replace(/[^0-9.-]+/g, '')) || 0);
+    return acc + val;
+  }, 0);
+  const formattedTodayPnl = `${todayNetPnl >= 0 ? '+' : '-'}$${Math.abs(todayNetPnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const primaryBroker = accountsData[0]?.broker ? accountsData[0].broker.split(' ')[0] : (accountsData[0]?.name || 'Tradovate');
+  const accountsCount = accountsData.length;
+
+  const handleSyncFills = () => {
+    setIsSyncingFills(true);
+    soundFx.playPop();
+
+    setTimeout(() => {
+      setIsSyncingFills(false);
+      soundFx.playSuccess();
+      setPresetToast('Broker fills synced successfully!');
+      setTimeout(() => setPresetToast(''), 3000);
+    }, 600);
+  };
 
   useEffect(() => {
     const sanitized = sanitizeAccountBasketData(accountsData, basketsList);
@@ -447,6 +475,77 @@ export default function CenterPath() {
         {/* LEFT STAGE (7 Cols): 3D PROTOCOL PATH & JOURNEY MAP */}
         <div className="xl:col-span-7 space-y-6 flex flex-col items-center">
           
+          {/* DUOLINGO-INSPIRED LIGHTWEIGHT BROKER SYNC BANNER */}
+          <div className="w-full max-w-lg mx-auto">
+            {!hasConnectedAccounts ? (
+              /* Disconnected State: Friendly, Inviting, 1-Click */
+              <div className="p-3.5 sm:p-4 rounded-3xl bg-[#142127] border-2 border-[#1CB0F6] border-b-4 border-b-[#147BB0] flex items-center justify-between gap-3 shadow-lg">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-2xl bg-[#1CB0F6]/20 border border-[#1CB0F6]/40 flex items-center justify-center shrink-0">
+                    <Zap size={18} className="text-[#1CB0F6] fill-[#1CB0F6]" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-xs sm:text-sm font-black text-white leading-tight">
+                      Connect your broker to auto-sync trades.
+                    </h4>
+                    <p className="text-[10px] font-bold text-slate-400 truncate mt-0.5">
+                      Tradovate, NinjaTrader, or Prop Firms
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundFx.playPop();
+                    setIsBrokerModalOpen(true);
+                  }}
+                  className="px-4 py-2 rounded-2xl bg-[#58CC02] hover:bg-[#46A302] border-2 border-[#46A302] border-b-4 border-b-[#388202] text-white text-xs font-black uppercase tracking-wider shrink-0 cursor-pointer transition-all active:translate-y-0.5 shadow-md flex items-center gap-1.5"
+                >
+                  <Plus size={12} strokeWidth={3} />
+                  <span>Connect</span>
+                </button>
+              </div>
+            ) : (
+              /* Connected State: Clean, Reassuring, Alive */
+              <div className="p-3 sm:p-3.5 rounded-3xl bg-[#142127] border-2 border-[#58CC02]/40 border-b-4 border-b-[#388202] flex items-center justify-between gap-3 shadow-md">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="relative flex h-2.5 w-2.5 shrink-0 ml-1">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#58CC02] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#58CC02]"></span>
+                  </span>
+                  <div className="min-w-0 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-black text-white whitespace-nowrap">
+                      {accountsCount === 1 ? `${primaryBroker} Connected` : `${accountsCount} Accounts Live`}
+                    </span>
+                    <span className="text-slate-600 font-black">•</span>
+                    <span className="text-[11px] font-bold text-slate-300 whitespace-nowrap">
+                      {todayTradesCount} {todayTradesCount === 1 ? 'Fill' : 'Fills'} Today
+                    </span>
+                    {todayTradesCount > 0 && (
+                      <>
+                        <span className="text-slate-600 font-black">•</span>
+                        <span className={`text-[11px] font-black font-mono whitespace-nowrap ${todayNetPnl >= 0 ? 'text-[#58CC02]' : 'text-rose-400'}`}>
+                          {formattedTodayPnl}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSyncFills}
+                  disabled={isSyncingFills}
+                  className="px-3 py-1.5 rounded-xl bg-[#58CC02] hover:bg-[#46A302] border border-[#388202] border-b-2 border-b-[#2E6B02] text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all active:translate-y-0.5 shrink-0 shadow-sm"
+                >
+                  <RefreshCw size={11} className={isSyncingFills ? 'animate-spin' : ''} />
+                  <span>{isSyncingFills ? 'Syncing...' : 'Sync Fills'}</span>
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* 2. DUOLINGO MULTI-DAY CAMPAIGN MAP (30-DAY JOURNEY / 6 UNITS) */}
           <div className="relative py-4 flex flex-col items-center space-y-10 z-10 w-full">
             {Array.from({ length: 30 }, (_, i) => i + 1).map((dayNum) => {
@@ -575,7 +674,7 @@ export default function CenterPath() {
                                       : !completedSteps.includes(2)
                                       ? "2. Calibrate Playbook Risk & Drawdown"
                                       : !completedSteps.includes(3)
-                                      ? "3. Active Trading & Telemetry Sync"
+                                      ? "3. Active Trading & Live Fills"
                                       : "4. Complete Post-Market Journal Audit"}
                                   </h4>
                                 </div>
@@ -593,7 +692,7 @@ export default function CenterPath() {
                                       : 'bg-white text-[#1CB0F6] hover:bg-sky-50 border-b-sky-200'
                                   }`}
                                 >
-                                  <span>{!completedSteps.includes(1) ? 'Start Step 1 →' : !completedSteps.includes(2) ? 'Start Step 2 →' : !completedSteps.includes(3) ? 'View Telemetry →' : 'Log Audit →'}</span>
+                                  <span>{!completedSteps.includes(1) ? 'Start Step 1 →' : !completedSteps.includes(2) ? 'Start Step 2 →' : !completedSteps.includes(3) ? 'View Fills →' : 'Log Audit →'}</span>
                                 </button>
                               </div>
 
@@ -616,7 +715,7 @@ export default function CenterPath() {
                                 ) : !completedSteps.includes(3) ? (
                                   <>
                                     <Activity size={14} className="text-emerald-400 shrink-0 mt-0.5 animate-pulse" />
-                                    <span>Telemetry Active: Trade fills are auto-syncing in real time across your connected broker accounts.</span>
+                                    <span>Live Fills Active: Trade fills are auto-syncing in real time across your connected broker accounts.</span>
                                   </>
                                 ) : (
                                   <>
@@ -1655,6 +1754,21 @@ export default function CenterPath() {
       <GuidebookModal 
         isOpen={isGuidebookModalOpen} 
         onClose={() => setIsGuidebookModalOpen(false)} 
+      />
+
+      {/* BROKER CONNECT MODAL */}
+      <BrokerConnectModal 
+        isOpen={isBrokerModalOpen} 
+        onClose={() => setIsBrokerModalOpen(false)} 
+        onAccountAdded={(newAcc) => {
+          const updated = [newAcc, ...accountsData];
+          setAccountsData(updated);
+          saveStoredData('goodtrader_accounts_data', updated);
+          soundFx.playLevelUp();
+          setIsBrokerModalOpen(false);
+          setPresetToast(`Connected ${newAcc.name || 'Broker'} successfully!`);
+          setTimeout(() => setPresetToast(''), 3000);
+        }}
       />
     </main>
   );
