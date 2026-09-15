@@ -12,7 +12,7 @@ app.use(express.json());
 
 // Health Check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ONLINE', service: 'GoodTrader Telemetry Server', version: '2.0.0' });
+  res.json({ status: 'ONLINE', service: 'TradePigeon Backend Server', version: '2.0.0' });
 });
 
 // Tradovate & NinjaTrader API Connector Route
@@ -25,5 +25,5 @@ app.use('/api/stripe', stripeRouter);
 app.use('/api/webhooks/discord', webhooksRouter);
 
 app.listen(PORT, () => {
-  console.log(`🚀 GoodTrader Telemetry Backend Server running on http://localhost:${PORT}`);
+  console.log(`🚀 TradePigeon Backend Server running on http://localhost:${PORT}`);
 });

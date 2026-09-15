@@ -1,13 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import SidebarNav from './components/SidebarNav';
 import CenterPath from './components/CenterPath';
-import SetupsTab from './components/SetupsTab';
-import LeaderboardTab from './components/LeaderboardTab';
-import QuestsTab from './components/QuestsTab';
-import ShopTab from './components/ShopTab';
-import ProfileTab from './components/ProfileTab';
-import CalendarTab from './components/CalendarTab';
-import ConnectionsTab from './components/ConnectionsTab';
 import RightStatusHub from './components/RightStatusHub';
 import OnboardingModal from './components/OnboardingModal';
 import TopStatBar from './components/TopStatBar';
@@ -16,6 +9,26 @@ import LandingPage from './components/LandingPage';
 import ConfettiBurst from './components/ConfettiBurst';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, buildDefaultPlaybooks } from './utils/storage';
 import { soundFx } from './utils/audioEngine';
+
+// Code-split heavy secondary tabs to optimize initial bundle size & load speed
+const CalendarTab = lazy(() => import('./components/CalendarTab'));
+const SetupsTab = lazy(() => import('./components/SetupsTab'));
+const ConnectionsTab = lazy(() => import('./components/ConnectionsTab'));
+const LeaderboardTab = lazy(() => import('./components/LeaderboardTab'));
+const QuestsTab = lazy(() => import('./components/QuestsTab'));
+const ShopTab = lazy(() => import('./components/ShopTab'));
+const ProfileTab = lazy(() => import('./components/ProfileTab'));
+
+const TabLoadingFallback = () => (
+  <main className="flex-1 min-h-screen lg:pl-28 xl:pl-80 bg-[#070C1E] p-6 flex flex-col items-center justify-center space-y-4 text-white">
+    <div className="w-12 h-12 rounded-2xl bg-[#0D1635] border-2 border-[#FF6B00] border-b-4 border-b-[#C2410C] flex items-center justify-center animate-bounce shadow-lg">
+      <img src="/parrot_logo.png" alt="TradePigeon" className="w-8 h-8 object-cover rounded-xl" />
+    </div>
+    <div className="text-xs font-black uppercase tracking-widest text-[#FF6B00] animate-pulse">
+      Loading...
+    </div>
+  </main>
+);
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -194,19 +207,21 @@ export default function App() {
 
       {/* 2. TAB SWITCHER CONTENT */}
       <ErrorBoundary>
-        {activeTab === 'calendar' && <CalendarTab />}
-        {(activeTab === 'learn' || activeTab === 'path') && <CenterPath />}
-        {activeTab === 'setups' && <SetupsTab />}
-        {activeTab === 'connections' && <ConnectionsTab />}
-        {activeTab === 'leaderboard' && <LeaderboardTab />}
-        {activeTab === 'quests' && <QuestsTab />}
-        {activeTab === 'shop' && <ShopTab />}
-        {activeTab === 'profile' && <ProfileTab />}
-        {activeTab === 'status' && (
-          <main className="flex-1 min-h-screen lg:pl-28 xl:pl-80 bg-[#070C1E] p-4 sm:p-6 lg:p-8 text-white space-y-8 pb-24 lg:pb-10 max-w-5xl mx-auto overflow-hidden">
-            <RightStatusHub isInPage={true} />
-          </main>
-        )}
+        <Suspense fallback={<TabLoadingFallback />}>
+          {activeTab === 'calendar' && <CalendarTab />}
+          {(activeTab === 'learn' || activeTab === 'path') && <CenterPath />}
+          {activeTab === 'setups' && <SetupsTab />}
+          {activeTab === 'connections' && <ConnectionsTab />}
+          {activeTab === 'leaderboard' && <LeaderboardTab />}
+          {activeTab === 'quests' && <QuestsTab />}
+          {activeTab === 'shop' && <ShopTab />}
+          {activeTab === 'profile' && <ProfileTab />}
+          {activeTab === 'status' && (
+            <main className="flex-1 min-h-screen lg:pl-28 xl:pl-80 bg-[#070C1E] p-4 sm:p-6 lg:p-8 text-white space-y-8 pb-24 lg:pb-10 max-w-5xl mx-auto overflow-hidden">
+              <RightStatusHub isInPage={true} />
+            </main>
+          )}
+        </Suspense>
       </ErrorBoundary>
 
       {/* 3. RIGHT STATUS & EXPANDABLE CALENDAR HUB */}

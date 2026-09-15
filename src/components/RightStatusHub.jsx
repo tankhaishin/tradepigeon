@@ -590,6 +590,42 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     saveStoredData(STORAGE_KEYS.CALENDAR_DATA, monthsData);
   }, [monthsData]);
 
+  // Real-Time Synchronization between Session Trades & Calendar Day State
+  useEffect(() => {
+    if (!Array.isArray(monthsData) || monthsData.length === 0) return;
+    const safeMIndex = currentMonthIndex < monthsData.length ? currentMonthIndex : 1;
+    const targetMonth = monthsData[safeMIndex];
+    if (!targetMonth || !Array.isArray(targetMonth.days)) return;
+
+    const dayIdx = targetMonth.days.findIndex(d => d.date === activeAuditDay);
+    if (dayIdx === -1) return;
+
+    const currentDayObj = targetMonth.days[dayIdx];
+    if (!currentDayObj || currentDayObj.status === 'holiday_freeze' || currentDayObj.status === 'weekend_rest') return;
+
+    if (Array.isArray(sessionTrades) && sessionTrades.length > 0) {
+      let totalPnl = 0;
+      let hasViolations = false;
+      sessionTrades.forEach(t => {
+        const num = parseFloat(String(t.pnl || '').replace(/[^0-9.-]+/g, '')) || 0;
+        totalPnl += num;
+        if (t.type === 'toxic_win' || t.type === 'double_failure' || t.type === 'violate_win') {
+          hasViolations = true;
+        }
+      });
+
+      const formattedPnl = `${totalPnl >= 0 ? '+' : '-'}$${Math.abs(totalPnl).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+      const derivedStatus = totalPnl > 0 ? (hasViolations ? 'toxic_win' : 'win') : totalPnl < 0 ? (hasViolations ? 'double_failure' : 'good_loss') : 'breakeven';
+
+      if (currentDayObj.pnl !== formattedPnl || currentDayObj.status !== derivedStatus) {
+        const updatedMonths = JSON.parse(JSON.stringify(monthsData));
+        updatedMonths[safeMIndex].days[dayIdx].pnl = formattedPnl;
+        updatedMonths[safeMIndex].days[dayIdx].status = derivedStatus;
+        setMonthsData(updatedMonths);
+      }
+    }
+  }, [sessionTrades, activeAuditDay, currentMonthIndex]);
+
   const safeMonths = Array.isArray(monthsData) && monthsData.length > 0 ? monthsData : defaultMonths;
   const safeMonthIndex = currentMonthIndex < safeMonths.length ? currentMonthIndex : 1;
   const currentMonthData = safeMonths[safeMonthIndex] || defaultMonths[1];

@@ -77,19 +77,38 @@ export const saveStoredData = (key, value) => {
     }
   } catch (err) {
     console.warn(`[TradePigeon Storage] Failed to save ${key}:`, err);
+    if (err && (err.name === 'QuotaExceededError' || err.code === 22)) {
+      console.error('[TradePigeon Storage] LocalStorage quota exceeded. Please export and archive older trades.');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('tradepigeon-storage-quota-exceeded', { detail: { key } }));
+      }
+    }
   }
 };
 
 export const subscribeToStorageUpdate = (callback) => {
-  const handler = (event) => {
+  const localHandler = (event) => {
     if (callback) callback(event.detail);
   };
+
+  const crossTabHandler = (event) => {
+    if (!callback || !event.key) return;
+    try {
+      const parsedValue = event.newValue ? JSON.parse(event.newValue) : null;
+      callback({ key: event.key, value: parsedValue });
+    } catch (_) {
+      callback({ key: event.key, value: event.newValue });
+    }
+  };
+
   if (typeof window !== 'undefined') {
-    window.addEventListener('goodtrader-storage-update', handler);
+    window.addEventListener('goodtrader-storage-update', localHandler);
+    window.addEventListener('storage', crossTabHandler);
   }
   return () => {
     if (typeof window !== 'undefined') {
-      window.removeEventListener('goodtrader-storage-update', handler);
+      window.removeEventListener('goodtrader-storage-update', localHandler);
+      window.removeEventListener('storage', crossTabHandler);
     }
   };
 };
