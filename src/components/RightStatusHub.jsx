@@ -81,48 +81,16 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const [lastAutoSyncedTime, setLastAutoSyncedTime] = useState(null);
 
   useEffect(() => {
-    const autoSyncInterval = setInterval(() => {
-      const accounts = loadStoredData('goodtrader_accounts_data', []);
-      if (!accounts || accounts.length === 0) return;
-
-      let newTrades = [];
-      const updatedAccounts = accounts.map(acc => {
-        const accDisplayName = acc.name || `${acc.broker || 'Broker'} (${acc.accountNumber || acc.id})`;
-
-        if (acc.accountNumber === 'LFE05055647070018' || String(acc.name).includes('LFE05055647070018')) {
-          const fillExists = sessionTrades.some(t => t.account === accDisplayName && t.pnl === '-$282.50');
-          if (!fillExists) {
-            newTrades.push({
-              id: `t_auto_${acc.id || 'acc'}_${Date.now()}`,
-              symbol: 'NQ1!',
-              side: 'SHORT',
-              time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-              pnl: '-$282.50',
-              rMultiple: '-1.0R',
-              type: 'good_loss',
-              playbook: 'Breakout & Retest',
-              account: accDisplayName,
-              verified: true
-            });
-          }
-          return { ...acc, balance: '$48,126.50', pnl: '-$282.50', status: 'SYNCED (LIVE)' };
-        }
-        return { ...acc, status: 'SYNCED (LIVE)' };
-      });
-
-      if (newTrades.length > 0) {
-        saveStoredData('goodtrader_accounts_data', updatedAccounts);
-        setConnectedAccounts(updatedAccounts);
-        const merged = [...newTrades, ...sessionTrades];
-        setSessionTrades(merged);
-        saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, merged);
-        setLastAutoSyncedTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-        soundFx.playSuccess();
+    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
+      if (key === `goodtrader_session_trades_day_${activeAuditDay}`) {
+        setSessionTrades(value || []);
       }
-    }, 4000);
-
-    return () => clearInterval(autoSyncInterval);
-  }, [sessionTrades, activeAuditDay]);
+      if (key === 'goodtrader_accounts_data') {
+        setConnectedAccounts(value || []);
+      }
+    });
+    return unsubscribe;
+  }, [activeAuditDay]);
 
   useEffect(() => {
     const loaded = loadStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, []);
@@ -390,29 +358,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
           console.warn(`Failed live sync for account ${acc.name}:`, syncErr);
         }
       }
-    }
-
-    // 2. If no real API fills returned (e.g. demo / sandbox accounts), provide clean demo telemetry
-    if (newTradesAdded.length === 0) {
-      accountsToProcess.forEach(acc => {
-        const accDisplayName = acc.name || `${acc.broker || 'Broker'} (${acc.accountNumber || acc.id})`;
-        const fillExists = sessionTrades.some(t => matchesAccountFilter(t.account, accDisplayName));
-        if (!fillExists) {
-          const isLfe = acc.accountNumber === 'LFE05055647070018' || String(acc.name).includes('LFE05055647070018');
-          newTradesAdded.push({
-            id: `t_sync_${acc.id || 'acc'}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-            symbol: 'NQ1!',
-            side: isLfe ? 'SHORT' : 'LONG',
-            time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-            pnl: isLfe ? '-$282.50' : '+$500.00',
-            rMultiple: isLfe ? '-1.0R' : '+2.0R',
-            type: isLfe ? 'good_loss' : 'win',
-            playbook: 'Breakout & Retest',
-            account: accDisplayName,
-            verified: true
-          });
-        }
-      });
     }
 
     const updatedAccounts = storedAccounts.map(acc => {

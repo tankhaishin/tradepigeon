@@ -38,9 +38,7 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
       subtitle: 'Official Direct REST & Telemetry Socket',
       icon: TradovateLogo, 
       badge: 'DIRECT API',
-      color: '#FF6B00',
-      sampleAcc: 'LFE05055647070018',
-      sampleAccs: ['LFE05055647070018', 'LFE05055647070019', 'LFE05055647070020']
+      color: '#FF6B00'
     },
     { 
       id: 'ninjatrader', 
@@ -48,9 +46,7 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
       subtitle: 'Tradovate Cloud API Architecture',
       icon: NinjaTraderLogo, 
       badge: 'DIRECT API',
-      color: '#58CC02',
-      sampleAcc: 'NT-109283',
-      sampleAccs: ['NT-109283', 'NT-109284']
+      color: '#58CC02'
     },
     { 
       id: 'propfirms', 
@@ -58,9 +54,7 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
       subtitle: 'Tradovate Gateway Multi-Account',
       icon: TradovateLogo, 
       badge: 'PROP MULTI-ACCOUNT',
-      color: '#00E5FF',
-      sampleAcc: 'APEX-50K-01',
-      sampleAccs: ['APEX-50K-01', 'APEX-50K-02', 'APEX-50K-03']
+      color: '#00E5FF'
     },
     { 
       id: 'tradelocker', 
@@ -68,9 +62,7 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
       subtitle: 'Live Cloud Terminal & Stream',
       icon: TradeLockerLogo, 
       badge: 'CLOUD API',
-      color: '#CE82FF',
-      sampleAcc: 'TL-882910',
-      sampleAccs: ['TL-882910', 'TL-882911']
+      color: '#CE82FF'
     }
   ];
 
@@ -82,14 +74,6 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
     setCapital('50000');
     setFormError('');
     setStep('credentials');
-  };
-
-  const handleQuickDemoFill = () => {
-    soundFx.playPop();
-    const sample = selectedPlatform?.sampleAcc || 'LFE05055647070018';
-    setUsername(sample);
-    setPassword('demopassword123');
-    setEnv('DEMO');
   };
 
   const handleConnectAndDiscover = async (e) => {
@@ -131,13 +115,13 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
         console.warn('API proxy unavailable, falling back to client-side discovery flow:', apiErr);
       }
 
-      // Fallback if offline or demo test
+      // Fallback to user-entered accounts when direct proxy is not active
       if (accountsToOffer.length === 0) {
-        const sampleList = selectedPlatform?.sampleAccs || [username.trim()];
-        const count = sampleList.includes(username.trim()) ? sampleList : [username.trim(), `${username.trim()}-02`];
-        accountsToOffer = count.map((accNum, i) => ({
+        const rawList = username.split(',').map(s => s.trim()).filter(Boolean);
+        const count = rawList.length > 0 ? rawList : [username.trim()];
+        accountsToOffer = count.map((accNum) => ({
           id: accNum,
-          name: `${selectedPlatform.name} ${accNum}`,
+          name: `${selectedPlatform.name} (${accNum})`,
           accountType: env === 'LIVE' ? 'Live Funded' : 'Evaluation',
           active: true
         }));
@@ -357,22 +341,12 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
           <form onSubmit={handleConnectAndDiscover} className="space-y-4 animate-fade-in">
             
             {/* Broker Info Strip */}
-            <div className="p-3.5 rounded-2xl bg-[#142127] border border-[#20323D] flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <selectedPlatform.icon className="w-8 h-8 object-contain shrink-0" />
-                <div>
-                  <div className="text-sm font-black text-white">{selectedPlatform.name}</div>
-                  <div className="text-[10px] font-bold text-slate-400">{selectedPlatform.subtitle}</div>
-                </div>
+            <div className="p-3.5 rounded-2xl bg-[#142127] border border-[#20323D] flex items-center gap-3">
+              <selectedPlatform.icon className="w-8 h-8 object-contain shrink-0" />
+              <div>
+                <div className="text-sm font-black text-white">{selectedPlatform.name}</div>
+                <div className="text-[10px] font-bold text-slate-400">{selectedPlatform.subtitle}</div>
               </div>
-              <button
-                type="button"
-                onClick={handleQuickDemoFill}
-                className="px-2.5 py-1 rounded-lg bg-[#1CB0F6]/20 border border-[#1CB0F6]/30 text-[#1CB0F6] text-[10px] font-black hover:bg-[#1CB0F6]/30 cursor-pointer flex items-center gap-1 transition-all"
-              >
-                <Sparkles size={11} />
-                <span>Fill Demo</span>
-              </button>
             </div>
 
             {formError && (
@@ -425,7 +399,7 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder={`e.g. ${selectedPlatform.sampleAcc}`}
+                  placeholder="e.g. 1092834, 1092835"
                   className="w-full p-3.5 rounded-xl bg-[#142127] border border-[#20323D] text-white font-bold text-xs outline-none focus:border-[#1CB0F6]"
                   required
                   autoFocus

@@ -187,8 +187,7 @@ export default function ConnectionsTab() {
   // Total active accounts & combined stats
   const totalActiveAccounts = accounts.filter(a => a.isActive !== false).length;
   const combinedDayPnl = accounts.reduce((sum, a) => {
-    const defaultVal = (a.accountNumber === 'LFE05055647070020' ? 239.50 : a.accountNumber === 'LFE05055647070021' ? 270.00 : 0);
-    const val = a.pnlNum !== undefined ? a.pnlNum : parseFinancialNumber(a.pnl, defaultVal);
+    const val = a.pnlNum !== undefined ? a.pnlNum : parseFinancialNumber(a.pnl, 0);
     return sum + val;
   }, 0);
 
@@ -483,7 +482,7 @@ export default function ConnectionsTab() {
                       <tbody className="divide-y divide-white/5 font-medium">
                         {conn.accounts.map((acc, idx) => {
                           const isLead = acc.isLead || idx === 0;
-                          const rawPnl = acc.pnlNum !== undefined ? acc.pnlNum : parseFinancialNumber(acc.pnl, (acc.accountNumber === 'LFE05055647070020' ? 239.50 : 270.00));
+                          const rawPnl = acc.pnlNum !== undefined ? acc.pnlNum : parseFinancialNumber(acc.pnl, 0);
                           const isEditing = editingAccountId === acc.id;
 
                           return (

@@ -151,55 +151,39 @@ export default function OnboardingModal({ isOpen, onComplete }) {
       name: 'Tradovate', 
       desc: 'Official Direct REST & Telemetry Socket',
       icon: TradovateLogo, 
-      badge: 'DIRECT API',
-      sampleAcc: 'LFE05055647070018',
-      sampleAccs: ['LFE05055647070018', 'LFE05055647070019', 'LFE05055647070020']
+      badge: 'DIRECT API'
     },
     { 
       id: 'ninjatrader', 
       name: 'NinjaTrader', 
       desc: 'Tradovate Cloud API Architecture',
       icon: NinjaTraderLogo, 
-      badge: 'DIRECT API',
-      sampleAcc: 'NT-109283',
-      sampleAccs: ['NT-109283', 'NT-109284']
+      badge: 'DIRECT API'
     },
     { 
       id: 'propfirms', 
       name: 'Apex / TopStep / Prop Firms', 
       desc: 'Tradovate Gateway Multi-Account',
       icon: TradovateLogo, 
-      badge: 'PROP MULTI-ACCOUNT',
-      sampleAcc: 'APEX-50K-01',
-      sampleAccs: ['APEX-50K-01', 'APEX-50K-02']
+      badge: 'PROP MULTI-ACCOUNT'
     },
     { 
       id: 'tradelocker', 
       name: 'TradeLocker', 
       desc: 'Live Cloud Terminal & Stream',
       icon: TradeLockerLogo, 
-      badge: 'CLOUD API',
-      sampleAcc: 'TL-882910',
-      sampleAccs: ['TL-882910', 'TL-882911']
+      badge: 'CLOUD API'
     },
   ];
 
   const handleSelectPlatform = (platform) => {
     soundFx.playPop();
     setSelectedPlatform(platform);
-    const initialAccs = platform.sampleAccs ? platform.sampleAccs.join(', ') : (platform.sampleAcc || 'LFE05055647070018');
-    setUsername(initialAccs);
+    setUsername('');
     setCapital('50000');
     setSubAccountCount('1');
     setShowAdvanced(false);
     setFormError('');
-  };
-
-  const handleQuickDemoAutoFill = () => {
-    soundFx.playPop();
-    const sample = selectedPlatform?.sampleAcc || 'LFE05055647070018';
-    setUsername(sample);
-    setEnv('DEMO');
   };
 
   const handleDirectAuthSubmit = (e) => {
@@ -629,7 +613,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder={`e.g. ${selectedPlatform.sampleAcc || 'LFE05055647070018'}, ${selectedPlatform.sampleAcc ? selectedPlatform.sampleAcc + '-02' : 'LFE05055647070019'}`}
+                    placeholder="e.g. 1092834, 1092835"
                     className="w-full p-3.5 rounded-xl bg-[#142127] border-2 border-[#58CC02]/50 text-white font-black text-xs outline-none focus:border-[#58CC02]"
                     required
                     autoFocus
