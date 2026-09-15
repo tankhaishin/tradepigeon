@@ -9,6 +9,7 @@ import { TradovateLogo, NinjaTraderLogo, TradeLockerLogo, MetaTrader5Logo, CsvLo
 import BrokerConnectModal from './BrokerConnectModal';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
+import { parseFinancialNumber, formatFinancialCurrency, formatBalance as formatBalanceMath, formatRMultiple } from '../utils/financialMath';
 
 export default function ConnectionsTab() {
   const [accounts, setAccounts] = useState(() => loadStoredData('goodtrader_accounts_data', []));
@@ -36,20 +37,16 @@ export default function ConnectionsTab() {
 
   // Format currency or stealth R
   const formatMoney = (rawVal) => {
-    const num = typeof rawVal === 'number' ? rawVal : (parseFloat(String(rawVal || '').replace(/[^0-9.-]+/g, '')) || 0);
+    const num = parseFinancialNumber(rawVal, 0);
     if (isStealthMode) {
-      const r = (num / 350).toFixed(2);
-      return `${r >= 0 ? '+' : ''}${r} R`;
+      return formatRMultiple(num, 350, 2);
     }
-    return `${num >= 0 ? '+' : '-'}$${Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return formatFinancialCurrency(num, { showPlus: true });
   };
 
   const formatBalance = (rawVal) => {
     if (isStealthMode) return '••••••';
-    if (!rawVal) return '$50,000.00';
-    if (String(rawVal).startsWith('$')) return rawVal;
-    const num = parseFloat(rawVal) || 50000;
-    return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return formatBalanceMath(rawVal, '$50,000.00');
   };
 
   // Group accounts by connection ID / platform
@@ -190,7 +187,8 @@ export default function ConnectionsTab() {
   // Total active accounts & combined stats
   const totalActiveAccounts = accounts.filter(a => a.isActive !== false).length;
   const combinedDayPnl = accounts.reduce((sum, a) => {
-    const val = parseFloat(String(a.pnl || '').replace(/[^0-9.-]+/g, '')) || (a.accountNumber === 'LFE05055647070020' ? 239.50 : a.accountNumber === 'LFE05055647070021' ? 270.00 : 0);
+    const defaultVal = (a.accountNumber === 'LFE05055647070020' ? 239.50 : a.accountNumber === 'LFE05055647070021' ? 270.00 : 0);
+    const val = a.pnlNum !== undefined ? a.pnlNum : parseFinancialNumber(a.pnl, defaultVal);
     return sum + val;
   }, 0);
 
@@ -485,8 +483,7 @@ export default function ConnectionsTab() {
                       <tbody className="divide-y divide-white/5 font-medium">
                         {conn.accounts.map((acc, idx) => {
                           const isLead = acc.isLead || idx === 0;
-                          const isActive = acc.isActive !== false;
-                          const rawPnl = parseFloat(String(acc.pnl || '').replace(/[^0-9.-]+/g, '')) || (acc.accountNumber === 'LFE05055647070020' ? 239.50 : 270.00);
+                          const rawPnl = acc.pnlNum !== undefined ? acc.pnlNum : parseFinancialNumber(acc.pnl, (acc.accountNumber === 'LFE05055647070020' ? 239.50 : 270.00));
                           const isEditing = editingAccountId === acc.id;
 
                           return (

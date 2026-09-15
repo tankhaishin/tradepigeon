@@ -10,6 +10,7 @@ import { TradovateLogo, MetaTrader5Logo, NinjaTraderLogo, TradeLockerLogo, CsvLo
 import { loadStoredData, saveStoredData, STORAGE_KEYS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 import { detectPlatformFromAccountId } from '../utils/platformDetector';
+import { parseFinancialNumber, formatBalance } from '../utils/financialMath';
 
 export default function OnboardingModal({ isOpen, onComplete }) {
   const initialDraft = loadStoredData(STORAGE_KEYS.ONBOARDING_DRAFT, {});
@@ -213,8 +214,8 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     soundFx.playPop();
 
     setTimeout(() => {
-      const rawBalance = parseFloat(capital) || 50000;
-      const formattedBalance = `$${rawBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const rawBalance = parseFinancialNumber(capital, 50000);
+      const formattedBalance = formatBalance(rawBalance);
 
       // Support comma-separated account numbers or multi-account expansion
       let rawAccList = username.split(',').map(s => s.trim()).filter(Boolean);

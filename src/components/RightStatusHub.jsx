@@ -10,6 +10,7 @@ import BrokerConnectModal from './BrokerConnectModal';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS } from '../utils/storage';
 import { auditAndSanitizeCalendarState } from '../utils/calendarEngine';
 import { soundFx } from '../utils/audioEngine';
+import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl } from '../utils/financialMath';
 
 export default function RightStatusHub({ isExpanded = false, onToggleExpand, isMobileOpen = false, onCloseMobile, isInPage = false, onOpenCalendarTab }) {
   const [internalExpanded, setInternalExpanded] = useState(isExpanded);
@@ -254,19 +255,16 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     const tradesToMerge = sessionTrades.filter(t => selectedTradeIds.includes(t.id));
     const first = tradesToMerge[0];
 
-    let totalPnLNum = 0;
-    tradesToMerge.forEach(t => {
-      const clean = parseFloat(String(t.pnl).replace(/[^0-9.-]+/g, ''));
-      if (!isNaN(clean)) totalPnLNum += clean;
-    });
+    const totalPnLNum = sumTradesPnl(tradesToMerge);
 
     const mergedTrade = {
       id: `t_merged_${Date.now()}`,
       symbol: first.symbol,
       side: first.side,
       time: `${first.time} (Merged)`,
-      pnl: `${totalPnLNum >= 0 ? '+' : '-'}$${Math.abs(totalPnLNum).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-      rMultiple: '+2.0R',
+      pnlNum: totalPnLNum,
+      pnl: formatFinancialCurrency(totalPnLNum, { showPlus: true }),
+      rMultiple: formatRMultiple(totalPnLNum, 350, 1),
       type: first.type,
       playbook: first.playbook,
       account: first.account,
@@ -442,11 +440,8 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   };
 
   const filteredTrades = sessionTrades.filter(t => matchesAccountFilter(t.account, selectedBasketFilter));
-  const totalFilteredPnL = filteredTrades.reduce((acc, t) => {
-    const clean = parseFloat(String(t.pnl).replace(/[^0-9.-]+/g, ''));
-    return acc + (isNaN(clean) ? 0 : clean);
-  }, 0);
-  const formattedTotalPnL = `${totalFilteredPnL >= 0 ? '+' : '-'}$${Math.abs(totalFilteredPnL).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const totalFilteredPnL = sumTradesPnl(filteredTrades);
+  const formattedTotalPnL = formatFinancialCurrency(totalFilteredPnL, { showPlus: true });
 
   const handleVerifyAllTradesAndLockAudit = () => {
     // Check if Pre-Session steps 1 & 2 are completed
@@ -604,17 +599,9 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     if (!currentDayObj || currentDayObj.status === 'holiday_freeze' || currentDayObj.status === 'weekend_rest') return;
 
     if (Array.isArray(sessionTrades) && sessionTrades.length > 0) {
-      let totalPnl = 0;
-      let hasViolations = false;
-      sessionTrades.forEach(t => {
-        const num = parseFloat(String(t.pnl || '').replace(/[^0-9.-]+/g, '')) || 0;
-        totalPnl += num;
-        if (t.type === 'toxic_win' || t.type === 'double_failure' || t.type === 'violate_win') {
-          hasViolations = true;
-        }
-      });
-
-      const formattedPnl = `${totalPnl >= 0 ? '+' : '-'}$${Math.abs(totalPnl).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+      const totalPnl = sumTradesPnl(sessionTrades);
+      const hasViolations = sessionTrades.some(t => t.type === 'toxic_win' || t.type === 'double_failure' || t.type === 'violate_win');
+      const formattedPnl = formatFinancialCurrency(totalPnl, { showPlus: true, decimals: 0 });
       const derivedStatus = totalPnl > 0 ? (hasViolations ? 'toxic_win' : 'win') : totalPnl < 0 ? (hasViolations ? 'double_failure' : 'good_loss') : 'breakeven';
 
       if (currentDayObj.pnl !== formattedPnl || currentDayObj.status !== derivedStatus) {
@@ -1194,12 +1181,9 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                     const accKey = acc.name || acc.id;
                     const isSelected = selectedBasketFilter === accKey;
                     const accTrades = sessionTrades.filter(t => matchesAccountFilter(t.account, accKey));
-                    const accPnl = accTrades.reduce((total, t) => {
-                      const clean = parseFloat(String(t.pnl).replace(/[^0-9.-]+/g, ''));
-                      return total + (isNaN(clean) ? 0 : clean);
-                    }, 0);
+                    const accPnl = sumTradesPnl(accTrades);
                     const formattedAccPnl = accTrades.length > 0
-                      ? `${accPnl >= 0 ? '+' : '-'}$${Math.abs(accPnl).toFixed(2)}`
+                      ? formatFinancialCurrency(accPnl, { showPlus: true })
                       : (acc.balance || '$50,000');
 
                     return (

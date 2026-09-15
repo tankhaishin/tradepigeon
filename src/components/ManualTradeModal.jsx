@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { PlusCircle, X, Check, ShieldAlert, DollarSign, Tag, TrendingUp, TrendingDown, Clock, Calendar, Image as ImageIcon } from 'lucide-react';
 import { soundFx } from '../utils/audioEngine';
 import { loadStoredData, saveStoredData, STORAGE_KEYS } from '../utils/storage';
+import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple } from '../utils/financialMath';
 
 export default function ManualTradeModal({ isOpen, onClose, onTradeAdded }) {
   const [symbol, setSymbol] = useState('NQ');
@@ -32,16 +33,17 @@ export default function ManualTradeModal({ isOpen, onClose, onTradeAdded }) {
     e.preventDefault();
     soundFx.playSuccess();
 
-    const numericPnl = parseFloat(pnl.replace(/[^0-9.-]/g, '')) || 0;
+    const numericPnl = parseFinancialNumber(pnl, 0);
     const finalPnlValue = isProfitable ? Math.abs(numericPnl) : -Math.abs(numericPnl);
 
     const newTrade = {
       id: `manual_${Date.now()}`,
       symbol: symbol.toUpperCase(),
       direction,
-      pnl: finalPnlValue >= 0 ? `+$${finalPnlValue.toFixed(2)}` : `-$${Math.abs(finalPnlValue).toFixed(2)}`,
+      pnl: formatFinancialCurrency(finalPnlValue, { showPlus: true }),
       pnlValue: finalPnlValue,
-      rMultiple: `${finalPnlValue >= 0 ? '+' : '-'}${Math.abs(parseFloat(rMultiple) || 1).toFixed(2)}R`,
+      pnlNum: finalPnlValue,
+      rMultiple: formatRMultiple(finalPnlValue, 350, 2),
       setup: setupTag,
       grade,
       executionType,

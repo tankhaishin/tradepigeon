@@ -8,6 +8,7 @@ import { getRandomDialogue, getRandomMarketWizardQuote } from '../data/dialogueB
 import { COURSE_MODULES } from '../data/educationBank';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, sanitizeAccountBasketData, STORAGE_KEYS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
+import { parseFinancialNumber, formatFinancialCurrency, sumTradesPnl } from '../utils/financialMath';
 
 import AiDebriefModal from './AiDebriefModal';
 import InteractiveEquityCurve from './InteractiveEquityCurve';
@@ -154,8 +155,8 @@ export default function CenterPath() {
   const formatAccSize = (acc) => {
     if (!acc) return '$100k';
     const raw = acc.sizeVal !== undefined ? acc.sizeVal : (acc.size !== undefined ? acc.size : 100000);
-    const num = parseFloat(raw);
-    if (isNaN(num) || num <= 0) return '$100k';
+    const num = parseFinancialNumber(raw, 100000);
+    if (num <= 0) return '$100k';
     return `$${(num / 1000).toFixed(0)}k`;
   };
   const [draggedAccountId, setDraggedAccountId] = useState(null);
@@ -238,15 +239,12 @@ export default function CenterPath() {
   const [isMercyModalOpen, setIsMercyModalOpen] = useState(false);
   const [mercyDateStr, setMercyDateStr] = useState('');
 
-  const totalCumulativePnl = accountsData.reduce((acc, curr) => acc + (parseFloat(curr.pnl) || 0), 0);
+  const totalCumulativePnl = accountsData.reduce((acc, curr) => acc + parseFinancialNumber(curr.pnl, 0), 0);
 
   const hasConnectedAccounts = accountsData && accountsData.length > 0;
   const todayTradesCount = sessionTrades.length;
-  const todayNetPnl = sessionTrades.reduce((acc, t) => {
-    const val = t.pnlValue !== undefined ? t.pnlValue : (parseFloat(String(t.pnl || '').replace(/[^0-9.-]+/g, '')) || 0);
-    return acc + val;
-  }, 0);
-  const formattedTodayPnl = `${todayNetPnl >= 0 ? '+' : '-'}$${Math.abs(todayNetPnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const todayNetPnl = sumTradesPnl(sessionTrades);
+  const formattedTodayPnl = formatFinancialCurrency(todayNetPnl);
   const primaryBroker = accountsData[0]?.broker ? accountsData[0].broker.split(' ')[0] : (accountsData[0]?.name || 'Tradovate');
   const accountsCount = accountsData.length;
 
@@ -362,9 +360,9 @@ export default function CenterPath() {
   const handleSaveAccountPnlOverride = (e) => {
     e.preventDefault();
     if (!selectedAccountToEdit) return;
-    const parsedPnl = parseFloat(tempAccountPnlInput) || 0;
-    const parsedRiskPct = parseFloat(tempRiskPctInput) || 0.5;
-    const parsedMaxLoss = parseFloat(tempMaxLossInput) || 1000;
+    const parsedPnl = parseFinancialNumber(tempAccountPnlInput, 0);
+    const parsedRiskPct = parseFinancialNumber(tempRiskPctInput, 0.5);
+    const parsedMaxLoss = parseFinancialNumber(tempMaxLossInput, 1000);
 
     const updated = accountsData.map(acc => 
       acc.id === selectedAccountToEdit.id ? { 
@@ -781,10 +779,10 @@ export default function CenterPath() {
                         const calcPnlStr = (typeId, fallbackCount) => {
                           if (dayTrades.length > 0) {
                             const sum = dayTrades.filter(t => t.type === typeId).reduce((acc, t) => {
-                              const p = t.pnlValue !== undefined ? t.pnlValue : (parseFloat(t.pnl?.replace(/[^0-9.-]+/g, '')) || 0);
+                              const p = t.pnlValue !== undefined ? t.pnlValue : parseFinancialNumber(t.pnl, 0);
                               return acc + p;
                             }, 0);
-                            return `${sum >= 0 ? '+' : '-'}$${Math.abs(sum).toFixed(2)}`;
+                            return formatFinancialCurrency(sum);
                           }
                           return fallbackCount ? 'Recorded' : '$0.00';
                         };

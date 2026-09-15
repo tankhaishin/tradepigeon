@@ -7,6 +7,7 @@ import { TradovateLogo, NinjaTraderLogo, TradeLockerLogo } from './BrokerLogos';
 import { loadStoredData, saveStoredData } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 import { detectPlatformFromAccountId } from '../utils/platformDetector';
+import { parseFinancialNumber, formatBalance } from '../utils/financialMath';
 
 export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) {
   const [authSuccess, setAuthSuccess] = useState(false);
@@ -174,8 +175,8 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
 
   const handleFinalizeImport = () => {
     soundFx.playSuccess();
-    const rawBalance = parseFloat(capital) || 50000;
-    const formattedBalance = `$${rawBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const rawBalance = parseFinancialNumber(capital, 50000);
+    const formattedBalance = formatBalance(rawBalance);
 
     const createdAccounts = discoveredAccounts
       .filter(a => selectedAccountIds.includes(a.id))

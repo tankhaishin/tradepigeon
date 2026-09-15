@@ -9,6 +9,7 @@ import InteractiveParrotMascot from './InteractiveParrotMascot';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS } from '../utils/storage';
 import { auditAndSanitizeCalendarState } from '../utils/calendarEngine';
 import { soundFx } from '../utils/audioEngine';
+import { parseFinancialNumber, formatFinancialCurrency } from '../utils/financialMath';
 
 export default function CalendarTab() {
   const [currentMonthIndex, setCurrentMonthIndex] = useState(1); // August 2026
@@ -36,8 +37,7 @@ export default function CalendarTab() {
     let missedTradeCount = 0;
 
     modalDayTrades.forEach(t => {
-      const clean = parseFloat(String(t.pnl || '').replace(/[^0-9.-]+/g, ''));
-      const val = isNaN(clean) ? 0 : clean;
+      const val = parseFinancialNumber(t.pnlNum !== undefined ? t.pnlNum : t.pnlValue !== undefined ? t.pnlValue : t.pnl, 0);
       if (t.type === 'win') disciplinedWin += val;
       else if (t.type === 'good_loss') disciplinedLoss += val;
       else if (t.type === 'breakeven') disciplinedBe += val;
@@ -47,15 +47,13 @@ export default function CalendarTab() {
       else doubleFailure += val;
     });
 
-    const formatPnl = (n) => `${n >= 0 ? '+' : '-'}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
     return {
-      disciplinedWin: formatPnl(disciplinedWin),
-      disciplinedLoss: formatPnl(disciplinedLoss),
-      disciplinedBe: formatPnl(disciplinedBe),
-      toxicWin: formatPnl(toxicWin),
-      toxicBe: formatPnl(toxicBe),
-      doubleFailure: formatPnl(doubleFailure),
+      disciplinedWin: formatFinancialCurrency(disciplinedWin, { showPlus: true }),
+      disciplinedLoss: formatFinancialCurrency(disciplinedLoss, { showPlus: true }),
+      disciplinedBe: formatFinancialCurrency(disciplinedBe, { showPlus: true }),
+      toxicWin: formatFinancialCurrency(toxicWin, { showPlus: true }),
+      toxicBe: formatFinancialCurrency(toxicBe, { showPlus: true }),
+      doubleFailure: formatFinancialCurrency(doubleFailure, { showPlus: true }),
       missedTradeCount,
       hasTrades: modalDayTrades.length > 0
     };
@@ -89,18 +87,20 @@ export default function CalendarTab() {
     let totalTradeDays = 0;
 
     const days = (rawMonth.days || []).map(day => {
-      const clean = parseFloat(String(day.pnl || '').replace(/[^0-9.-]+/g, ''));
-      if (!isNaN(clean) && day.pnl !== '-' && !String(day.pnl).includes('CLOSED')) {
-        totalPnlNum += clean;
-        totalTradeDays++;
-        if (day.status === 'win' || day.status === 'good_loss' || day.status === 'breakeven') {
-          disciplinedDays++;
+      if (day.pnl && day.pnl !== '-' && !String(day.pnl).includes('CLOSED')) {
+        const clean = parseFinancialNumber(day.pnl, NaN);
+        if (!isNaN(clean)) {
+          totalPnlNum += clean;
+          totalTradeDays++;
+          if (day.status === 'win' || day.status === 'good_loss' || day.status === 'breakeven') {
+            disciplinedDays++;
+          }
         }
       }
       return day;
     });
 
-    const calculatedTotalPnl = `${totalPnlNum >= 0 ? '+' : '-'}$${Math.abs(totalPnlNum).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const calculatedTotalPnl = formatFinancialCurrency(totalPnlNum, { showPlus: true });
     const calculatedDisciplineScore = totalTradeDays > 0 ? `${Math.round((disciplinedDays / totalTradeDays) * 100)}%` : '100%';
 
     const weeklySummaries = rawMonth.weeklySummaries && rawMonth.weeklySummaries.length > 0 

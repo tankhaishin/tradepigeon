@@ -42,7 +42,7 @@ export default function MobileAlertSettings() {
       const data = await response.json();
       if (data.ok) {
         soundFx.playSuccess();
-        alert('✅ Test push notification sent to your Telegram phone!');
+        alert('Test push notification sent to your Telegram phone!');
       } else {
         alert(`Telegram notification error: ${data.description || 'Check your Chat ID & Bot Token'}`);
       }

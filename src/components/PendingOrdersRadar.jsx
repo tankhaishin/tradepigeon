@@ -49,7 +49,7 @@ export default function PendingOrdersRadar() {
           
           // 1. Desktop Browser Push Notification
           if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-            new Notification('🚨 UNATTENDED PENDING ORDER ALERT', {
+            new Notification('[TradePigeon Alert] Unattended Pending Order', {
               body: `You still have an un-canceled ${order.side} on ${order.symbol} (${order.price}). Cancel on your broker terminal before leaving!`,
               icon: '/parrot_logo.png'
             });
@@ -57,7 +57,7 @@ export default function PendingOrdersRadar() {
 
           // 2. Telegram Mobile Phone Push Notification (Sends to your iPhone/Android lockscreen)
           sendTelegramMobilePush(
-            `🚨 *UNATTENDED PENDING ORDER ALERT*\n\nYou still have an un-canceled *${order.side}* sitting open on *${order.symbol}* (@ ${order.price}) for ${elapsedMins}m!\n\n⚠️ *Action Required*: Cancel order on Tradovate/MT5/NinjaTrader before stepping away from your desk!`
+            `*UNATTENDED PENDING ORDER ALERT*\n\nYou still have an un-canceled *${order.side}* sitting open on *${order.symbol}* (@ ${order.price}) for ${elapsedMins}m!\n\n*Action Required*: Cancel order on Tradovate/MT5/NinjaTrader before stepping away from your desk!`
           );
         }
       });

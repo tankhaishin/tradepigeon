@@ -1,8 +1,4 @@
-/**
- * Trade Ingestion & Parser Utility
- * Parses raw CSV and HTML files from MetaTrader 4, MetaTrader 5, TradeLocker, Tradovate, and Generic CSVs.
- * Evaluates trade metrics against user risk rules.
- */
+import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple } from './financialMath';
 
 export function parseTradeFile(fileContent, fileName, baseRisk = 350) {
   const isHtml = fileName.toLowerCase().endsWith('.html') || fileName.toLowerCase().endsWith('.htm');
@@ -77,34 +73,28 @@ function parseCsvTradeData(csvText, baseRisk = 350) {
     const time = getVal(['time', 'open time', 'date', 'close time']) || new Date().toLocaleTimeString();
     const closeTime = getVal(['close time', 'exit time']) || time;
 
-    // Robust financial PnL parsing (handles negative parentheses e.g. ($425.00))
-    let cleanPnlStr = pnlRaw.trim();
-    const isParenthesisNegative = cleanPnlStr.includes('(') && cleanPnlStr.includes(')');
-    cleanPnlStr = cleanPnlStr.replace(/[^0-9.-]+/g, '');
-    let pnlNum = parseFloat(cleanPnlStr) || 0;
-    if (isParenthesisNegative && pnlNum > 0) {
-      pnlNum = -pnlNum;
-    }
-    pnlNum = Math.round(pnlNum * 100) / 100;
+    const pnlNum = parseFinancialNumber(pnlRaw, 0);
+    const entryNum = parseFinancialNumber(entry, 0);
+    const exitNum = parseFinancialNumber(exit, 0);
+    const sizeNum = parseFinancialNumber(size, 1.0);
 
     const isWin = pnlNum >= 0;
     const sideFormatted = sideRaw.toUpperCase().includes('SELL') || sideRaw.toUpperCase().includes('SHORT') ? 'SELL' : 'BUY';
     const holdDurationStr = calculateHoldDuration(time, closeTime);
-    const rVal = baseRisk > 0 ? (pnlNum / baseRisk).toFixed(1) : (pnlNum / 350).toFixed(1);
 
     trades.push({
       id: rawId.startsWith('TRD-') ? rawId : `TRD-${rawId}`,
       time: time.length > 15 ? time.substring(11, 19) + ' NY' : time,
       symbol: symbol.toUpperCase(),
       side: sideFormatted,
-      size: `${parseFloat(size) || 1.0} Lots`,
-      entry: parseFloat(entry).toLocaleString('en-US', { minimumFractionDigits: 2 }),
-      exit: parseFloat(exit).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+      size: `${sizeNum} Lots`,
+      entry: entryNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      exit: exitNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       pnlNum: pnlNum,
-      pnl: `${pnlNum >= 0 ? '+' : '-'}$${Math.abs(pnlNum).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      pnl: formatFinancialCurrency(pnlNum),
       type: isWin ? 'FOLLOW_WIN' : 'FOLLOW_LOSS', // Rule engine will classify
       setup: 'Imported Fill',
-      r: `${isWin ? '+' : ''}${rVal} R`,
+      r: formatRMultiple(pnlNum, baseRisk),
       holdDuration: holdDurationStr
     });
   }
@@ -133,31 +123,25 @@ function parseMT5HtmlReport(htmlText, baseRisk = 350) {
       const price = cells[5] || '0';
       const profit = cells[cells.length - 1] || '0';
 
-      let cleanProfitStr = profit.trim();
-      const isParenthesisNegative = cleanProfitStr.includes('(') && cleanProfitStr.includes(')');
-      cleanProfitStr = cleanProfitStr.replace(/[^0-9.-]+/g, '');
-      let pnlNum = parseFloat(cleanProfitStr) || 0;
-      if (isParenthesisNegative && pnlNum > 0) {
-        pnlNum = -pnlNum;
-      }
-      pnlNum = Math.round(pnlNum * 100) / 100;
-
+      const pnlNum = parseFinancialNumber(profit, 0);
+      const priceNum = parseFinancialNumber(price, 0);
+      const sizeNum = parseFinancialNumber(size, 1.0);
       const isWin = pnlNum >= 0;
-      const rVal = baseRisk > 0 ? (pnlNum / baseRisk).toFixed(1) : (pnlNum / 350).toFixed(1);
+      const exitNum = priceNum + (isWin ? 25 : -25);
 
       trades.push({
         id: `MT-${ticket}`,
         time: time.length > 10 ? time.split(' ')[1] || time : time,
         symbol: symbol.toUpperCase(),
         side: type.toLowerCase().includes('sell') ? 'SELL (SHORT)' : 'BUY (LONG)',
-        size: `${parseFloat(size) || 1.0} Lots`,
-        entry: parseFloat(price).toLocaleString('en-US', { minimumFractionDigits: 2 }),
-        exit: (parseFloat(price) + (isWin ? 25 : -25)).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+        size: `${sizeNum} Lots`,
+        entry: priceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        exit: exitNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         pnlNum: pnlNum,
-        pnl: `${pnlNum >= 0 ? '+' : '-'}$${Math.abs(pnlNum).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        pnl: formatFinancialCurrency(pnlNum),
         type: isWin ? 'FOLLOW_WIN' : 'FOLLOW_LOSS',
         setup: 'MT4/MT5 Auto Sync',
-        r: `${isWin ? '+' : ''}${rVal} R`
+        r: formatRMultiple(pnlNum, baseRisk)
       });
     }
   });
@@ -184,7 +168,7 @@ export function calculateExecutionMatrix(tradeLogs, maxDailyLossLimit = 500) {
   const totalTrades = tradeLogs.length || 1;
 
   tradeLogs.forEach(trade => {
-    const pnl = trade.pnlNum !== undefined ? trade.pnlNum : parseFloat(trade.pnl?.replace(/[^0-9.-]+/g, '')) || 0;
+    const pnl = trade.pnlNum !== undefined ? trade.pnlNum : parseFinancialNumber(trade.pnl, 0);
     const isMissed = trade.type === 'MISSED_TRADE' || trade.type === 'missed_trade' || trade.side === 'MISSED' || trade.setup?.toLowerCase().includes('missed');
 
     if (isMissed) {
@@ -330,7 +314,7 @@ export function calculateSetupExpectancy(trades = [], baseRisk = 350) {
   let totalLossPnl = 0;
 
   trades.forEach(t => {
-    const pnl = t.pnlNum !== undefined ? t.pnlNum : (parseFloat(t.pnl?.replace(/[^0-9.-]+/g, '')) || 0);
+    const pnl = t.pnlNum !== undefined ? t.pnlNum : parseFinancialNumber(t.pnl, 0);
     if (pnl > 0) {
       winCount++;
       totalWinPnl += pnl;

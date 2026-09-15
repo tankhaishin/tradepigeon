@@ -8,6 +8,7 @@ import ManualTradeModal from './ManualTradeModal';
 import { parseTradeFile, calculateExecutionMatrix, calculateSetupExpectancy, formatCurrencyOrR } from '../utils/tradeParser';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, buildDefaultPlaybooks } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
+import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl } from '../utils/financialMath';
 import InteractiveEquityCurve from './InteractiveEquityCurve';
 
 export default function SetupsTab() {
@@ -99,12 +100,12 @@ export default function SetupsTab() {
 
   // Win average R calculation
   const winLogs = filteredTradeLogs.filter(t => {
-    const pnlNum = parseFloat((t.pnl || '0').replace(/[^0-9.-]+/g, '')) || 0;
-    return pnlNum > 0;
+    const val = t.pnlNum !== undefined ? t.pnlNum : parseFinancialNumber(t.pnl, 0);
+    return val > 0;
   });
   const totalWinR = winLogs.reduce((sum, t) => {
-    const pnlNum = parseFloat((t.pnl || '0').replace(/[^0-9.-]+/g, '')) || 0;
-    return sum + (pnlNum / 350);
+    const val = t.pnlNum !== undefined ? t.pnlNum : parseFinancialNumber(t.pnl, 0);
+    return sum + (val / 350);
   }, 0);
   const winAvgRVal = winLogs.length > 0 ? (totalWinR / winLogs.length).toFixed(1) : '0.0';
 
@@ -112,10 +113,7 @@ export default function SetupsTab() {
   const lateSessionCount = filteredTradeLogs.filter(t => t.time && (t.time.includes('15:') || t.time.includes('16:') || t.setup?.toLowerCase().includes('late'))).length;
 
   // Total Net PnL calculation
-  const totalNetPnl = filteredTradeLogs.reduce((sum, t) => {
-    const pnlNum = parseFloat((t.pnl || '0').replace(/[^0-9.-]+/g, '')) || 0;
-    return sum + pnlNum;
-  }, 0);
+  const totalNetPnl = sumTradesPnl(filteredTradeLogs);
 
   // Grade & Status calculation
   let overallGrade = 'NO DATA';
@@ -236,11 +234,11 @@ export default function SetupsTab() {
       size: `${manualSize} Lots`,
       entry: manualEntry,
       exit: manualExit,
-      pnlNum: parseFloat(manualPnl) || 0,
-      pnl: `${parseFloat(manualPnl) >= 0 ? '+' : '-'}$${Math.abs(parseFloat(manualPnl) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+      pnlNum: parseFinancialNumber(manualPnl, 0),
+      pnl: formatFinancialCurrency(parseFinancialNumber(manualPnl, 0), { showPlus: true }),
       type: manualType,
       setup: manualSetup,
-      r: `${parseFloat(manualPnl) >= 0 ? '+' : '-'}${(Math.abs(parseFloat(manualPnl) || 0) / 500).toFixed(1)} R`,
+      r: formatRMultiple(parseFinancialNumber(manualPnl, 0), 500, 1),
       chartUrl: manualChartUrl.trim() || 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=1200&auto=format&fit=crop'
     };
 
@@ -738,7 +736,7 @@ export default function SetupsTab() {
                   {(() => {
                     const setupTrades = tradeLogs.filter(t => t.setup?.toLowerCase() === setup.name.toLowerCase() || t.playbook?.toLowerCase() === setup.name.toLowerCase());
                     const expData = calculateSetupExpectancy(setupTrades);
-                    const rawNetPnl = setupTrades.reduce((sum, t) => sum + (t.pnlNum !== undefined ? t.pnlNum : (parseFloat(t.pnl?.replace(/[^0-9.-]+/g, '')) || 0)), 0);
+                    const rawNetPnl = sumTradesPnl(setupTrades);
                     const pnlFormatted = formatCurrencyOrR(rawNetPnl, isStealthMode);
 
                     return (
