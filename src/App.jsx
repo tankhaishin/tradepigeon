@@ -7,6 +7,7 @@ import QuestsTab from './components/QuestsTab';
 import ShopTab from './components/ShopTab';
 import ProfileTab from './components/ProfileTab';
 import CalendarTab from './components/CalendarTab';
+import ConnectionsTab from './components/ConnectionsTab';
 import RightStatusHub from './components/RightStatusHub';
 import OnboardingModal from './components/OnboardingModal';
 import TopStatBar from './components/TopStatBar';
@@ -109,11 +110,12 @@ export default function App() {
 
       const key = e.key;
 
-      // Number key tab switcher (1-4)
+      // Number key tab switcher (1-5)
       if (key === '1') { setActiveTab('learn'); soundFx.playPop(); }
       else if (key === '2') { setActiveTab('calendar'); soundFx.playPop(); }
       else if (key === '3') { setActiveTab('setups'); soundFx.playPop(); }
-      else if (key === '4') { setActiveTab('profile'); soundFx.playPop(); }
+      else if (key === '4') { setActiveTab('connections'); soundFx.playPop(); }
+      else if (key === '5') { setActiveTab('profile'); soundFx.playPop(); }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -195,6 +197,7 @@ export default function App() {
         {activeTab === 'calendar' && <CalendarTab />}
         {(activeTab === 'learn' || activeTab === 'path') && <CenterPath />}
         {activeTab === 'setups' && <SetupsTab />}
+        {activeTab === 'connections' && <ConnectionsTab />}
         {activeTab === 'leaderboard' && <LeaderboardTab />}
         {activeTab === 'quests' && <QuestsTab />}
         {activeTab === 'shop' && <ShopTab />}
@@ -207,7 +210,7 @@ export default function App() {
       </ErrorBoundary>
 
       {/* 3. RIGHT STATUS & EXPANDABLE CALENDAR HUB */}
-      {activeTab !== 'calendar' && activeTab !== 'learn' && activeTab !== 'path' && activeTab !== 'status' && (
+      {activeTab !== 'calendar' && activeTab !== 'learn' && activeTab !== 'path' && activeTab !== 'status' && activeTab !== 'connections' && (
         <ErrorBoundary>
           <RightStatusHub 
             isExpanded={isCalendarExpanded} 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Lock } from 'lucide-react';
 import { DuoIceIcon, DuoShopIcon, DuoTrophyIcon, DuoGemIcon, DuoStarIcon } from './DuoIcons';
 import { loadStoredData, saveStoredData, STORAGE_KEYS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
@@ -118,7 +118,8 @@ export default function ShopTab() {
                 <div className="shrink-0 sm:self-center">
                   {isLocked ? (
                     <div className="px-4 py-2.5 rounded-2xl bg-[#131F24] border-2 border-[#20323D] text-[#77909D] font-black text-xs uppercase tracking-wider flex items-center gap-2 cursor-not-allowed">
-                      <span>🔒 LOCKED</span>
+                      <Lock size={14} />
+                      <span>LOCKED</span>
                     </div>
                   ) : isBought ? (
                     <div className="px-4 py-2.5 rounded-2xl bg-[#58CC02] border-2 border-[#46A302] border-b-4 border-b-[#388202] text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-md">

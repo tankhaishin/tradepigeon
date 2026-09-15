@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Flame, Gem, Heart, Calendar, ShieldCheck, Award, TrendingUp, CheckCircle2, AlertCircle, Cpu, RefreshCw, BarChart3, Activity, Sparkles, Trash2, RotateCcw, ShieldAlert, CheckSquare, Square, X, Download, Upload, FileText, Check } from 'lucide-react';
+import { User, Flame, Gem, Heart, Calendar, ShieldCheck, Award, TrendingUp, CheckCircle2, AlertCircle, Cpu, RefreshCw, BarChart3, Activity, Sparkles, Trash2, RotateCcw, ShieldAlert, CheckSquare, Square, X, Download, Upload, FileText, Check, LogOut } from 'lucide-react';
 import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoProfileIcon, DuoTrophyIcon } from './DuoIcons';
 import GoogleAuthButton from './GoogleAuthButton';
 import MobileAlertSettings from './MobileAlertSettings';
@@ -119,6 +119,13 @@ export default function ProfileTab() {
     triggerToast("Pro access active through billing cycle.");
   };
 
+  const handleSignOut = () => {
+    soundFx.playPop();
+    if (window.confirm('Are you sure you want to log out of TradePigeon?')) {
+      saveStoredData('goodtrader_google_user', null);
+    }
+  };
+
   // VERIFIED TRADING EDGE LOG (Loaded from Storage with clean zero-state)
   const historicalLogs = loadStoredData('goodtrader_debrief_history', []);
 
@@ -195,6 +202,14 @@ export default function ProfileTab() {
           >
             <Sparkles size={16} />
             <span>{isProcessingStripe ? 'Connecting Stripe...' : 'Upgrade to Pro ($9.99/mo)'}</span>
+          </button>
+          <button
+            onClick={handleSignOut}
+            className="px-3.5 py-2.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border-2 border-rose-500/30 hover:border-rose-500 border-b-4 border-b-rose-700/60 text-xs font-black text-rose-400 hover:text-rose-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:translate-y-0.5"
+            title="Log Out of TradePigeon"
+          >
+            <LogOut size={16} />
+            <span>Log Out</span>
           </button>
         </div>
       </div>

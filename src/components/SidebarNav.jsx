@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { Eye, EyeOff, LifeBuoy } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Eye, EyeOff, LifeBuoy, LogOut } from 'lucide-react';
 import { DuoHomeIcon, DuoShieldIcon, DuoChestIcon, DuoShopIcon, DuoProfileIcon, DuoTrophyIcon, DuoCalendarIcon, DuoLightningIcon, DuoBookIcon } from './DuoIcons';
 import SupportFeedbackModal from './SupportFeedbackModal';
 import GuidebookModal from './GuidebookModal';
 import LegalModal from './LegalModal';
 import ComingSoonModal from './ComingSoonModal';
-import { loadStoredData, saveStoredData } from '../utils/storage';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 
 export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, onOpenCalendar }) {
@@ -15,6 +15,27 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
   const [isGuidebookOpen, setIsGuidebookOpen] = useState(false);
   const [comingSoonFeature, setComingSoonFeature] = useState(null);
   const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('goodtrader_stealth_mode', false));
+  const [googleUser, setGoogleUser] = useState(() => loadStoredData('goodtrader_google_user', null));
+
+  useEffect(() => {
+    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
+      if (key === 'goodtrader_google_user') {
+        setGoogleUser(value);
+      }
+      if (key === 'goodtrader_stealth_mode') {
+        setIsStealthMode(value);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleLogout = () => {
+    soundFx.playPop();
+    if (window.confirm('Are you sure you want to log out of TradePigeon?')) {
+      saveStoredData('goodtrader_google_user', null);
+      if (onToggleLanding) onToggleLanding();
+    }
+  };
 
   const toggleStealthMode = () => {
     soundFx.playPop();
@@ -27,6 +48,7 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
     { id: 'learn', label: 'PROTOCOL', icon: <DuoHomeIcon className="w-8 h-8" />, comingSoon: false },
     { id: 'calendar', label: 'CALENDAR', icon: <DuoCalendarIcon className="w-8 h-8" />, comingSoon: false },
     { id: 'setups', label: 'PLAYBOOK', icon: <DuoBookIcon className="w-8 h-8" />, comingSoon: false },
+    { id: 'connections', label: 'CONNECTIONS', icon: <DuoLightningIcon className="w-8 h-8" />, comingSoon: false },
     { id: 'leaderboard', label: 'LEADERBOARD', icon: <DuoTrophyIcon className="w-8 h-8" />, comingSoon: false },
     { id: 'quests', label: 'QUESTS', icon: <DuoChestIcon className="w-8 h-8" />, comingSoon: false },
     { id: 'shop', label: 'SHOP', icon: <DuoShopIcon className="w-8 h-8" />, comingSoon: false },
@@ -122,6 +144,37 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
             <span className="hidden xl:inline">Help & Feedback</span>
           </button>
 
+          {/* User Account & Prominent Log Out Button */}
+          <div className="pt-2 border-t border-[#1C2A4E] space-y-2">
+            {googleUser && (
+              <div 
+                onClick={() => setActiveTab('profile')}
+                className="hidden xl:flex items-center gap-3 p-2 bg-[#0D1635] hover:bg-[#131F42] rounded-2xl border border-[#1C2A4E] cursor-pointer transition-all"
+                title="View Profile Settings"
+              >
+                <img
+                  src={googleUser.picture || '/parrot_logo.png'}
+                  alt={googleUser.name || 'Trader'}
+                  className="w-8 h-8 rounded-xl object-cover border border-[#FF6B00] shrink-0"
+                  onError={(e) => { e.target.src = '/parrot_logo.png'; }}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-black text-white truncate">{googleUser.name || 'Trader'}</div>
+                  <div className="text-[10px] font-bold text-slate-400 truncate">{googleUser.email || 'trader@tradepigeon.com'}</div>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center xl:justify-start gap-3 p-3 xl:px-4 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border-2 border-rose-500/30 hover:border-rose-500 border-b-4 border-b-rose-700/60 text-xs font-black text-rose-400 hover:text-rose-200 transition-all cursor-pointer shadow-sm active:translate-y-0.5"
+              title="Sign Out of TradePigeon"
+            >
+              <LogOut size={18} className="shrink-0 text-rose-400" />
+              <span className="hidden xl:inline">Log Out</span>
+            </button>
+          </div>
+
           {/* Legal Compliance Footer Links (XL screen only) */}
           <div className="hidden xl:flex items-center justify-center gap-3 text-[10px] font-bold text-[#52656D] pt-1">
             <button onClick={() => setIsLegalTermsOpen(true)} className="hover:text-slate-300 underline cursor-pointer">
@@ -163,10 +216,10 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
         featureName={comingSoonFeature || 'Feature'}
       />
 
-      {/* MOBILE BOTTOM NAVIGATION BAR (Ultra-Clean 4-Tab Native Mobile Architecture) */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#070C1E] border-t-2 border-[#1C2A4E] flex items-center justify-around px-4 z-50 shadow-2xl">
+      {/* MOBILE BOTTOM NAVIGATION BAR (Ultra-Clean 5-Tab Native Mobile Architecture) */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#070C1E] border-t-2 border-[#1C2A4E] flex items-center justify-around px-2 z-50 shadow-2xl">
         {navItems
-          .filter((item) => ['learn', 'calendar', 'setups'].includes(item.id))
+          .filter((item) => ['learn', 'calendar', 'setups', 'connections'].includes(item.id))
           .map((item) => {
             const isActive = activeTab === item.id;
             return (

@@ -4,8 +4,6 @@ import {
   DollarSign, Brain, BarChart3, AlertCircle, RefreshCw, Layers, Check, 
   Clock, Shield, Award, Cpu, Zap, Lock, ArrowUpRight, CheckSquare, XCircle, AlertTriangle, FileText, PieChart, Upload, Filter, Calendar, X, BookOpen, Pencil
 } from 'lucide-react';
-import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoUndoIcon, DuoPlusIcon, DuoFileSheetIcon, DuoGemIcon, DuoCalendarIcon, DuoCheckCircleIcon, DuoHazardIcon, DuoBookIcon, DuoChartIcon, DuoTrophyIcon, DuoBrainIcon, DuoDisciplinedWinIcon, DuoDisciplinedLossIcon, DuoDisciplinedBeIcon, DuoToxicWinIcon, DuoToxicBeIcon, DuoDoubleFailureIcon, DuoMissedTradeIcon } from './DuoIcons';
-import BrokerConnectModal from './BrokerConnectModal';
 import ManualTradeModal from './ManualTradeModal';
 import { parseTradeFile, calculateExecutionMatrix, calculateSetupExpectancy, formatCurrencyOrR } from '../utils/tradeParser';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, buildDefaultPlaybooks } from '../utils/storage';
