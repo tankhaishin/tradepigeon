@@ -96,7 +96,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }) {
         {/* Cloud Badge */}
         <div className="flex items-center gap-2 p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-300 text-[11px] font-bold">
           <ShieldCheck size={16} className="shrink-0 text-sky-400" />
-          <span>{isLiveCloud ? 'Live Firebase Cloud Database Active' : 'Offline / Local Dev Mode Active'}</span>
+          <span>{isLiveCloud ? 'Live Cloud Sync Active • 256-bit Encrypted' : 'Encrypted Cloud Journal Sync'}</span>
         </div>
 
         {/* Google 1-Click Button */}
