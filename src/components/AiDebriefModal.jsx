@@ -109,16 +109,16 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
   };
 
   const handleFinish = () => {
-    const dayNum = currentDay || loadStoredData('goodtrader_current_day', 1);
+    const dayNum = currentDay || loadStoredData('tradepigeon_current_day', 1);
     const todayObj = new Date();
     const todayIso = todayObj.toISOString().split('T')[0];
     const formattedDate = todayObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
     // Calculate actual PnL from today's trades
-    const dayTrades = loadStoredData(`goodtrader_session_trades_day_${dayNum}`, null)
-      || loadStoredData(`goodtrader_session_trades_day_${todayIso}`, null)
-      || loadStoredData(`goodtrader_session_trades_day_${todayObj.getDate()}`, null)
-      || loadStoredData('goodtrader_session_trades', []);
+    const dayTrades = loadStoredData(`tradepigeon_session_trades_day_${dayNum}`, null)
+      || loadStoredData(`tradepigeon_session_trades_day_${todayIso}`, null)
+      || loadStoredData(`tradepigeon_session_trades_day_${todayObj.getDate()}`, null)
+      || loadStoredData('tradepigeon_session_trades', []);
 
     let totalPnlNum = 0;
     let setupName = 'Session Execution';
@@ -154,16 +154,16 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
     };
 
     // 1. Save debrief history to storage (automatically syncs to Cloud Firestore)
-    const prevHistory = loadStoredData('goodtrader_debrief_history', []);
+    const prevHistory = loadStoredData('tradepigeon_debrief_history', []);
     const updatedHistory = [historyItem, ...prevHistory.filter(h => h.id !== historyItem.id && h.isoDate !== todayIso)];
-    saveStoredData('goodtrader_debrief_history', updatedHistory);
+    saveStoredData('tradepigeon_debrief_history', updatedHistory);
 
     // 2. Award user DP (+150 DP)
-    const currentDp = loadStoredData('goodtrader_user_dp', 0);
-    saveStoredData('goodtrader_user_dp', Number(currentDp) + 150);
+    const currentDp = loadStoredData('tradepigeon_user_dp', 0);
+    saveStoredData('tradepigeon_user_dp', Number(currentDp) + 150);
 
     // 3. Update user stats
-    const currentStats = loadStoredData('goodtrader_user_stats', { streakDays: 0, tradesLogged: 0, disciplinePoints: 0 });
+    const currentStats = loadStoredData('tradepigeon_user_stats', { streakDays: 0, tradesLogged: 0, disciplinePoints: 0 });
     const nextStreak = followedPlan ? (currentStats.streakDays || 0) + 1 : Math.max(1, currentStats.streakDays || 0);
     const updatedStats = {
       ...currentStats,
@@ -171,12 +171,12 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
       tradesLogged: (currentStats.tradesLogged || 0) + (Array.isArray(dayTrades) ? dayTrades.length : 1),
       disciplinePoints: (currentStats.disciplinePoints || 0) + 150
     };
-    saveStoredData('goodtrader_user_stats', updatedStats);
+    saveStoredData('tradepigeon_user_stats', updatedStats);
 
     // 4. Save session note for Calendar Tab
-    saveStoredData(`goodtrader_session_note_day_${dayNum}`, debriefNote);
-    saveStoredData(`goodtrader_session_note_day_${todayIso}`, debriefNote);
-    saveStoredData(`goodtrader_session_note_day_${todayObj.getDate()}`, debriefNote);
+    saveStoredData(`tradepigeon_session_note_day_${dayNum}`, debriefNote);
+    saveStoredData(`tradepigeon_session_note_day_${todayIso}`, debriefNote);
+    saveStoredData(`tradepigeon_session_note_day_${todayObj.getDate()}`, debriefNote);
 
     // 5. Fire callbacks
     if (typeof onSaveSession === 'function') {

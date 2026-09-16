@@ -191,8 +191,8 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
         connectedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       }));
 
-    const existingAccounts = loadStoredData('goodtrader_accounts_data', []);
-    saveStoredData('goodtrader_accounts_data', [...createdAccounts, ...existingAccounts]);
+    const existingAccounts = loadStoredData('tradepigeon_accounts_data', []);
+    saveStoredData('tradepigeon_accounts_data', [...createdAccounts, ...existingAccounts]);
 
     setAuthSuccess(true);
     setTimeout(() => {

@@ -7,7 +7,7 @@ import { sendTelegramMobilePush } from './MobileAlertSettings';
 
 export default function PendingOrdersRadar() {
   const [pendingOrders, setPendingOrders] = useState(() => 
-    loadStoredData('goodtrader_pending_orders', [])
+    loadStoredData('tradepigeon_pending_orders', [])
   );
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [symbol, setSymbol] = useState('NQ1!');
@@ -16,12 +16,12 @@ export default function PendingOrdersRadar() {
   const [qty, setQty] = useState('1');
 
   useEffect(() => {
-    saveStoredData('goodtrader_pending_orders', pendingOrders);
+    saveStoredData('tradepigeon_pending_orders', pendingOrders);
   }, [pendingOrders]);
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === 'goodtrader_pending_orders') {
+      if (key === 'tradepigeon_pending_orders') {
         setPendingOrders(value || []);
       }
     });

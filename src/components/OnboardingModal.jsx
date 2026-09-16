@@ -70,8 +70,8 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     const connectedBrokerObj = connectedAccountParam || (accountsToSave.length > 0 ? accountsToSave[0] : null);
 
     if (accountsToSave.length > 0) {
-      const existingAccounts = loadStoredData('goodtrader_accounts_data', []);
-      saveStoredData('goodtrader_accounts_data', [...accountsToSave, ...existingAccounts]);
+      const existingAccounts = loadStoredData('tradepigeon_accounts_data', []);
+      saveStoredData('tradepigeon_accounts_data', [...accountsToSave, ...existingAccounts]);
     }
 
     sendDiscordSignupAlert({

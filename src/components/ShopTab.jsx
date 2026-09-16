@@ -5,21 +5,21 @@ import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS,
 import { soundFx } from '../utils/audioEngine';
 
 export default function ShopTab() {
-  const [userDp, setUserDp] = useState(() => loadStoredData('goodtrader_user_dp', 0));
-  const [userStats, setUserStats] = useState(() => loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS));
+  const [userDp, setUserDp] = useState(() => loadStoredData('tradepigeon_user_dp', 0));
+  const [userStats, setUserStats] = useState(() => loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS));
   const [purchasedItems, setPurchasedItems] = useState(() => loadStoredData(STORAGE_KEYS.SHOP_ITEMS, []));
-  const [streakFreezes, setStreakFreezes] = useState(() => loadStoredData('goodtrader_streak_freezes', 1));
+  const [streakFreezes, setStreakFreezes] = useState(() => loadStoredData('tradepigeon_streak_freezes', 1));
   const [purchaseToast, setPurchaseToast] = useState('');
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === 'goodtrader_user_dp') {
+      if (key === 'tradepigeon_user_dp') {
         setUserDp(Number(value) || 0);
       }
-      if (key === 'goodtrader_user_stats') {
+      if (key === 'tradepigeon_user_stats') {
         setUserStats(value || DEFAULT_USER_STATS);
       }
-      if (key === 'goodtrader_streak_freezes') {
+      if (key === 'tradepigeon_streak_freezes') {
         setStreakFreezes(Number(value) || 0);
       }
       if (key === STORAGE_KEYS.SHOP_ITEMS) {
@@ -72,26 +72,26 @@ export default function ShopTab() {
     soundFx.playLevelUp();
     const newDp = Math.max(0, userDp - item.price);
     setUserDp(newDp);
-    saveStoredData('goodtrader_user_dp', newDp);
+    saveStoredData('tradepigeon_user_dp', newDp);
 
     const updatedStats = {
       ...userStats,
       disciplinePoints: newDp
     };
     setUserStats(updatedStats);
-    saveStoredData('goodtrader_user_stats', updatedStats);
+    saveStoredData('tradepigeon_user_stats', updatedStats);
 
     if (item.id === 'streak_freeze') {
       const nextFreezes = streakFreezes + 1;
       setStreakFreezes(nextFreezes);
-      saveStoredData('goodtrader_streak_freezes', nextFreezes);
+      saveStoredData('tradepigeon_streak_freezes', nextFreezes);
       setPurchaseToast(`Purchased Vacation Shield! You now have ${nextFreezes} shields available.`);
     } else {
       const updatedPurchased = [...purchasedItems, item.id];
       setPurchasedItems(updatedPurchased);
       saveStoredData(STORAGE_KEYS.SHOP_ITEMS, updatedPurchased);
       if (item.id === 'free_sub_month') {
-        saveStoredData('goodtrader_is_pro', true);
+        saveStoredData('tradepigeon_is_pro', true);
         setPurchaseToast('Pro Pass unlocked! 1-Month Pro Subscription applied to your account.');
       }
     }

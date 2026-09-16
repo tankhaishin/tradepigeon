@@ -13,10 +13,10 @@ import { soundFx } from '../utils/audioEngine';
 import { parseFinancialNumber, formatFinancialCurrency, formatBalance as formatBalanceMath, formatRMultiple } from '../utils/financialMath';
 
 export default function ConnectionsTab() {
-  const [accounts, setAccounts] = useState(() => loadStoredData('goodtrader_accounts_data', []));
+  const [accounts, setAccounts] = useState(() => loadStoredData('tradepigeon_accounts_data', []));
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('goodtrader_stealth_mode', false));
+  const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('tradepigeon_stealth_mode', false));
   const [isSyncing, setIsSyncing] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   const [expandedConnections, setExpandedConnections] = useState({});
@@ -27,10 +27,10 @@ export default function ConnectionsTab() {
   // Subscribe to reactive storage updates from anywhere in app
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === 'goodtrader_accounts_data') {
+      if (key === 'tradepigeon_accounts_data') {
         setAccounts(value || []);
       }
-      if (key === 'goodtrader_stealth_mode') {
+      if (key === 'tradepigeon_stealth_mode') {
         setIsStealthMode(value);
       }
     });
@@ -109,7 +109,7 @@ export default function ConnectionsTab() {
       return { ...a, isLead: false };
     });
     setAccounts(updated);
-    saveStoredData('goodtrader_accounts_data', updated);
+    saveStoredData('tradepigeon_accounts_data', updated);
     setToastMsg('Master Lead account updated! Trades will copy from this anchor.');
     setTimeout(() => setToastMsg(''), 3000);
   };
@@ -125,7 +125,7 @@ export default function ConnectionsTab() {
       return a;
     });
     setAccounts(updated);
-    saveStoredData('goodtrader_accounts_data', updated);
+    saveStoredData('tradepigeon_accounts_data', updated);
   };
 
   // Rename account nickname
@@ -142,7 +142,7 @@ export default function ConnectionsTab() {
       return a;
     });
     setAccounts(updated);
-    saveStoredData('goodtrader_accounts_data', updated);
+    saveStoredData('tradepigeon_accounts_data', updated);
     setEditingAccountId(null);
     setEditingNickname('');
   };
@@ -156,7 +156,7 @@ export default function ConnectionsTab() {
         return thisConnId !== connId;
       });
       setAccounts(remaining);
-      saveStoredData('goodtrader_accounts_data', remaining);
+      saveStoredData('tradepigeon_accounts_data', remaining);
       setToastMsg(`Disconnected ${platformName} successfully.`);
       setTimeout(() => setToastMsg(''), 3000);
     }
@@ -168,7 +168,7 @@ export default function ConnectionsTab() {
     if (window.confirm(`Remove sub-account "${accName || accId}" from TradePigeon? Historical trade debriefs will be preserved.`)) {
       const updated = accounts.filter(a => a.id !== accId && a.accountNumber !== accId);
       setAccounts(updated);
-      saveStoredData('goodtrader_accounts_data', updated);
+      saveStoredData('tradepigeon_accounts_data', updated);
       setToastMsg(`Removed ${accName || accId} successfully.`);
       setTimeout(() => setToastMsg(''), 3000);
     }
@@ -241,7 +241,7 @@ export default function ConnectionsTab() {
               soundFx.playPop();
               const next = !isStealthMode;
               setIsStealthMode(next);
-              saveStoredData('goodtrader_stealth_mode', next);
+              saveStoredData('tradepigeon_stealth_mode', next);
             }}
             className={`p-2 sm:px-3 sm:py-2 rounded-2xl border-2 text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
               isStealthMode
@@ -665,7 +665,7 @@ export default function ConnectionsTab() {
           const toAdd = newAccounts && newAccounts.length > 0 ? newAccounts : (account ? [account] : []);
           const updated = [...toAdd, ...accounts];
           setAccounts(updated);
-          saveStoredData('goodtrader_accounts_data', updated);
+          saveStoredData('tradepigeon_accounts_data', updated);
           soundFx.playLevelUp();
           setToastMsg(`Successfully added ${toAdd.length} account${toAdd.length > 1 ? 's' : ''}!`);
           setTimeout(() => setToastMsg(''), 3500);

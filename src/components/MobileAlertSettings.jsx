@@ -4,16 +4,16 @@ import { soundFx } from '../utils/audioEngine';
 import { loadStoredData, saveStoredData } from '../utils/storage';
 
 export default function MobileAlertSettings() {
-  const [telegramChatId, setTelegramChatId] = useState(() => loadStoredData('goodtrader_telegram_chat_id', ''));
-  const [telegramBotToken, setTelegramBotToken] = useState(() => loadStoredData('goodtrader_telegram_bot_token', ''));
+  const [telegramChatId, setTelegramChatId] = useState(() => loadStoredData('tradepigeon_telegram_chat_id', ''));
+  const [telegramBotToken, setTelegramBotToken] = useState(() => loadStoredData('tradepigeon_telegram_bot_token', ''));
   const [isSaved, setIsSaved] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
 
   const handleSave = (e) => {
     e.preventDefault();
     soundFx.playSuccess();
-    saveStoredData('goodtrader_telegram_chat_id', telegramChatId);
-    saveStoredData('goodtrader_telegram_bot_token', telegramBotToken);
+    saveStoredData('tradepigeon_telegram_chat_id', telegramChatId);
+    saveStoredData('tradepigeon_telegram_bot_token', telegramBotToken);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   };
@@ -117,8 +117,8 @@ export default function MobileAlertSettings() {
  * Global helper to dispatch mobile Telegram push notifications
  */
 export async function sendTelegramMobilePush(messageText) {
-  const chatId = loadStoredData('goodtrader_telegram_chat_id', '');
-  const botToken = loadStoredData('goodtrader_telegram_bot_token', '');
+  const chatId = loadStoredData('tradepigeon_telegram_chat_id', '');
+  const botToken = loadStoredData('tradepigeon_telegram_bot_token', '');
 
   if (!chatId) return false;
 

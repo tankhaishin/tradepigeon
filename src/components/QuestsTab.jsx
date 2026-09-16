@@ -7,17 +7,17 @@ import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS,
 import { soundFx } from '../utils/audioEngine';
 
 export default function QuestsTab() {
-  const [claimedQuestIds, setClaimedQuestIds] = useState(() => loadStoredData('goodtrader_claimed_quests', []));
-  const [completedSteps, setCompletedSteps] = useState(() => loadStoredData('goodtrader_completed_steps', []));
-  const [userDp, setUserDp] = useState(() => loadStoredData('goodtrader_user_dp', 0));
-  const [userStats, setUserStats] = useState(() => loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS));
+  const [claimedQuestIds, setClaimedQuestIds] = useState(() => loadStoredData('tradepigeon_claimed_quests', []));
+  const [completedSteps, setCompletedSteps] = useState(() => loadStoredData('tradepigeon_completed_steps', []));
+  const [userDp, setUserDp] = useState(() => loadStoredData('tradepigeon_user_dp', 0));
+  const [userStats, setUserStats] = useState(() => loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS));
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === 'goodtrader_claimed_quests') setClaimedQuestIds(value || []);
-      if (key === 'goodtrader_completed_steps') setCompletedSteps(value || []);
-      if (key === 'goodtrader_user_dp') setUserDp(Number(value) || 0);
-      if (key === 'goodtrader_user_stats') setUserStats(value || DEFAULT_USER_STATS);
+      if (key === 'tradepigeon_claimed_quests') setClaimedQuestIds(value || []);
+      if (key === 'tradepigeon_completed_steps') setCompletedSteps(value || []);
+      if (key === 'tradepigeon_user_dp') setUserDp(Number(value) || 0);
+      if (key === 'tradepigeon_user_stats') setUserStats(value || DEFAULT_USER_STATS);
     });
     return unsubscribe;
   }, []);
@@ -82,20 +82,20 @@ export default function QuestsTab() {
       soundFx.playLevelUp();
       const updatedClaimed = [...claimedQuestIds, quest.id];
       setClaimedQuestIds(updatedClaimed);
-      saveStoredData('goodtrader_claimed_quests', updatedClaimed);
+      saveStoredData('tradepigeon_claimed_quests', updatedClaimed);
 
       const newDp = userDp + quest.rewardVal;
       setUserDp(newDp);
-      saveStoredData('goodtrader_user_dp', newDp);
+      saveStoredData('tradepigeon_user_dp', newDp);
 
       const updatedStats = {
         ...userStats,
         disciplinePoints: newDp
       };
       setUserStats(updatedStats);
-      saveStoredData('goodtrader_user_stats', updatedStats);
+      saveStoredData('tradepigeon_user_stats', updatedStats);
 
-      window.dispatchEvent(new CustomEvent('goodtrader_claim_reward', { detail: { questId: quest.id, rewardVal: quest.rewardVal } }));
+      window.dispatchEvent(new CustomEvent('tradepigeon_claim_reward', { detail: { questId: quest.id, rewardVal: quest.rewardVal } }));
     }
   };
 

@@ -24,7 +24,7 @@ const AuthContext = createContext({
 });
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => loadStoredData('goodtrader_google_user', null));
+  const [user, setUser] = useState(() => loadStoredData('tradepigeon_google_user', null));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -68,11 +68,11 @@ export function AuthProvider({ children }) {
         }
 
         setUser(formattedUser);
-        saveStoredData('goodtrader_google_user', formattedUser);
+        saveStoredData('tradepigeon_google_user', formattedUser);
         initCloudFirestoreSync(fbUser.uid);
       } else {
         setUser(null);
-        saveStoredData('goodtrader_google_user', null);
+        saveStoredData('tradepigeon_google_user', null);
         initCloudFirestoreSync(null);
       }
       setLoading(false);
@@ -93,7 +93,7 @@ export function AuthProvider({ children }) {
         authenticatedAt: new Date().toISOString()
       };
       setUser(guestUser);
-      saveStoredData('goodtrader_google_user', guestUser);
+      saveStoredData('tradepigeon_google_user', guestUser);
       soundFx.playSuccess();
       return guestUser;
     }
@@ -122,7 +122,7 @@ export function AuthProvider({ children }) {
         authenticatedAt: new Date().toISOString()
       };
       setUser(guestUser);
-      saveStoredData('goodtrader_google_user', guestUser);
+      saveStoredData('tradepigeon_google_user', guestUser);
       soundFx.playSuccess();
       return guestUser;
     }
@@ -143,7 +143,7 @@ export function AuthProvider({ children }) {
         authenticatedAt: new Date().toISOString()
       };
       setUser(guestUser);
-      saveStoredData('goodtrader_google_user', guestUser);
+      saveStoredData('tradepigeon_google_user', guestUser);
       soundFx.playSuccess();
       return guestUser;
     }
@@ -163,7 +163,7 @@ export function AuthProvider({ children }) {
       await signOut(auth);
     }
     setUser(null);
-    saveStoredData('goodtrader_google_user', null);
+    saveStoredData('tradepigeon_google_user', null);
   };
 
   return (

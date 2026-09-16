@@ -22,7 +22,7 @@ export default function CalendarTab() {
   });
   const [calendarViewMode, setCalendarViewMode] = useState('pnl'); // 'pnl' | 'discipline'
   const [selectedBasketFilter, setSelectedBasketFilter] = useState('ALL');
-  const [basketsList] = useState(() => loadStoredData('goodtrader_baskets_list', [
+  const [basketsList] = useState(() => loadStoredData('tradepigeon_baskets_list', [
     { id: 'b_1', name: 'Basket A' },
     { id: 'b_2', name: 'Basket B' }
   ]));
@@ -58,10 +58,10 @@ export default function CalendarTab() {
     const padDate = String(activeModalDay.date).padStart(2, '0');
     const isoDate = `${year}-${padMonth}-${padDate}`;
 
-    const numTrades = loadStoredData(`goodtrader_session_trades_day_${activeModalDay.date}`, null);
+    const numTrades = loadStoredData(`tradepigeon_session_trades_day_${activeModalDay.date}`, null);
     if (Array.isArray(numTrades) && numTrades.length > 0) return numTrades;
 
-    const isoTrades = loadStoredData(`goodtrader_session_trades_day_${isoDate}`, null);
+    const isoTrades = loadStoredData(`tradepigeon_session_trades_day_${isoDate}`, null);
     if (Array.isArray(isoTrades) && isoTrades.length > 0) return isoTrades;
 
     const generalDay = loadStoredData(`day_${isoDate}`, null);
@@ -126,8 +126,8 @@ export default function CalendarTab() {
       const isoDate = `${year}-${padMonth}-${padDate}`;
 
       // Check session trades for this day
-      const sessionTradesNum = loadStoredData(`goodtrader_session_trades_day_${day.date}`, null);
-      const sessionTradesIso = loadStoredData(`goodtrader_session_trades_day_${isoDate}`, null);
+      const sessionTradesNum = loadStoredData(`tradepigeon_session_trades_day_${day.date}`, null);
+      const sessionTradesIso = loadStoredData(`tradepigeon_session_trades_day_${isoDate}`, null);
       const sessionTradesGeneral = loadStoredData(`day_${isoDate}`, null);
 
       const resolvedTrades = (Array.isArray(sessionTradesNum) && sessionTradesNum.length > 0)
@@ -840,7 +840,7 @@ export default function CalendarTab() {
                     KEY SESSION TAKEAWAY:
                   </span>
                   <p className="text-base sm:text-lg font-black text-white leading-snug italic">
-                    "{loadStoredData(`goodtrader_session_note_day_${activeModalDay.date}`, null) || (modalDayIsoDate ? loadStoredData(`goodtrader_session_note_day_${modalDayIsoDate}`, null) : null) || 'No session debrief note recorded for this day.'}"
+                    "{loadStoredData(`tradepigeon_session_note_day_${activeModalDay.date}`, null) || (modalDayIsoDate ? loadStoredData(`tradepigeon_session_note_day_${modalDayIsoDate}`, null) : null) || 'No session debrief note recorded for this day.'}"
                   </p>
                 </div>
               </div>

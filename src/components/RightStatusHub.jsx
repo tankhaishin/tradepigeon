@@ -14,7 +14,7 @@ import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTrad
 
 export default function RightStatusHub({ isExpanded = false, onToggleExpand, isMobileOpen = false, onCloseMobile, isInPage = false, onOpenCalendarTab }) {
   const [internalExpanded, setInternalExpanded] = useState(isExpanded);
-  const [tradingStatus, setTradingStatusState] = useState(() => loadStoredData('goodtrader_trading_status', 'TRADING'));
+  const [tradingStatus, setTradingStatusState] = useState(() => loadStoredData('tradepigeon_trading_status', 'TRADING'));
 
   const defaultTasks = [
     { id: 1, text: 'Pre-Market Mindset Check', completed: true, reward: '+50 DP' },
@@ -37,7 +37,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(() => {
-      const updatedStatus = loadStoredData('goodtrader_trading_status', 'TRADING');
+      const updatedStatus = loadStoredData('tradepigeon_trading_status', 'TRADING');
       setTradingStatusState(updatedStatus);
     });
     return () => unsubscribe();
@@ -64,28 +64,28 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [showAuditPrompt, setShowAuditPrompt] = useState(false);
 
-  const currentDay = loadStoredData('goodtrader_current-day', 1);
+  const currentDay = loadStoredData('tradepigeon_current-day', 1);
   const [activeAuditDay, setActiveAuditDay] = useState(currentDay);
   const [selectedBasketFilter, setSelectedBasketFilter] = useState('ALL');
   const [selectedTradeIds, setSelectedTradeIds] = useState([]);
-  const [userStats, setUserStats] = useState(() => loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS));
-  const [connectedAccounts, setConnectedAccounts] = useState(() => loadStoredData('goodtrader_accounts_data', []));
-  const [streakFreezes, setStreakFreezes] = useState(() => loadStoredData('goodtrader_streak_freezes', 1));
+  const [userStats, setUserStats] = useState(() => loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS));
+  const [connectedAccounts, setConnectedAccounts] = useState(() => loadStoredData('tradepigeon_accounts_data', []));
+  const [streakFreezes, setStreakFreezes] = useState(() => loadStoredData('tradepigeon_streak_freezes', 1));
   const [activeHubTab, setActiveHubTab] = useState('trades');
   const [isHeatmapExpanded, setIsHeatmapExpanded] = useState(true);
 
   const [sessionTrades, setSessionTrades] = useState(() => {
-    return loadStoredData(`goodtrader_session_trades_day_${currentDay}`, []);
+    return loadStoredData(`tradepigeon_session_trades_day_${currentDay}`, []);
   });
 
   const [lastAutoSyncedTime, setLastAutoSyncedTime] = useState(null);
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === `goodtrader_session_trades_day_${activeAuditDay}`) {
+      if (key === `tradepigeon_session_trades_day_${activeAuditDay}`) {
         setSessionTrades(value || []);
       }
-      if (key === 'goodtrader_accounts_data') {
+      if (key === 'tradepigeon_accounts_data') {
         setConnectedAccounts(value || []);
       }
     });
@@ -93,7 +93,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   }, [activeAuditDay]);
 
   useEffect(() => {
-    const loaded = loadStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, []);
+    const loaded = loadStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, []);
     setSessionTrades(loaded);
     setSelectedTradeIds([]);
   }, [activeAuditDay]);
@@ -115,10 +115,10 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
   const handleDisconnectAccount = (accId) => {
     soundFx.playPop();
-    const current = loadStoredData('goodtrader_accounts_data', []);
+    const current = loadStoredData('tradepigeon_accounts_data', []);
     const remaining = current.filter(a => a.id !== accId && a.accountNumber !== accId);
     setConnectedAccounts(remaining);
-    saveStoredData('goodtrader_accounts_data', remaining);
+    saveStoredData('tradepigeon_accounts_data', remaining);
     if (selectedBasketFilter === accId) {
       setSelectedBasketFilter('ALL');
     }
@@ -128,7 +128,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     soundFx.playPop();
     const updated = sessionTrades.map(t => t.id === tradeId ? { ...t, type: newType } : t);
     setSessionTrades(updated);
-    saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, updated);
+    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
   };
 
   const handleConfirmTrade = (tradeId) => {
@@ -140,16 +140,16 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       return t;
     });
     setSessionTrades(updated);
-    saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, updated);
+    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
 
     // Award +50 DP for confirming trade audit!
-    const stats = loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS);
+    const stats = loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS);
     const updatedStats = {
       ...stats,
       disciplinePoints: (stats.disciplinePoints || 0) + 50,
       tradesLogged: (stats.tradesLogged || 0) + 1
     };
-    saveStoredData('goodtrader_user_stats', updatedStats);
+    saveStoredData('tradepigeon_user_stats', updatedStats);
     setUserStats(updatedStats);
   };
 
@@ -162,7 +162,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       return t;
     });
     setSessionTrades(updated);
-    saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, updated);
+    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
   };
 
   const [deletedTradesBackup, setDeletedTradesBackup] = useState(null);
@@ -185,7 +185,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     const updated = sessionTrades.filter(t => t.id !== tradeId);
     setSessionTrades(updated);
     setSelectedTradeIds(selectedTradeIds.filter(id => id !== tradeId));
-    saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, updated);
+    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
   };
 
   const handleDeleteSelectedTrades = () => {
@@ -196,7 +196,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     const remaining = sessionTrades.filter(t => !selectedTradeIds.includes(t.id));
     setSessionTrades(remaining);
     setSelectedTradeIds([]);
-    saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, remaining);
+    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, remaining);
   };
 
   const handleUndoDeleteTrades = () => {
@@ -204,7 +204,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     soundFx.playSuccess();
     const restored = [...deletedTradesBackup.trades, ...sessionTrades];
     setSessionTrades(restored);
-    saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, restored);
+    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, restored);
     setDeletedTradesBackup(null);
   };
 
@@ -243,7 +243,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     const updated = [mergedTrade, ...remaining];
     setSessionTrades(updated);
     setSelectedTradeIds([]);
-    saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, updated);
+    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
   };
 
   const playbooksList = ['Breakout & Retest', 'Trend Continuation', 'Liquidity Sweep', 'Custom Setup'];
@@ -254,7 +254,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     const nextPlaybook = playbooksList[(currentIdx + 1) % playbooksList.length];
     const updated = sessionTrades.map(t => t.id === tradeId ? { ...t, playbook: nextPlaybook } : t);
     setSessionTrades(updated);
-    saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, updated);
+    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
   };
 
   const handleRepairStreak = () => {
@@ -262,11 +262,11 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       soundFx.playLevelUp();
       const nextTokens = streakFreezes - 1;
       setStreakFreezes(nextTokens);
-      saveStoredData('goodtrader_streak_freezes', nextTokens);
+      saveStoredData('tradepigeon_streak_freezes', nextTokens);
 
-      const stats = loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS);
+      const stats = loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS);
       const updatedStats = { ...stats, streakDays: (stats.streakDays || 14) + 1 };
-      saveStoredData('goodtrader_user_stats', updatedStats);
+      saveStoredData('tradepigeon_user_stats', updatedStats);
       alert('Streak Repaired! 1 Streak Repair Token applied.');
     } else {
       alert('You need 1 Streak Repair Token from the Shop (500 DP) to repair a streak!');
@@ -289,7 +289,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     };
     const updated = [...sessionTrades, newTrade];
     setSessionTrades(updated);
-    saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, updated);
+    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
     setIsAddTradeModalOpen(false);
   };
 
@@ -315,7 +315,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     soundFx.playSuccess();
     
     // Fetch stored connected accounts
-    const storedAccounts = loadStoredData('goodtrader_accounts_data', []);
+    const storedAccounts = loadStoredData('tradepigeon_accounts_data', []);
     if (!storedAccounts || storedAccounts.length === 0) {
       setIsBrokerModalOpen(true);
       return;
@@ -366,13 +366,13 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       return { ...acc, status: 'SYNCED (LIVE)' };
     });
 
-    saveStoredData('goodtrader_accounts_data', updatedAccounts);
+    saveStoredData('tradepigeon_accounts_data', updatedAccounts);
     setConnectedAccounts(updatedAccounts);
 
     if (newTradesAdded.length > 0) {
       const updatedTrades = [...newTradesAdded, ...sessionTrades];
       setSessionTrades(updatedTrades);
-      saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, updatedTrades);
+      saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updatedTrades);
     }
     setLastAutoSyncedTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
   };
@@ -390,7 +390,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
   const handleVerifyAllTradesAndLockAudit = () => {
     // Check if Pre-Session steps 1 & 2 are completed
-    const completedSteps = loadStoredData('goodtrader_completed_steps', []);
+    const completedSteps = loadStoredData('tradepigeon_completed_steps', []);
     if (!completedSteps.includes(1) || !completedSteps.includes(2)) {
       alert('Behavioral Protocol Requirement: Please complete Pre-Session Mindset Check (Step 1) & Playbook Sizing (Step 2) before verifying post-session trades!');
       return;
@@ -399,14 +399,14 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     soundFx.playLevelUp();
     const verified = sessionTrades.map(t => ({ ...t, verified: true }));
     setSessionTrades(verified);
-    saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, verified);
+    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, verified);
 
     const winCount = verified.filter(t => t.type === 'win').length;
     const goodLossCount = verified.filter(t => t.type === 'good_loss' || t.type === 'breakeven').length;
     const toxicWinCount = verified.filter(t => t.type === 'toxic_win' || t.type === 'toxic_be').length;
     const doubleFailureCount = verified.filter(t => t.type === 'double_failure').length;
 
-    saveStoredData(`goodtrader_trade_counts_day_${activeAuditDay}`, {
+    saveStoredData(`tradepigeon_trade_counts_day_${activeAuditDay}`, {
       winCount,
       goodLossCount,
       toxicWinCount,
@@ -415,15 +415,15 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
     if (!completedSteps.includes(4)) {
       const updatedSteps = [...completedSteps, 4];
-      saveStoredData('goodtrader_completed_steps', updatedSteps);
+      saveStoredData('tradepigeon_completed_steps', updatedSteps);
     }
 
     setTradingStatusState('DONE');
-    saveStoredData('goodtrader_trading_status', 'DONE');
+    saveStoredData('tradepigeon_trading_status', 'DONE');
 
-    const completedDays = loadStoredData('goodtrader_completed_days', []);
+    const completedDays = loadStoredData('tradepigeon_completed_days', []);
     if (!completedDays.includes(activeAuditDay)) {
-      saveStoredData('goodtrader_completed_days', [...completedDays, activeAuditDay]);
+      saveStoredData('tradepigeon_completed_days', [...completedDays, activeAuditDay]);
     }
   };
 
@@ -444,9 +444,9 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     }
     setShowAuditPrompt(false);
     setTradingStatusState(newStatus);
-    saveStoredData('goodtrader_trading_status', newStatus);
+    saveStoredData('tradepigeon_trading_status', newStatus);
     const isVac = newStatus === 'VACATION';
-    saveStoredData('goodtrader_vacation_active', isVac);
+    saveStoredData('tradepigeon_vacation_active', isVac);
     if (!isVac) {
       clearVacationRange();
     }
@@ -456,10 +456,10 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
   const [vacationDurationDays, setVacationDurationDays] = useState(7);
 
-  const [calendarViewMode, setCalendarViewMode] = useState(() => loadStoredData('goodtrader_calendar_view_mode', 'discipline'));
+  const [calendarViewMode, setCalendarViewMode] = useState(() => loadStoredData('tradepigeon_calendar_view_mode', 'discipline'));
 
   useEffect(() => {
-    saveStoredData('goodtrader_calendar_view_mode', calendarViewMode);
+    saveStoredData('tradepigeon_calendar_view_mode', calendarViewMode);
   }, [calendarViewMode]);
 
   // Initial Default Months Data (Clean 100% Zero-State)
@@ -561,7 +561,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const safeMonths = Array.isArray(monthsData) && monthsData.length > 0 ? monthsData : defaultMonths;
   const safeMonthIndex = currentMonthIndex < safeMonths.length ? currentMonthIndex : 1;
   const currentMonthData = safeMonths[safeMonthIndex] || defaultMonths[1];
-  const [dailyNotes, setDailyNotes] = useState(() => loadStoredData('goodtrader_daily_notes', {}));
+  const [dailyNotes, setDailyNotes] = useState(() => loadStoredData('tradepigeon_daily_notes', {}));
 
   const [isIntegrityModalOpen, setIsIntegrityModalOpen] = useState(false);
   const [integrityMessage, setIntegrityMessage] = useState('');
@@ -632,9 +632,9 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       }
     }
     setMonthsData(updatedMonths);
-    saveStoredData('goodtrader_months_data', updatedMonths);
+    saveStoredData('tradepigeon_months_data', updatedMonths);
     setIsVacationActive(true);
-    saveStoredData('goodtrader_vacation_active', true);
+    saveStoredData('tradepigeon_vacation_active', true);
     setIsVacationModalOpen(false);
   };
 
@@ -653,7 +653,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
         }
       });
       setMonthsData(updatedMonths);
-      saveStoredData('goodtrader_months_data', updatedMonths);
+      saveStoredData('tradepigeon_months_data', updatedMonths);
     }
   };
 
@@ -1016,7 +1016,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                     };
                     const updated = [...sessionTrades, newMissed];
                     setSessionTrades(updated);
-                    saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, updated);
+                    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
                   }}
                   className="text-[9px] font-black px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-400 cursor-pointer transition-all flex items-center gap-1"
                   title="Log a setup that presented but you hesitated or missed"
@@ -1043,7 +1043,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                       if (window.confirm("Clear all of today's trades?")) {
                         soundFx.playPop();
                         setSessionTrades([]);
-                        saveStoredData(`goodtrader_session_trades_day_${activeAuditDay}`, []);
+                        saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, []);
                       }
                     }}
                     className="text-[9px] font-black px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 cursor-pointer transition-all flex items-center gap-1"
@@ -1454,7 +1454,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                     onClick={() => {
                       soundFx.playSuccess();
                       setVacationDurationDays(days);
-                      saveStoredData('goodtrader_vacation_duration', days);
+                      saveStoredData('tradepigeon_vacation_duration', days);
                       handleApplyVacationRange(days);
                     }}
                     className={`py-2 px-2 rounded-xl text-xs font-black transition-all cursor-pointer border-2 ${
@@ -1699,8 +1699,8 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
             setIsDebriefModalOpen(false);
             toggleTask(4);
             setTradingStatusState('DONE');
-            saveStoredData('goodtrader_trading_status', 'DONE');
-            saveStoredData('goodtrader_vacation_active', false);
+            saveStoredData('tradepigeon_trading_status', 'DONE');
+            saveStoredData('tradepigeon_vacation_active', false);
             soundFx.playLevelUp();
           }}
         />
@@ -1880,7 +1880,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 onClick={() => {
                   handleApplyVacationRange(vacationDurationDays);
                   setTradingStatusState('VACATION');
-                  saveStoredData('goodtrader_trading_status', 'VACATION');
+                  saveStoredData('tradepigeon_trading_status', 'VACATION');
                 }}
                 className="duo-btn-blue flex-1 py-3 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg cursor-pointer !bg-[#00F0FF] !text-slate-950 !border-[#00B3BF]"
               >
@@ -1899,7 +1899,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
           isOpen={isBrokerModalOpen}
           onClose={() => setIsBrokerModalOpen(false)}
           onAccountAdded={({ account, accounts }) => {
-            const allAccs = loadStoredData('goodtrader_accounts_data', []);
+            const allAccs = loadStoredData('tradepigeon_accounts_data', []);
             setConnectedAccounts(allAccs);
             if (account?.name) {
               setSelectedBasketFilter(account.name);

@@ -4,15 +4,15 @@ import { DuoTrophyIcon } from './DuoIcons';
 import { loadStoredData, subscribeToStorageUpdate, DEFAULT_USER_STATS } from '../utils/storage';
 
 export default function LeaderboardTab() {
-  const [userDp, setUserDp] = useState(() => loadStoredData('goodtrader_user_dp', 0));
-  const [userStats, setUserStats] = useState(() => loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS));
+  const [userDp, setUserDp] = useState(() => loadStoredData('tradepigeon_user_dp', 0));
+  const [userStats, setUserStats] = useState(() => loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS));
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === 'goodtrader_user_dp') {
+      if (key === 'tradepigeon_user_dp') {
         setUserDp(Number(value) || 0);
       }
-      if (key === 'goodtrader_user_stats') {
+      if (key === 'tradepigeon_user_stats') {
         setUserStats(value || DEFAULT_USER_STATS);
       }
     });
@@ -20,7 +20,7 @@ export default function LeaderboardTab() {
   }, []);
 
   // Total registered traders in active division cohort
-  const totalUserCount = loadStoredData('goodtrader_total_user_count', 68);
+  const totalUserCount = loadStoredData('tradepigeon_total_user_count', 68);
   const isLocked = totalUserCount < 50;
 
   const peerTraders = [

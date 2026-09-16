@@ -17,7 +17,7 @@ export default function GuidebookModal({ isOpen, onClose }) {
             <DuoBookIcon className="w-10 h-10 shrink-0 drop-shadow-md" />
             <div>
               <span className="text-[10px] font-black uppercase text-[#1CB0F6] tracking-wider block">OFFICIAL PROTOCOL HANDBOOK</span>
-              <h2 className="text-2xl font-black text-white leading-tight">GoodTrader Guidebook</h2>
+              <h2 className="text-2xl font-black text-white leading-tight">TradePigeon Guidebook</h2>
             </div>
           </div>
 

@@ -19,7 +19,7 @@ export default function LegalModal({ isOpen, onClose, documentType = 'TERMS' }) 
       })
       .catch((err) => {
         console.error('[Legal Modal Load Error]:', err);
-        setContent('# Terms & Risk Disclaimer\n\nGoodTrader is an educational trading psychology and behavioral tracking software. Trading futures and forex carries substantial risk of loss.');
+        setContent('# Terms & Risk Disclaimer\n\nTradePigeon is an educational trading psychology and behavioral tracking software. Trading futures and forex carries substantial risk of loss.');
         setLoading(false);
       });
   }, [isOpen, documentType]);

@@ -4,11 +4,11 @@ import { soundFx } from '../utils/audioEngine';
 import { loadStoredData, subscribeToStorageUpdate, DEFAULT_USER_STATS } from '../utils/storage';
 
 export default function TopStatBar({ onOpenRulesModal }) {
-  const [stats, setStats] = useState(() => loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS));
+  const [stats, setStats] = useState(() => loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS));
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === 'goodtrader_user_stats') {
+      if (key === 'tradepigeon_user_stats') {
         setStats(value || DEFAULT_USER_STATS);
       }
     });

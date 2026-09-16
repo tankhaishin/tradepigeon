@@ -17,27 +17,27 @@ import GuidebookModal from './GuidebookModal';
 import BrokerConnectModal from './BrokerConnectModal';
 
 export default function CenterPath() {
-  const [activeStep, setActiveStep] = useState(() => loadStoredData('goodtrader_active_step', 1));
+  const [activeStep, setActiveStep] = useState(() => loadStoredData('tradepigeon_active_step', 1));
   const [isStepModalOpen, setIsStepModalOpen] = useState(false);
   const [isGuidebookModalOpen, setIsGuidebookModalOpen] = useState(false);
-  const [completedSteps, setCompletedSteps] = useState(() => loadStoredData('goodtrader_completed_steps', []));
-  const [currentDay, setCurrentDay] = useState(() => loadStoredData('goodtrader_current_day', 1));
-  const [completedDays, setCompletedDays] = useState(() => loadStoredData('goodtrader_completed_days', []));
-  const [isVacationActive, setIsVacationActive] = useState(() => loadStoredData('goodtrader_vacation_active', false));
+  const [completedSteps, setCompletedSteps] = useState(() => loadStoredData('tradepigeon_completed_steps', []));
+  const [currentDay, setCurrentDay] = useState(() => loadStoredData('tradepigeon_current_day', 1));
+  const [completedDays, setCompletedDays] = useState(() => loadStoredData('tradepigeon_completed_days', []));
+  const [isVacationActive, setIsVacationActive] = useState(() => loadStoredData('tradepigeon_vacation_active', false));
   const [showDetailsState, setShowDetailsState] = useState({});
-  const [sessionTrades, setSessionTrades] = useState(() => loadStoredData(`goodtrader_session_trades_day_${currentDay}`, []));
+  const [sessionTrades, setSessionTrades] = useState(() => loadStoredData(`tradepigeon_session_trades_day_${currentDay}`, []));
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
   const [isSyncingFills, setIsSyncingFills] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === `goodtrader_session_trades_day_${currentDay}`) {
+      if (key === `tradepigeon_session_trades_day_${currentDay}`) {
         setSessionTrades(value || []);
       }
-      if (key === 'goodtrader_completed_steps') {
+      if (key === 'tradepigeon_completed_steps') {
         setCompletedSteps(value || []);
       }
-      if (key === 'goodtrader_accounts_data') {
+      if (key === 'tradepigeon_accounts_data') {
         setAccountsData(value || []);
       }
     });
@@ -48,7 +48,7 @@ export default function CenterPath() {
 
   useEffect(() => {
     const checkVacation = () => {
-      setIsVacationActive(loadStoredData('goodtrader_vacation_active', false));
+      setIsVacationActive(loadStoredData('tradepigeon_vacation_active', false));
     };
     window.addEventListener('storage', checkVacation);
     const interval = setInterval(checkVacation, 1000);
@@ -148,9 +148,9 @@ export default function CenterPath() {
   const [isDebriefOpen, setIsDebriefOpen] = useState(false);
   const [selectedSetupTags, setSelectedSetupTags] = useState(['Breakout & Retest', 'S/R Level Sweep']);
   const [expandedModuleId, setExpandedModuleId] = useState('mod_1');
-  const [basketsList, setBasketsList] = useState(() => loadStoredData('goodtrader_baskets_list', []));
+  const [basketsList, setBasketsList] = useState(() => loadStoredData('tradepigeon_baskets_list', []));
   const [basketCheckedRules, setBasketCheckedRules] = useState({});
-  const [accountsData, setAccountsData] = useState(() => loadStoredData('goodtrader_accounts_data', []));
+  const [accountsData, setAccountsData] = useState(() => loadStoredData('tradepigeon_accounts_data', []));
 
   const formatAccSize = (acc) => {
     if (!acc) return '$100k';
@@ -164,17 +164,17 @@ export default function CenterPath() {
   const [presetToast, setPresetToast] = useState('');
 
   const handleSavePreset = () => {
-    saveStoredData('goodtrader_basket_preset', accountsData);
-    saveStoredData('goodtrader_accounts_data', accountsData);
+    saveStoredData('tradepigeon_basket_preset', accountsData);
+    saveStoredData('tradepigeon_accounts_data', accountsData);
     setPresetToast('Preset saved! Future daily sessions will auto-load this setup.');
     setTimeout(() => setPresetToast(''), 3000);
   };
 
   const handleLoadPreset = () => {
-    const saved = loadStoredData('goodtrader_basket_preset', null);
+    const saved = loadStoredData('tradepigeon_basket_preset', null);
     if (saved) {
       setAccountsData(saved);
-      saveStoredData('goodtrader_accounts_data', saved);
+      saveStoredData('tradepigeon_accounts_data', saved);
       setPresetToast('Saved preset loaded successfully!');
     } else {
       setPresetToast('ℹ️ Using current default basket configuration.');
@@ -193,7 +193,7 @@ export default function CenterPath() {
     });
 
     setAccountsData(updated);
-    saveStoredData('goodtrader_accounts_data', updated);
+    saveStoredData('tradepigeon_accounts_data', updated);
     setDraggedAccountId(null);
     setActiveDragTargetBasket(null);
     soundFx.playSuccess();
@@ -208,7 +208,7 @@ export default function CenterPath() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccessMsg, setSyncSuccessMsg] = useState('');
 
-  const [strategyLibrary, setStrategyLibrary] = useState(() => loadStoredData('goodtrader_strategy_library', [
+  const [strategyLibrary, setStrategyLibrary] = useState(() => loadStoredData('tradepigeon_strategy_library', [
     { id: 'strat_1', name: 'Breakout & Retest (Key S/R)', rules: ['Key Liquidity Level Swept', '15m Candle Confirmation', 'Minimum 2.0 R:R Target'] },
     { id: 'strat_2', name: 'Key S/R Sweep (Liquidity Grab)', rules: ['Asian High/Low Swept', 'Displacement Back into Range', 'Stop Loss Above Sweep High'] },
     { id: 'strat_3', name: 'Trend Continuation (VWAP Pullback)', rules: ['HTF Trend Direction Aligned', 'VWAP Retest Level Held', 'First Pullback of Session'] },
@@ -222,14 +222,14 @@ export default function CenterPath() {
 
     const updated = strategyLibrary.map(s => s.id === stratId ? { ...s, rules: [...s.rules, cleanRule] } : s);
     setStrategyLibrary(updated);
-    saveStoredData('goodtrader_strategy_library', updated);
+    saveStoredData('tradepigeon_strategy_library', updated);
     soundFx.playSuccess();
   };
 
   const handleRemoveRuleFromStrategy = (stratId, ruleIndex) => {
     const updated = strategyLibrary.map(s => s.id === stratId ? { ...s, rules: s.rules.filter((_, idx) => idx !== ruleIndex) } : s);
     setStrategyLibrary(updated);
-    saveStoredData('goodtrader_strategy_library', updated);
+    saveStoredData('tradepigeon_strategy_library', updated);
     soundFx.playPop();
   };
 
@@ -263,7 +263,7 @@ export default function CenterPath() {
   useEffect(() => {
     const sanitized = sanitizeAccountBasketData(accountsData, basketsList);
     setAccountsData(sanitized);
-    saveStoredData('goodtrader_accounts_data', sanitized);
+    saveStoredData('tradepigeon_accounts_data', sanitized);
 
     if (selectedCockpitAcc !== 'ALL') {
       const exists = sanitized.some(a => String(a.id) === String(selectedCockpitAcc) || a.name === selectedCockpitAcc);
@@ -271,7 +271,7 @@ export default function CenterPath() {
     }
 
     // Check for missed day / mercy catch-up
-    const lastDebriefDate = loadStoredData('goodtrader_last_debrief_date', null);
+    const lastDebriefDate = loadStoredData('tradepigeon_last_debrief_date', null);
     const todayStr = new Date().toLocaleDateString();
     
     if (lastDebriefDate && lastDebriefDate !== todayStr) {
@@ -279,14 +279,14 @@ export default function CenterPath() {
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toLocaleDateString();
       
-      const processedMercyDate = loadStoredData('goodtrader_processed_mercy_date', null);
+      const processedMercyDate = loadStoredData('tradepigeon_processed_mercy_date', null);
       if (processedMercyDate !== yesterdayStr && yesterday.getDay() !== 0 && yesterday.getDay() !== 6) {
         const purchasedShopItemsRaw = loadStoredData(STORAGE_KEYS.SHOP_ITEMS, []);
         const purchasedShopItems = Array.isArray(purchasedShopItemsRaw) ? purchasedShopItemsRaw : [];
         if (purchasedShopItems.includes('streak_freeze')) {
           const updatedShopItems = purchasedShopItems.filter(i => i !== 'streak_freeze');
           saveStoredData(STORAGE_KEYS.SHOP_ITEMS, updatedShopItems);
-          saveStoredData('goodtrader_processed_mercy_date', yesterdayStr);
+          saveStoredData('tradepigeon_processed_mercy_date', yesterdayStr);
           setPresetToast('Streak Shield automatically consumed! Your 14-Day Streak is protected.');
           setTimeout(() => setPresetToast(''), 4000);
         } else {
@@ -315,11 +315,11 @@ export default function CenterPath() {
     
     const updatedBaskets = basketsList.map(b => b.name === oldName ? { ...b, name: cleanName } : b);
     setBasketsList(updatedBaskets);
-    saveStoredData('goodtrader_baskets_list', updatedBaskets);
+    saveStoredData('tradepigeon_baskets_list', updatedBaskets);
 
     const updatedAccounts = accountsData.map(acc => acc.basketName === oldName ? { ...acc, basketName: cleanName } : acc);
     setAccountsData(updatedAccounts);
-    saveStoredData('goodtrader_accounts_data', updatedAccounts);
+    saveStoredData('tradepigeon_accounts_data', updatedAccounts);
     soundFx.playSuccess();
   };
 
@@ -334,7 +334,7 @@ export default function CenterPath() {
     };
     const updatedBaskets = [...basketsList, newBasket];
     setBasketsList(updatedBaskets);
-    saveStoredData('goodtrader_baskets_list', updatedBaskets);
+    saveStoredData('tradepigeon_baskets_list', updatedBaskets);
     soundFx.playSuccess();
   };
 
@@ -347,13 +347,13 @@ export default function CenterPath() {
 
     const updatedBaskets = basketsList.filter(b => b.id !== basketId);
     setBasketsList(updatedBaskets);
-    saveStoredData('goodtrader_baskets_list', updatedBaskets);
+    saveStoredData('tradepigeon_baskets_list', updatedBaskets);
 
     const updatedAccounts = accountsData.map(acc => 
       acc.basketName === basketName ? { ...acc, basketName: 'No Trade Today' } : acc
     );
     setAccountsData(updatedAccounts);
-    saveStoredData('goodtrader_accounts_data', updatedAccounts);
+    saveStoredData('tradepigeon_accounts_data', updatedAccounts);
     soundFx.playPop();
   };
 
@@ -375,17 +375,17 @@ export default function CenterPath() {
       } : acc
     );
     setAccountsData(updated);
-    saveStoredData('goodtrader_accounts_data', updated);
+    saveStoredData('tradepigeon_accounts_data', updated);
     soundFx.playSuccess();
     setSelectedAccountToEdit(null);
   };
 
   useEffect(() => {
-    saveStoredData('goodtrader_active_step', activeStep);
+    saveStoredData('tradepigeon_active_step', activeStep);
   }, [activeStep]);
 
   useEffect(() => {
-    saveStoredData('goodtrader_completed_steps', completedSteps);
+    saveStoredData('tradepigeon_completed_steps', completedSteps);
   }, [completedSteps]);
 
   // Market Wizard Quote of the Day state
@@ -426,11 +426,11 @@ export default function CenterPath() {
   ];
 
   useEffect(() => {
-    saveStoredData('goodtrader_current_day', currentDay);
+    saveStoredData('tradepigeon_current_day', currentDay);
   }, [currentDay]);
 
   useEffect(() => {
-    saveStoredData('goodtrader_completed_days', completedDays);
+    saveStoredData('tradepigeon_completed_days', completedDays);
   }, [completedDays]);
 
   const markStepComplete = (stepNum) => {
@@ -442,16 +442,16 @@ export default function CenterPath() {
       if (!completedDays.includes(currentDay)) {
         const nextCompletedDays = [...completedDays, currentDay];
         setCompletedDays(nextCompletedDays);
-        saveStoredData('goodtrader_completed_days', nextCompletedDays);
+        saveStoredData('tradepigeon_completed_days', nextCompletedDays);
       }
       const nextDay = currentDay + 1;
       setCurrentDay(nextDay);
-      saveStoredData('goodtrader_current_day', nextDay);
+      saveStoredData('tradepigeon_current_day', nextDay);
       setCompletedSteps([]);
-      saveStoredData('goodtrader_completed_steps', []);
+      saveStoredData('tradepigeon_completed_steps', []);
       setActiveStep(1);
       setIsStepModalOpen(false);
-      saveStoredData('goodtrader_trading_status', 'DONE');
+      saveStoredData('tradepigeon_trading_status', 'DONE');
     } else {
       setActiveStep(stepNum + 1);
     }
@@ -586,7 +586,7 @@ export default function CenterPath() {
                               onClick={() => {
                                 soundFx.playPop();
                                 setCompletedSteps([]);
-                                saveStoredData('goodtrader_completed_steps', []);
+                                saveStoredData('tradepigeon_completed_steps', []);
                               }}
                               className="px-3.5 py-1.5 rounded-2xl bg-white/20 hover:bg-white/30 text-white text-xs font-black border border-white/30 flex items-center gap-1.5 cursor-pointer backdrop-blur-sm transition-all active:scale-95 shadow-sm"
                             >
@@ -760,14 +760,14 @@ export default function CenterPath() {
                       <div className="flex items-start gap-3.5 py-3 border-y border-[#1C2A4E]">
                         <Duo3dZenBadge className="w-10 h-10 shrink-0 drop-shadow-md mt-0.5" />
                         <p className="text-base font-black text-white leading-snug italic flex-1 min-w-0">
-                          "{loadStoredData(`goodtrader_session_note_day_${dayNum}`, 'No session debrief note recorded for this day.')}"
+                          "{loadStoredData(`tradepigeon_session_note_day_${dayNum}`, 'No session debrief note recorded for this day.')}"
                         </p>
                       </div>
 
                       {/* 2. PROCESS-FIRST BEHAVIORAL MATRIX (VIBRANT ONLY FOR CATEGORIES WITH TRADES TAKEN) */}
                       {(() => {
-                        const dayTrades = loadStoredData(`goodtrader_session_trades_day_${dayNum}`, []);
-                        const savedCounts = loadStoredData(`goodtrader_trade_counts_day_${dayNum}`, { winCount: 0, goodLossCount: 0, toxicWinCount: 0, doubleFailureCount: 0 });
+                        const dayTrades = loadStoredData(`tradepigeon_session_trades_day_${dayNum}`, []);
+                        const savedCounts = loadStoredData(`tradepigeon_trade_counts_day_${dayNum}`, { winCount: 0, goodLossCount: 0, toxicWinCount: 0, doubleFailureCount: 0 });
 
                         const winCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'win').length : (savedCounts.winCount || 0);
                         const goodLossCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'good_loss').length : (savedCounts.goodLossCount || 0);
@@ -1221,7 +1221,7 @@ export default function CenterPath() {
                               onClick={() => {
                                 const reset = accountsData.map(a => ({ ...a, basketName: 'UNASSIGNED' }));
                                 setAccountsData(reset);
-                                saveStoredData('goodtrader_accounts_data', reset);
+                                saveStoredData('tradepigeon_accounts_data', reset);
                                 soundFx.playPop();
                               }}
                               className="px-3 py-1 rounded-xl bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-100 text-[10px] uppercase font-black transition-all cursor-pointer"
@@ -1397,7 +1397,7 @@ export default function CenterPath() {
                                         // Unassign account back to top rack
                                         const updated = accountsData.map(a => a.id === acc.id ? { ...a, basketName: 'UNASSIGNED' } : a);
                                         setAccountsData(updated);
-                                        saveStoredData('goodtrader_accounts_data', updated);
+                                        saveStoredData('tradepigeon_accounts_data', updated);
                                         soundFx.playPop();
                                       }}
                                       className="w-4 h-4 rounded-full bg-slate-200 hover:bg-rose-500 hover:text-white text-slate-600 font-black text-[10px] flex items-center justify-center transition-all cursor-pointer ml-1"
@@ -1675,7 +1675,7 @@ export default function CenterPath() {
         currentDay={currentDay}
         onSaveSession={(userNotes) => {
           if (userNotes && userNotes.trim() !== '') {
-            saveStoredData(`goodtrader_session_note_day_${currentDay}`, userNotes.trim());
+            saveStoredData(`tradepigeon_session_note_day_${currentDay}`, userNotes.trim());
           }
           markStepComplete(4);
           setIsStepModalOpen(false);
@@ -1708,7 +1708,7 @@ export default function CenterPath() {
               <button
                 onClick={() => {
                   soundFx.playSuccess();
-                  saveStoredData('goodtrader_processed_mercy_date', mercyDateStr);
+                  saveStoredData('tradepigeon_processed_mercy_date', mercyDateStr);
                   setIsMercyModalOpen(false);
                   setPresetToast('Yesterday marked as Rest Day! Your active streak is intact.');
                   setTimeout(() => setPresetToast(''), 4000);
@@ -1722,7 +1722,7 @@ export default function CenterPath() {
               <button
                 onClick={() => {
                   soundFx.playPop();
-                  saveStoredData('goodtrader_processed_mercy_date', mercyDateStr);
+                  saveStoredData('tradepigeon_processed_mercy_date', mercyDateStr);
                   setIsMercyModalOpen(false);
                   setIsDebriefOpen(true);
                 }}
@@ -1735,7 +1735,7 @@ export default function CenterPath() {
               <button
                 onClick={() => {
                   soundFx.playPop();
-                  saveStoredData('goodtrader_processed_mercy_date', mercyDateStr);
+                  saveStoredData('tradepigeon_processed_mercy_date', mercyDateStr);
                   setIsMercyModalOpen(false);
                   setPresetToast('Honesty acknowledged! Streak reset, +50 DP awarded.');
                   setTimeout(() => setPresetToast(''), 4000);
@@ -1763,7 +1763,7 @@ export default function CenterPath() {
         onAccountAdded={(newAcc) => {
           const updated = [newAcc, ...accountsData];
           setAccountsData(updated);
-          saveStoredData('goodtrader_accounts_data', updated);
+          saveStoredData('tradepigeon_accounts_data', updated);
           soundFx.playLevelUp();
           setIsBrokerModalOpen(false);
           setPresetToast(`Connected ${newAcc.name || 'Broker'} successfully!`);

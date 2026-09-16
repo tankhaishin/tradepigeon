@@ -82,8 +82,8 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
     soundFx.playSuccess();
 
     try {
-      const currentDay = loadStoredData('goodtrader_current-day', 1);
-      const sessionKey = `goodtrader_session_trades_day_${currentDay}`;
+      const currentDay = loadStoredData('tradepigeon_current-day', 1);
+      const sessionKey = `tradepigeon_session_trades_day_${currentDay}`;
       const existingSessionTrades = loadStoredData(sessionKey, []);
 
       // Assign the specified account name to all trades
@@ -100,8 +100,8 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
       const mergedSessionTrades = [...newTrades, ...existingSessionTrades];
       saveStoredData(sessionKey, mergedSessionTrades);
 
-      // Also register or update the account in goodtrader_accounts_data
-      const currentAccounts = loadStoredData('goodtrader_accounts_data', []);
+      // Also register or update the account in tradepigeon_accounts_data
+      const currentAccounts = loadStoredData('tradepigeon_accounts_data', []);
       const existingAccIndex = currentAccounts.findIndex(a => 
         (a.name && a.name.toLowerCase() === accountName.trim().toLowerCase()) ||
         (a.accountNumber && a.accountNumber.toLowerCase() === accountName.trim().toLowerCase())
@@ -128,7 +128,7 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
           isActive: true
         });
       }
-      saveStoredData('goodtrader_accounts_data', updatedAccounts);
+      saveStoredData('tradepigeon_accounts_data', updatedAccounts);
 
       if (onSuccess) {
         onSuccess(newTrades.length, accountName.trim());

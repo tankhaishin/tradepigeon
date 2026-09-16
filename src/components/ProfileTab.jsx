@@ -19,8 +19,8 @@ import {
 
 export default function ProfileTab() {
   const { user, signOutUser } = useAuth();
-  const [googleUser, setGoogleUser] = useState(() => loadStoredData('goodtrader_google_user', null));
-  const [isPro, setIsPro] = useState(() => loadStoredData('goodtrader_is_pro', false));
+  const [googleUser, setGoogleUser] = useState(() => loadStoredData('tradepigeon_google_user', null));
+  const [isPro, setIsPro] = useState(() => loadStoredData('tradepigeon_is_pro', false));
   const [activeSubTab, setActiveSubTab] = useState('DEBRIEF_HISTORY');
   const [isProcessingStripe, setIsProcessingStripe] = useState(false);
   const [profileToast, setProfileToast] = useState('');
@@ -79,11 +79,11 @@ export default function ProfileTab() {
     soundFx.playPop();
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith('goodtrader_session_trades_')) {
+      if (k && k.startsWith('tradepigeon_session_trades_')) {
         localStorage.removeItem(k);
       }
     }
-    window.dispatchEvent(new CustomEvent('goodtrader-storage-update', { detail: { key: 'trades_cleared', value: Date.now() } }));
+    window.dispatchEvent(new CustomEvent('tradepigeon-storage-update', { detail: { key: 'trades_cleared', value: Date.now() } }));
     triggerToast("Today's session trades wiped clean.");
   };
 
@@ -120,26 +120,26 @@ export default function ProfileTab() {
       } catch (err) {
         console.warn('[Sign Out Error]:', err);
       }
-      saveStoredData('goodtrader_google_user', null);
+      saveStoredData('tradepigeon_google_user', null);
       triggerToast('Signed out of TradePigeon');
     }
   };
 
   // VERIFIED TRADING EDGE LOG (Loaded from Storage with clean zero-state and live reactivity)
-  const [historicalLogs, setHistoricalLogs] = useState(() => loadStoredData('goodtrader_debrief_history', []));
+  const [historicalLogs, setHistoricalLogs] = useState(() => loadStoredData('tradepigeon_debrief_history', []));
 
   // Connected Auto-Synced Trading Accounts (Loaded from Storage with clean zero-state)
-  const [connectedAccounts, setConnectedAccounts] = useState(() => loadStoredData('goodtrader_accounts_data', []));
+  const [connectedAccounts, setConnectedAccounts] = useState(() => loadStoredData('tradepigeon_accounts_data', []));
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === 'goodtrader_accounts_data') {
+      if (key === 'tradepigeon_accounts_data') {
         setConnectedAccounts(value || []);
       }
-      if (key === 'goodtrader_debrief_history') {
+      if (key === 'tradepigeon_debrief_history') {
         setHistoricalLogs(value || []);
       }
-      if (key === 'goodtrader_is_pro') {
+      if (key === 'tradepigeon_is_pro') {
         setIsPro(Boolean(value));
       }
     });
@@ -150,7 +150,7 @@ export default function ProfileTab() {
     soundFx.playPop();
     const updated = connectedAccounts.filter((a) => a.id !== accountId && a.name !== accountId);
     setConnectedAccounts(updated);
-    saveStoredData('goodtrader_accounts_data', updated);
+    saveStoredData('tradepigeon_accounts_data', updated);
     triggerToast('Account disconnected successfully');
   };
 
@@ -162,7 +162,7 @@ export default function ProfileTab() {
     if (action === 'DISCONNECT_KEEP_TRADES') {
       const updated = connectedAccounts.filter((a) => a.id !== acc.id && a.name !== acc.name);
       setConnectedAccounts(updated);
-      saveStoredData('goodtrader_accounts_data', updated);
+      saveStoredData('tradepigeon_accounts_data', updated);
       triggerToast(`Disconnected ${acc.name}. Historical trades preserved.`);
     } else if (action === 'WIPE_TRADES_KEEP_ACCOUNT') {
       const wipedCount = wipeAccountTrades(acc.name || acc.id);
@@ -171,7 +171,7 @@ export default function ProfileTab() {
       const wipedCount = wipeAccountTrades(acc.name || acc.id);
       const updated = connectedAccounts.filter((a) => a.id !== acc.id && a.name !== acc.name);
       setConnectedAccounts(updated);
-      saveStoredData('goodtrader_accounts_data', updated);
+      saveStoredData('tradepigeon_accounts_data', updated);
       triggerToast(`Disconnected ${acc.name} & purged ${wipedCount} trades.`);
     }
     setAccountActionTarget(null);
@@ -180,13 +180,13 @@ export default function ProfileTab() {
   const handleClearAllAccounts = () => {
     soundFx.playPop();
     setConnectedAccounts([]);
-    saveStoredData('goodtrader_accounts_data', []);
+    saveStoredData('tradepigeon_accounts_data', []);
     triggerToast('All connected accounts cleared');
   };
 
   // Live User Stats from Storage
-  const userStats = loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS);
-  const userDp = loadStoredData('goodtrader_user_dp', 0);
+  const userStats = loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS);
+  const userDp = loadStoredData('tradepigeon_user_dp', 0);
   const activeUser = user || googleUser;
 
   return (

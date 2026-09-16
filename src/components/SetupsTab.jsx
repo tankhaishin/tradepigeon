@@ -17,28 +17,28 @@ export default function SetupsTab() {
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
   const [isManualTradeModalOpen, setIsManualTradeModalOpen] = useState(false);
-  const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('goodtrader_stealth_mode', false));
-  const [playbookSetups, setPlaybookSetups] = useState(() => loadStoredData('goodtrader_playbook_setups', buildDefaultPlaybooks()));
+  const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('tradepigeon_stealth_mode', false));
+  const [playbookSetups, setPlaybookSetups] = useState(() => loadStoredData('tradepigeon_playbook_setups', buildDefaultPlaybooks()));
 
   // Auto-Sync Accounts State
-  const [syncedAccounts, setSyncedAccounts] = useState(() => loadStoredData('goodtrader_synced_accounts', []));
+  const [syncedAccounts, setSyncedAccounts] = useState(() => loadStoredData('tradepigeon_synced_accounts', []));
 
   // LIVE TRADE EXECUTIONS LOG TABLE DATA (Consolidates session trades, imports, and manual entries)
   const [tradeLogs, setTradeLogs] = useState(() => {
     const all = getAllStoredTrades();
     if (all.length > 0) return all;
-    return loadStoredData('goodtrader_tradelogs', []);
+    return loadStoredData('tradepigeon_tradelogs', []);
   });
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === 'goodtrader_stealth_mode') {
+      if (key === 'tradepigeon_stealth_mode') {
         setIsStealthMode(value);
       }
-      if (key === 'goodtrader_playbook_setups') {
+      if (key === 'tradepigeon_playbook_setups') {
         setPlaybookSetups(value);
       }
-      if (key && (key.startsWith('goodtrader_session_trades_') || key === 'goodtrader_tradelogs' || key.startsWith('day_'))) {
+      if (key && (key.startsWith('tradepigeon_session_trades_') || key === 'tradepigeon_tradelogs' || key.startsWith('day_'))) {
         setTradeLogs(getAllStoredTrades());
       }
     });
@@ -85,7 +85,7 @@ export default function SetupsTab() {
   });
 
   useEffect(() => {
-    saveStoredData('goodtrader_tradelogs', tradeLogs);
+    saveStoredData('tradepigeon_tradelogs', tradeLogs);
   }, [tradeLogs]);
 
   // Dynamic Real-Time Matrix Calculation based on active tradeLogs
@@ -148,7 +148,7 @@ export default function SetupsTab() {
     updated.splice(targetIdx, 0, removed);
 
     setPlaybookSetups(updated);
-    saveStoredData('goodtrader_playbook_setups', updated);
+    saveStoredData('tradepigeon_playbook_setups', updated);
     setDraggedSetupId(null);
     soundFx.playPop();
   };
@@ -165,17 +165,17 @@ export default function SetupsTab() {
 
     const updatedPlaybooks = playbookSetups.map(s => s.id === selectedSetup.id ? updatedSetup : s);
     setPlaybookSetups(updatedPlaybooks);
-    saveStoredData('goodtrader_playbook_setups', updatedPlaybooks);
+    saveStoredData('tradepigeon_playbook_setups', updatedPlaybooks);
     setDraggedRuleIdx(null);
     soundFx.playPop();
   };
 
-  const [activePlaybookId, setActivePlaybookId] = useState(() => loadStoredData('goodtrader_active_playbook_id', 1));
+  const [activePlaybookId, setActivePlaybookId] = useState(() => loadStoredData('tradepigeon_active_playbook_id', 1));
 
   const handleSelectActivePlaybook = (setupId) => {
     soundFx.playSuccess();
     setActivePlaybookId(setupId);
-    saveStoredData('goodtrader_active_playbook_id', setupId);
+    saveStoredData('tradepigeon_active_playbook_id', setupId);
   };
 
   // SECTION B: VERIFIED STRATEGY PLAYBOOKS (Clean Zero-State Initial Metrics)
@@ -1154,7 +1154,7 @@ export default function SetupsTab() {
                               if (choice && typeMap[choice.trim()]) {
                                 const updated = tradeLogs.map(t => t.id === log.id ? { ...t, type: typeMap[choice.trim()] } : t);
                                 setTradeLogs(updated);
-                                saveStoredData('goodtrader_tradelogs', updated);
+                                saveStoredData('tradepigeon_tradelogs', updated);
                               }
                             }}
                             className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500 hover:text-slate-950 text-[10px] font-black tracking-wider transition-all cursor-pointer inline-flex items-center gap-1"
@@ -1197,7 +1197,7 @@ export default function SetupsTab() {
                               if (url) {
                                 const updated = tradeLogs.map(t => t.id === log.id ? { ...t, chartUrl: url } : t);
                                 setTradeLogs(updated);
-                                saveStoredData('goodtrader_tradelogs', updated);
+                                saveStoredData('tradepigeon_tradelogs', updated);
                               }
                             }}
                             className="px-2.5 py-1 rounded-lg bg-[#20323D] hover:bg-[#2B3D47] text-slate-400 hover:text-white font-bold text-[10px] transition-all cursor-pointer inline-flex items-center gap-1 border border-[#37464F]"

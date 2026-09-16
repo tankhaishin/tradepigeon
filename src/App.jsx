@@ -41,7 +41,7 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('[GoodTrader ErrorBoundary] Caught error:', error, errorInfo);
+    console.error('[TradePigeon ErrorBoundary] Caught error:', error, errorInfo);
   }
 
   render() {
@@ -72,21 +72,21 @@ class ErrorBoundary extends React.Component {
 
 export default function App() {
   const [googleUser, setGoogleUser] = useState(() => {
-    const saved = loadStoredData('goodtrader_google_user', null);
+    const saved = loadStoredData('tradepigeon_google_user', null);
     if (saved && (saved.email === 'trader@tradepigeon.com' || saved.email === 'alex.trader@gmail.com' || saved.name === 'Trader')) {
-      saveStoredData('goodtrader_google_user', null);
+      saveStoredData('tradepigeon_google_user', null);
       return null;
     }
     return saved;
   });
   const [showLanding, setShowLanding] = useState(() => {
-    const user = loadStoredData('goodtrader_google_user', null);
+    const user = loadStoredData('tradepigeon_google_user', null);
     return !user;
   });
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === 'goodtrader_google_user') {
+      if (key === 'tradepigeon_google_user') {
         setGoogleUser(value);
         if (!value) {
           setShowLanding(true);
@@ -98,7 +98,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('learn');
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(() => {
-    const user = loadStoredData('goodtrader_google_user', null);
+    const user = loadStoredData('tradepigeon_google_user', null);
     const isCompleted = loadStoredData(STORAGE_KEYS.ONBOARDING_COMPLETED, false);
     return !!user && !isCompleted;
   });
@@ -117,7 +117,7 @@ export default function App() {
                        params.get('checkout') === 'success';
 
     if (hasSuccess) {
-      saveStoredData('goodtrader_is_pro', true);
+      saveStoredData('tradepigeon_is_pro', true);
       soundFx.playTrophy();
       setConfettiTrigger(prev => prev + 1);
       // Clean up URL search query without triggering a browser reload
@@ -156,7 +156,7 @@ export default function App() {
   const handleEnterApp = (passedUser) => {
     const currentUser = (passedUser && typeof passedUser === 'object' && passedUser.email) 
       ? passedUser 
-      : loadStoredData('goodtrader_google_user', null);
+      : loadStoredData('tradepigeon_google_user', null);
 
     if (!currentUser || typeof currentUser !== 'object' || !currentUser.email) {
       // Stay on landing page until user selects account or submits login form
@@ -164,8 +164,8 @@ export default function App() {
     }
 
     setGoogleUser(currentUser);
-    saveStoredData('goodtrader_google_user', currentUser);
-    saveStoredData('goodtrader_visited_landing', true);
+    saveStoredData('tradepigeon_google_user', currentUser);
+    saveStoredData('tradepigeon_visited_landing', true);
     setShowLanding(false);
     setConfettiTrigger(Date.now());
     soundFx.playLevelUp();
@@ -179,20 +179,20 @@ export default function App() {
 
   const handleOnboardingComplete = (data) => {
     saveStoredData(STORAGE_KEYS.ONBOARDING_COMPLETED, true);
-    saveStoredData('goodtrader_active_step', 1);
+    saveStoredData('tradepigeon_active_step', 1);
 
     // Auto-generate customized Playbook setups based on trader's onboarding methodology & strategy name
     const customizedPlaybooks = buildDefaultPlaybooks(data?.tradingStyle, data?.strategyName);
-    saveStoredData('goodtrader_playbook_setups', customizedPlaybooks);
+    saveStoredData('tradepigeon_playbook_setups', customizedPlaybooks);
 
     if (data?.connectedBroker) {
-      const existingAccounts = loadStoredData('goodtrader_accounts_data', []);
-      saveStoredData('goodtrader_accounts_data', [data.connectedBroker, ...existingAccounts]);
+      const existingAccounts = loadStoredData('tradepigeon_accounts_data', []);
+      saveStoredData('tradepigeon_accounts_data', [data.connectedBroker, ...existingAccounts]);
     }
 
     if (data?.importedTrades && data.importedTrades.length > 0) {
-      const existingSetups = loadStoredData('goodtrader_setups', []);
-      saveStoredData('goodtrader_setups', [...data.importedTrades, ...existingSetups]);
+      const existingSetups = loadStoredData('tradepigeon_setups', []);
+      saveStoredData('tradepigeon_setups', [...data.importedTrades, ...existingSetups]);
     }
 
     setIsOnboardingOpen(false);

@@ -15,7 +15,7 @@ import GoogleAuthButton from './GoogleAuthButton';
 import AuthModal from './AuthModal';
 
 export default function LandingPage({ onGetStarted, onLogin }) {
-  const [loggedInUser, setLoggedInUser] = useState(() => loadStoredData('goodtrader_google_user', null));
+  const [loggedInUser, setLoggedInUser] = useState(() => loadStoredData('tradepigeon_google_user', null));
   const [isLegalTermsOpen, setIsLegalTermsOpen] = useState(false);
   const [isLegalPrivacyOpen, setIsLegalPrivacyOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -26,7 +26,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === 'goodtrader_google_user') {
+      if (key === 'tradepigeon_google_user') {
         setLoggedInUser(value);
       }
     });
@@ -102,7 +102,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
       authenticatedAt: new Date().toISOString()
     };
 
-    saveStoredData('goodtrader_google_user', userObj);
+    saveStoredData('tradepigeon_google_user', userObj);
     soundFx.playSuccess();
     setIsEmailModalOpen(false);
     onGetStarted(userObj);

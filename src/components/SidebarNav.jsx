@@ -18,9 +18,9 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
   const [isLegalPrivacyOpen, setIsLegalPrivacyOpen] = useState(false);
   const [isGuidebookOpen, setIsGuidebookOpen] = useState(false);
   const [comingSoonFeature, setComingSoonFeature] = useState(null);
-  const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('goodtrader_stealth_mode', false));
+  const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('tradepigeon_stealth_mode', false));
   const [isMuted, setIsMuted] = useState(() => soundFx.isMuted);
-  const [googleUser, setGoogleUser] = useState(() => loadStoredData('goodtrader_google_user', null));
+  const [googleUser, setGoogleUser] = useState(() => loadStoredData('tradepigeon_google_user', null));
 
   const activeUser = user ? {
     name: user.displayName || (user.email ? user.email.split('@')[0] : 'Trader'),
@@ -36,10 +36,10 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === 'goodtrader_google_user') {
+      if (key === 'tradepigeon_google_user') {
         setGoogleUser(value);
       }
-      if (key === 'goodtrader_stealth_mode') {
+      if (key === 'tradepigeon_stealth_mode') {
         setIsStealthMode(value);
       }
     });
@@ -54,7 +54,7 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
       } catch (err) {
         console.error('Sign out error:', err);
       }
-      saveStoredData('goodtrader_google_user', null);
+      saveStoredData('tradepigeon_google_user', null);
       if (onToggleLanding) onToggleLanding();
     }
   };
@@ -63,7 +63,7 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
     soundFx.playPop();
     const next = !isStealthMode;
     setIsStealthMode(next);
-    saveStoredData('goodtrader_stealth_mode', next);
+    saveStoredData('tradepigeon_stealth_mode', next);
   };
 
   const navItems = [

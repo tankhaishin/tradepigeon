@@ -3,14 +3,14 @@ import { db, auth, isFirebaseConfigured } from '../config/firebase';
 import { doc, setDoc, onSnapshot, collection } from 'firebase/firestore';
 
 const STORAGE_KEYS = {
-  USER_STATS: 'goodtrader_user_stats',
-  CALENDAR_DATA: 'goodtrader_calendar_data',
-  SETUPS: 'goodtrader_setups',
-  QUESTS: 'goodtrader_quests',
-  SHOP_ITEMS: 'goodtrader_shop_items',
-  ONBOARDING_COMPLETED: 'goodtrader_onboarding_completed',
-  ONBOARDING_STEP: 'goodtrader_onboarding_step',
-  ONBOARDING_DRAFT: 'goodtrader_onboarding_draft'
+  USER_STATS: 'tradepigeon_user_stats',
+  CALENDAR_DATA: 'tradepigeon_calendar_data',
+  SETUPS: 'tradepigeon_setups',
+  QUESTS: 'tradepigeon_quests',
+  SHOP_ITEMS: 'tradepigeon_shop_items',
+  ONBOARDING_COMPLETED: 'tradepigeon_onboarding_completed',
+  ONBOARDING_STEP: 'tradepigeon_onboarding_step',
+  ONBOARDING_DRAFT: 'tradepigeon_onboarding_draft'
 };
 
 // Initial Clean Production Default State
@@ -51,14 +51,76 @@ export const sanitizeAccountsList = (accounts = []) => {
   });
 };
 
+/**
+ * Backward-Compatible Key Resolver:
+ * Given any key, returns the canonical tradepigeon_* key and legacy goodtrader_* key.
+ */
+const resolveKeyAliases = (key) => {
+  const canonicalKey = key.startsWith('goodtrader_') 
+    ? key.replace('goodtrader_', 'tradepigeon_') 
+    : key;
+  const legacyKey = canonicalKey.startsWith('tradepigeon_')
+    ? canonicalKey.replace('tradepigeon_', 'goodtrader_')
+    : (canonicalKey.startsWith('goodtrader_') ? canonicalKey : null);
+  return { canonicalKey, legacyKey };
+};
+
+/**
+ * Auto-Migrates any legacy goodtrader_* localStorage keys to tradepigeon_* seamlessly.
+ * Runs once safely in browser environments without wiping or mutating data structures.
+ */
+const runOneTimeLegacyKeyMigration = () => {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  try {
+    const keysToMigrate = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('goodtrader_')) {
+        keysToMigrate.push(k);
+      }
+    }
+
+    keysToMigrate.forEach(legacyKey => {
+      const targetKey = legacyKey.replace('goodtrader_', 'tradepigeon_');
+      const existingNewVal = localStorage.getItem(targetKey);
+      const legacyVal = localStorage.getItem(legacyKey);
+      
+      // If the target tradepigeon_* doesn't exist yet, copy legacy value over
+      if (existingNewVal === null && legacyVal !== null) {
+        localStorage.setItem(targetKey, legacyVal);
+      }
+    });
+  } catch (err) {
+    console.warn('[TradePigeon Storage] Legacy migration notice:', err);
+  }
+};
+
+// Immediately invoke migration upon initialization
+runOneTimeLegacyKeyMigration();
+
 export const loadStoredData = (key, fallback) => {
   try {
-    const item = localStorage.getItem(key);
+    const { canonicalKey, legacyKey } = resolveKeyAliases(key);
+    
+    // 1. First attempt to read from canonical tradepigeon_* key
+    let item = localStorage.getItem(canonicalKey);
+
+    // 2. If null, fall back to legacy goodtrader_* key and auto-migrate to canonical
+    if (item === null && legacyKey) {
+      const legacyItem = localStorage.getItem(legacyKey);
+      if (legacyItem !== null) {
+        item = legacyItem;
+        try {
+          localStorage.setItem(canonicalKey, legacyItem);
+        } catch (_) {}
+      }
+    }
+
     if (!item) return fallback;
     const parsed = JSON.parse(item);
     if (parsed === null || parsed === undefined) return fallback;
 
-    if (key === 'goodtrader_accounts_data' && Array.isArray(parsed)) {
+    if ((canonicalKey === 'tradepigeon_accounts_data' || key === 'goodtrader_accounts_data') && Array.isArray(parsed)) {
       return sanitizeAccountsList(parsed);
     }
 
@@ -78,18 +140,34 @@ const pendingCloudWrites = new Map();
 let cloudUnsubscribe = null;
 
 export const saveStoredData = (key, value) => {
+  const { canonicalKey, legacyKey } = resolveKeyAliases(key);
+  const serialized = JSON.stringify(value);
+
   // 1. Instant local write (0ms latency for UI)
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    localStorage.setItem(canonicalKey, serialized);
+    // Also mirror to legacy key during transition so older cached sessions don't break
+    if (legacyKey && legacyKey !== canonicalKey) {
+      try {
+        localStorage.setItem(legacyKey, serialized);
+      } catch (_) {}
+    }
+
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('goodtrader-storage-update', { detail: { key, value } }));
+      window.dispatchEvent(new CustomEvent('tradepigeon-storage-update', { 
+        detail: { key: canonicalKey, legacyKey, value } 
+      }));
+      // Dispatch legacy event name for backward-compatibility with any existing listeners
+      window.dispatchEvent(new CustomEvent('goodtrader-storage-update', { 
+        detail: { key: canonicalKey, legacyKey, value } 
+      }));
     }
   } catch (err) {
-    console.warn(`[TradePigeon Storage] Failed to save ${key}:`, err);
+    console.warn(`[TradePigeon Storage] Failed to save ${canonicalKey}:`, err);
     if (err && (err.name === 'QuotaExceededError' || err.code === 22)) {
       console.error('[TradePigeon Storage] LocalStorage quota exceeded.');
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('tradepigeon-storage-quota-exceeded', { detail: { key } }));
+        window.dispatchEvent(new CustomEvent('tradepigeon-storage-quota-exceeded', { detail: { key: canonicalKey } }));
       }
     }
   }
@@ -97,26 +175,26 @@ export const saveStoredData = (key, value) => {
   // 2. Dual-tier Cloud Firestore write when user is authenticated
   if (typeof window !== 'undefined' && isFirebaseConfigured && db && auth?.currentUser?.uid) {
     const uid = auth.currentUser.uid;
-    if (pendingCloudWrites.has(key)) {
-      clearTimeout(pendingCloudWrites.get(key));
+    if (pendingCloudWrites.has(canonicalKey)) {
+      clearTimeout(pendingCloudWrites.get(canonicalKey));
     }
 
     const timer = setTimeout(async () => {
-      pendingCloudWrites.delete(key);
+      pendingCloudWrites.delete(canonicalKey);
       try {
-        const safeDocId = key.replace(/\//g, '_');
+        const safeDocId = canonicalKey.replace(/\//g, '_');
         const docRef = doc(db, 'users', uid, 'journal', safeDocId);
         await setDoc(docRef, {
-          key,
+          key: canonicalKey,
           value,
           updatedAt: new Date().toISOString()
         }, { merge: true });
       } catch (cloudErr) {
-        console.warn(`[Firestore Cloud Write Notice on ${key}]:`, cloudErr.message);
+        console.warn(`[Firestore Cloud Write Notice on ${canonicalKey}]:`, cloudErr.message);
       }
     }, 300);
 
-    pendingCloudWrites.set(key, timer);
+    pendingCloudWrites.set(canonicalKey, timer);
   }
 };
 
@@ -144,13 +222,21 @@ export const initCloudFirestoreSync = (uid) => {
           const docData = change.doc.data();
           if (docData && docData.key && docData.value !== undefined) {
             try {
-              const currentRaw = localStorage.getItem(docData.key);
+              const { canonicalKey, legacyKey } = resolveKeyAliases(docData.key);
+              const currentRaw = localStorage.getItem(canonicalKey);
               const currentParsed = currentRaw ? JSON.parse(currentRaw) : null;
               
               if (JSON.stringify(currentParsed) !== JSON.stringify(docData.value)) {
-                localStorage.setItem(docData.key, JSON.stringify(docData.value));
+                const serialized = JSON.stringify(docData.value);
+                localStorage.setItem(canonicalKey, serialized);
+                if (legacyKey && legacyKey !== canonicalKey) {
+                  try { localStorage.setItem(legacyKey, serialized); } catch (_) {}
+                }
+                window.dispatchEvent(new CustomEvent('tradepigeon-storage-update', { 
+                  detail: { key: canonicalKey, legacyKey, value: docData.value, isFromCloud: true } 
+                }));
                 window.dispatchEvent(new CustomEvent('goodtrader-storage-update', { 
-                  detail: { key: docData.key, value: docData.value, isFromCloud: true } 
+                  detail: { key: canonicalKey, legacyKey, value: docData.value, isFromCloud: true } 
                 }));
               }
             } catch (_) {}
@@ -166,13 +252,13 @@ export const initCloudFirestoreSync = (uid) => {
       const keysToMigrate = [
         STORAGE_KEYS.USER_STATS,
         STORAGE_KEYS.CALENDAR_DATA,
-        'goodtrader_accounts_data',
-        'goodtrader_playbook_setups',
-        'goodtrader_baskets_list',
-        'goodtrader_user_dp',
-        'goodtrader_debrief_history',
-        'goodtrader_trading_status',
-        'goodtrader_stealth_mode'
+        'tradepigeon_accounts_data',
+        'tradepigeon_playbook_setups',
+        'tradepigeon_baskets_list',
+        'tradepigeon_user_dp',
+        'tradepigeon_debrief_history',
+        'tradepigeon_trading_status',
+        'tradepigeon_stealth_mode'
       ];
 
       for (const k of keysToMigrate) {
@@ -212,18 +298,21 @@ export const subscribeToStorageUpdate = (callback) => {
     if (!callback || !event.key) return;
     try {
       const parsedValue = event.newValue ? JSON.parse(event.newValue) : null;
-      callback({ key: event.key, value: parsedValue });
+      const { canonicalKey, legacyKey } = resolveKeyAliases(event.key);
+      callback({ key: canonicalKey, legacyKey, value: parsedValue });
     } catch (_) {
       callback({ key: event.key, value: event.newValue });
     }
   };
 
   if (typeof window !== 'undefined') {
+    window.addEventListener('tradepigeon-storage-update', localHandler);
     window.addEventListener('goodtrader-storage-update', localHandler);
     window.addEventListener('storage', crossTabHandler);
   }
   return () => {
     if (typeof window !== 'undefined') {
+      window.removeEventListener('tradepigeon-storage-update', localHandler);
       window.removeEventListener('goodtrader-storage-update', localHandler);
       window.removeEventListener('storage', crossTabHandler);
     }
@@ -397,36 +486,61 @@ export const buildDefaultPlaybooks = (tradingStyle = 'BLANK', strategyName = '')
 
 export const resetTodaySession = (activeDay) => {
   if (typeof window === 'undefined') return;
-  const dayKey = `goodtrader_session_trades_day_${activeDay}`;
-  localStorage.removeItem(dayKey);
-  window.dispatchEvent(new CustomEvent('goodtrader-storage-update', { detail: { key: dayKey, value: [] } }));
+  const canonicalDayKey = `tradepigeon_session_trades_day_${activeDay}`;
+  const legacyDayKey = `goodtrader_session_trades_day_${activeDay}`;
+  
+  localStorage.removeItem(canonicalDayKey);
+  localStorage.removeItem(legacyDayKey);
+  
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('tradepigeon-storage-update', { detail: { key: canonicalDayKey, value: [] } }));
+    window.dispatchEvent(new CustomEvent('goodtrader-storage-update', { detail: { key: canonicalDayKey, value: [] } }));
+  }
 };
 
 export const factoryResetCleanSlate = ({ keepBrokerAccounts = true } = {}) => {
   if (typeof window === 'undefined') return;
   
-  const savedAccounts = keepBrokerAccounts ? localStorage.getItem('goodtrader_accounts_data') : null;
+  const savedAccounts = keepBrokerAccounts 
+    ? (localStorage.getItem('tradepigeon_accounts_data') || localStorage.getItem('goodtrader_accounts_data')) 
+    : null;
 
   // 1. Remove all session trades and history
   const keysToRemove = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k && (k.startsWith('goodtrader_session_trades_') || k === 'goodtrader_debrief_history' || k === 'goodtrader_trading_status' || k === 'goodtrader_calendar_data')) {
+    if (k && (
+      k.startsWith('tradepigeon_session_trades_') || 
+      k.startsWith('goodtrader_session_trades_') || 
+      k === 'tradepigeon_debrief_history' || 
+      k === 'goodtrader_debrief_history' || 
+      k === 'tradepigeon_trading_status' || 
+      k === 'goodtrader_trading_status' || 
+      k === 'tradepigeon_calendar_data' ||
+      k === 'goodtrader_calendar_data'
+    )) {
       keysToRemove.push(k);
     }
   }
   keysToRemove.forEach(k => localStorage.removeItem(k));
 
   // 2. Reset user stats & DP
-  localStorage.setItem('goodtrader_user_stats', JSON.stringify(DEFAULT_USER_STATS));
+  const defaultStatsStr = JSON.stringify(DEFAULT_USER_STATS);
+  localStorage.setItem('tradepigeon_user_stats', defaultStatsStr);
+  localStorage.setItem('goodtrader_user_stats', defaultStatsStr);
+  localStorage.setItem('tradepigeon_user_dp', '0');
   localStorage.setItem('goodtrader_user_dp', '0');
+  localStorage.setItem('tradepigeon_debrief_history', '[]');
   localStorage.setItem('goodtrader_debrief_history', '[]');
+  localStorage.setItem('tradepigeon_trading_status', JSON.stringify('TRADING'));
   localStorage.setItem('goodtrader_trading_status', JSON.stringify('TRADING'));
 
   // 3. Handle broker accounts
   if (keepBrokerAccounts && savedAccounts) {
+    localStorage.setItem('tradepigeon_accounts_data', savedAccounts);
     localStorage.setItem('goodtrader_accounts_data', savedAccounts);
   } else {
+    localStorage.removeItem('tradepigeon_accounts_data');
     localStorage.removeItem('goodtrader_accounts_data');
   }
 
@@ -444,7 +558,7 @@ export const exportFullBackup = () => {
   };
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && (key.startsWith('goodtrader_') || key.startsWith('day_'))) {
+    if (key && (key.startsWith('tradepigeon_') || key.startsWith('goodtrader_') || key.startsWith('day_'))) {
       try {
         backup.data[key] = JSON.parse(localStorage.getItem(key));
       } catch (e) {
@@ -472,7 +586,13 @@ export const getAllStoredTrades = () => {
     const key = localStorage.key(i);
     if (!key) continue;
     
-    if (key.startsWith('day_') || key.startsWith('goodtrader_session_trades_') || key === 'goodtrader_tradelogs') {
+    if (
+      key.startsWith('day_') || 
+      key.startsWith('tradepigeon_session_trades_') || 
+      key.startsWith('goodtrader_session_trades_') || 
+      key === 'tradepigeon_tradelogs' ||
+      key === 'goodtrader_tradelogs'
+    ) {
       try {
         const raw = localStorage.getItem(key);
         const data = JSON.parse(raw);
@@ -570,7 +690,7 @@ export const importFullBackup = (backupInput) => {
       return { success: false, error: 'Backup file contains no TradePigeon data.' };
     }
     keys.forEach(k => {
-      if (k.startsWith('goodtrader_') || k.startsWith('day_')) {
+      if (k.startsWith('tradepigeon_') || k.startsWith('goodtrader_') || k.startsWith('day_')) {
         const val = parsed.data[k];
         saveStoredData(k, val);
       }
@@ -584,11 +704,17 @@ export const importFullBackup = (backupInput) => {
 export const wipeAccountTrades = (accountIdentifier) => {
   if (typeof window === 'undefined' || !accountIdentifier) return 0;
   let totalWiped = 0;
+  const processedKeys = new Set();
+
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.startsWith('goodtrader_session_trades_')) {
+    if (key && (key.startsWith('tradepigeon_session_trades_') || key.startsWith('goodtrader_session_trades_'))) {
+      const { canonicalKey, legacyKey } = resolveKeyAliases(key);
+      if (processedKeys.has(canonicalKey)) continue;
+      processedKeys.add(canonicalKey);
+
       try {
-        const trades = JSON.parse(localStorage.getItem(key)) || [];
+        const trades = JSON.parse(localStorage.getItem(canonicalKey) || localStorage.getItem(legacyKey)) || [];
         if (Array.isArray(trades)) {
           const remaining = trades.filter(t => {
             const acc = t.account || '';
@@ -600,8 +726,13 @@ export const wipeAccountTrades = (accountIdentifier) => {
           const removed = trades.length - remaining.length;
           if (removed > 0) {
             totalWiped += removed;
-            localStorage.setItem(key, JSON.stringify(remaining));
-            window.dispatchEvent(new CustomEvent('goodtrader-storage-update', { detail: { key, value: remaining } }));
+            const serialized = JSON.stringify(remaining);
+            localStorage.setItem(canonicalKey, serialized);
+            if (legacyKey) {
+              try { localStorage.setItem(legacyKey, serialized); } catch (_) {}
+            }
+            window.dispatchEvent(new CustomEvent('tradepigeon-storage-update', { detail: { key: canonicalKey, value: remaining } }));
+            window.dispatchEvent(new CustomEvent('goodtrader-storage-update', { detail: { key: canonicalKey, value: remaining } }));
           }
         }
       } catch (e) {
