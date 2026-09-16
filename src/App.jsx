@@ -10,14 +10,34 @@ import ConfettiBurst from './components/ConfettiBurst';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, buildDefaultPlaybooks } from './utils/storage';
 import { soundFx } from './utils/audioEngine';
 
+// Robust lazy loader that retries on chunk load failure (e.g., after a new deployment)
+const lazyWithRetry = (componentImport) =>
+  lazy(async () => {
+    const pageHasBeenForceRefreshed = window.sessionStorage.getItem('tp_chunk_retry');
+    try {
+      const component = await componentImport();
+      window.sessionStorage.removeItem('tp_chunk_retry');
+      return component;
+    } catch (error) {
+      if (!pageHasBeenForceRefreshed) {
+        // A new deployment likely invalidated older chunk hashes. Reload to fetch fresh assets.
+        window.sessionStorage.setItem('tp_chunk_retry', 'true');
+        window.location.reload();
+        return new Promise(() => {}); // Hold until reload
+      }
+      // If already retried and still fails, bubble error
+      throw error;
+    }
+  });
+
 // Code-split heavy secondary tabs to optimize initial bundle size & load speed
-const CalendarTab = lazy(() => import('./components/CalendarTab'));
-const SetupsTab = lazy(() => import('./components/SetupsTab'));
-const ConnectionsTab = lazy(() => import('./components/ConnectionsTab'));
-const LeaderboardTab = lazy(() => import('./components/LeaderboardTab'));
-const QuestsTab = lazy(() => import('./components/QuestsTab'));
-const ShopTab = lazy(() => import('./components/ShopTab'));
-const ProfileTab = lazy(() => import('./components/ProfileTab'));
+const CalendarTab = lazyWithRetry(() => import('./components/CalendarTab'));
+const SetupsTab = lazyWithRetry(() => import('./components/SetupsTab'));
+const ConnectionsTab = lazyWithRetry(() => import('./components/ConnectionsTab'));
+const LeaderboardTab = lazyWithRetry(() => import('./components/LeaderboardTab'));
+const QuestsTab = lazyWithRetry(() => import('./components/QuestsTab'));
+const ShopTab = lazyWithRetry(() => import('./components/ShopTab'));
+const ProfileTab = lazyWithRetry(() => import('./components/ProfileTab'));
 
 const TabLoadingFallback = () => (
   <main className="flex-1 min-h-screen lg:pl-28 xl:pl-80 bg-[#070C1E] p-6 flex flex-col items-center justify-center space-y-4 text-white">
@@ -42,23 +62,47 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('[TradePigeon ErrorBoundary] Caught error:', error, errorInfo);
+    // If it's a dynamic import failure, automatically reload once to fetch new chunks
+    const isChunkError = error?.name === 'ChunkLoadError' || 
+      String(error?.message || '').toLowerCase().includes('failed to fetch dynamically imported module');
+    if (isChunkError) {
+      const retried = window.sessionStorage.getItem('tp_eb_chunk_retry');
+      if (!retried) {
+        window.sessionStorage.setItem('tp_eb_chunk_retry', 'true');
+        window.location.reload();
+      }
+    }
   }
+
+  handleRetry = () => {
+    window.sessionStorage.removeItem('tp_chunk_retry');
+    window.sessionStorage.removeItem('tp_eb_chunk_retry');
+    window.location.reload();
+  };
 
   render() {
     if (this.state.hasError) {
+      const isChunkError = String(this.state.error?.message || '').toLowerCase().includes('failed to fetch dynamically imported module');
       return (
         <div className="p-4 bg-rose-900/95 text-white rounded-2xl border-2 border-rose-500 text-xs font-mono max-w-lg m-4 z-50 fixed right-4 top-4 shadow-2xl space-y-2 animate-fade-in">
           <div className="flex items-center justify-between gap-2">
-            <div className="font-bold text-rose-200 uppercase">Component Load Warning</div>
+            <div className="font-bold text-rose-200 uppercase">
+              {isChunkError ? 'App Update Detected' : 'Component Load Warning'}
+            </div>
             <button
-              onClick={() => this.setState({ hasError: false, error: null })}
+              onClick={this.handleRetry}
               className="text-[10px] font-black uppercase bg-rose-700 hover:bg-rose-600 px-2.5 py-1 rounded-lg text-white cursor-pointer transition-all border border-rose-400"
             >
-              Dismiss & Retry
+              Refresh to Update
             </button>
           </div>
-          <div className="font-bold text-rose-100">{String(this.state.error?.message || this.state.error)}</div>
-          {this.state.error?.stack && (
+          <div className="font-bold text-rose-100">
+            {isChunkError 
+              ? 'A newer version of TradePigeon was deployed. Click "Refresh to Update" to load the latest release.'
+              : String(this.state.error?.message || this.state.error)
+            }
+          </div>
+          {this.state.error?.stack && !isChunkError && (
             <pre className="text-[9px] bg-black/50 p-2 rounded max-h-40 overflow-auto whitespace-pre-wrap font-mono text-rose-300">
               {this.state.error.stack}
             </pre>
