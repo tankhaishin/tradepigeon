@@ -464,24 +464,27 @@ export const exportFullBackup = () => {
   URL.revokeObjectURL(url);
 };
 
-export const exportTradesCsv = () => {
-  if (typeof window === 'undefined') return;
+export const getAllStoredTrades = () => {
+  if (typeof window === 'undefined') return [];
   const allTrades = [];
   
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (!key) continue;
     
-    if (key.startsWith('day_') || key.startsWith('goodtrader_session_trades_')) {
+    if (key.startsWith('day_') || key.startsWith('goodtrader_session_trades_') || key === 'goodtrader_tradelogs') {
       try {
         const raw = localStorage.getItem(key);
         const data = JSON.parse(raw);
         const trades = Array.isArray(data) ? data : (data?.trades || []);
         if (Array.isArray(trades)) {
-          trades.forEach(t => {
+          trades.forEach((t, idx) => {
             if (t && (t.pnl !== undefined || t.pnlNum !== undefined || t.symbol || t.account)) {
               const defaultDate = key.startsWith('day_') ? key.replace('day_', '') : new Date().toISOString().slice(0, 10);
+              const pnlValue = t.pnlNum !== undefined ? t.pnlNum : (t.pnl || 0);
+              const cleanPnlNum = typeof pnlValue === 'number' ? pnlValue : (parseFloat(String(pnlValue).replace(/[^0-9.-]/g, '')) || 0);
               allTrades.push({
+                id: t.id || `${key}_trade_${idx}_${Date.now()}`,
                 date: t.date || defaultDate,
                 account: t.account || 'Default Account',
                 symbol: t.symbol || t.contract || 'ES',
@@ -489,10 +492,11 @@ export const exportTradesCsv = () => {
                 contracts: t.contracts || t.quantity || t.qty || 1,
                 entryPrice: t.entryPrice || t.entry || '',
                 exitPrice: t.exitPrice || t.exit || '',
-                pnl: t.pnlNum !== undefined ? t.pnlNum : (t.pnl || 0),
+                pnl: pnlValue,
+                pnlNum: cleanPnlNum,
                 rMultiple: t.rMultiple || t.r || '',
                 setup: t.setup || t.playbook || 'General',
-                status: t.status || (Number(t.pnl || t.pnlNum) >= 0 ? 'WIN' : 'LOSS'),
+                status: t.status || (cleanPnlNum >= 0 ? 'WIN' : 'LOSS'),
                 executedTime: t.time || t.executedTime || '',
                 mistake: t.mistake || '',
                 notes: t.notes || ''
@@ -504,19 +508,24 @@ export const exportTradesCsv = () => {
     }
   }
 
-  if (allTrades.length === 0) {
-    alert('No trades found in your journal to export.');
-    return;
-  }
-
-  // Deduplicate trades
+  // Deduplicate trades by unique signature
   const seen = new Set();
-  const uniqueTrades = allTrades.filter(t => {
-    const sig = `${t.date}_${t.account}_${t.symbol}_${t.pnl}_${t.executedTime}`;
+  return allTrades.filter(t => {
+    const sig = `${t.date}_${t.account}_${t.symbol}_${t.pnlNum}_${t.executedTime}`;
     if (seen.has(sig)) return false;
     seen.add(sig);
     return true;
   });
+};
+
+export const exportTradesCsv = () => {
+  if (typeof window === 'undefined') return;
+  const uniqueTrades = getAllStoredTrades();
+
+  if (uniqueTrades.length === 0) {
+    alert('No trades found in your journal to export.');
+    return;
+  }
 
   const headers = ['Date', 'Account', 'Symbol', 'Side', 'Contracts', 'Entry Price', 'Exit Price', 'PnL ($)', 'R Multiple', 'Setup', 'Status', 'Execution Time', 'Mistake', 'Discipline Notes'];
   const rows = uniqueTrades.map(t => [

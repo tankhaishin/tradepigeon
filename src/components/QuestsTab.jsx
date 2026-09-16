@@ -3,25 +3,23 @@ import { DuoChestIcon, DuoLightningIcon, DuoIceIcon, DuoLockIcon, DuoShieldIcon 
 import EducationalQuizNode from './EducationalQuizNode';
 import { CheckCircle2, Lock, Sparkles, Award } from 'lucide-react';
 import InteractiveParrotMascot from './InteractiveParrotMascot';
-import { loadStoredData, saveStoredData, STORAGE_KEYS, DEFAULT_USER_STATS } from '../utils/storage';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 
 export default function QuestsTab() {
   const [claimedQuestIds, setClaimedQuestIds] = useState(() => loadStoredData('goodtrader_claimed_quests', []));
   const [completedSteps, setCompletedSteps] = useState(() => loadStoredData('goodtrader_completed_steps', []));
   const [userDp, setUserDp] = useState(() => loadStoredData('goodtrader_user_dp', 0));
+  const [userStats, setUserStats] = useState(() => loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS));
 
   useEffect(() => {
-    saveStoredData('goodtrader_claimed_quests', claimedQuestIds);
-  }, [claimedQuestIds]);
-
-  useEffect(() => {
-    const handleStepSync = () => {
-      setCompletedSteps(loadStoredData('goodtrader_completed_steps', []));
-      setUserDp(loadStoredData('goodtrader_user_dp', 0));
-    };
-    window.addEventListener('storage', handleStepSync);
-    return () => window.removeEventListener('storage', handleStepSync);
+    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
+      if (key === 'goodtrader_claimed_quests') setClaimedQuestIds(value || []);
+      if (key === 'goodtrader_completed_steps') setCompletedSteps(value || []);
+      if (key === 'goodtrader_user_dp') setUserDp(Number(value) || 0);
+      if (key === 'goodtrader_user_stats') setUserStats(value || DEFAULT_USER_STATS);
+    });
+    return unsubscribe;
   }, []);
 
   // Compute active weekly quest season (1-52 weeks rotation)
@@ -33,7 +31,6 @@ export default function QuestsTab() {
   ];
   const activeSeason = seasonalThemes[currentWeekNumber % seasonalThemes.length];
 
-  const userStats = loadStoredData('goodtrader_user_stats', { streakDays: 0, tradesLogged: 0, disciplinePoints: 0 });
   const streakDays = userStats.streakDays || 0;
   const tradesLogged = userStats.tradesLogged || 0;
 
@@ -90,6 +87,13 @@ export default function QuestsTab() {
       const newDp = userDp + quest.rewardVal;
       setUserDp(newDp);
       saveStoredData('goodtrader_user_dp', newDp);
+
+      const updatedStats = {
+        ...userStats,
+        disciplinePoints: newDp
+      };
+      setUserStats(updatedStats);
+      saveStoredData('goodtrader_user_stats', updatedStats);
 
       window.dispatchEvent(new CustomEvent('goodtrader_claim_reward', { detail: { questId: quest.id, rewardVal: quest.rewardVal } }));
     }

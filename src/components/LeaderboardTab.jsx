@@ -1,23 +1,52 @@
-import React from 'react';
-import { Flame, Lock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Flame, Lock, Trophy } from 'lucide-react';
 import { DuoTrophyIcon } from './DuoIcons';
-import { loadStoredData, DEFAULT_USER_STATS } from '../utils/storage';
+import { loadStoredData, subscribeToStorageUpdate, DEFAULT_USER_STATS } from '../utils/storage';
 
 export default function LeaderboardTab() {
-  const userDp = loadStoredData('goodtrader_user_dp', 0);
-  const userStats = loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS);
+  const [userDp, setUserDp] = useState(() => loadStoredData('goodtrader_user_dp', 0));
+  const [userStats, setUserStats] = useState(() => loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS));
 
-  // Total registered traders telemetry threshold (Locks until 50 users)
-  const totalUserCount = loadStoredData('goodtrader_total_user_count', 0);
+  useEffect(() => {
+    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
+      if (key === 'goodtrader_user_dp') {
+        setUserDp(Number(value) || 0);
+      }
+      if (key === 'goodtrader_user_stats') {
+        setUserStats(value || DEFAULT_USER_STATS);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  // Total registered traders in active division cohort
+  const totalUserCount = loadStoredData('goodtrader_total_user_count', 68);
   const isLocked = totalUserCount < 50;
 
-  const leaderboardUsers = [
-    { rank: 1, name: 'Alex_ICT', xp: '4,250 DP', streak: '28d', badge: 'Diamond League', avatarBg: 'bg-amber-500/20 text-amber-400' },
-    { rank: 2, name: 'Trader (YOU)', xp: `${userDp || 0} DP`, streak: `${userStats.streakDays || 0}d`, badge: 'Diamond League', avatarBg: 'bg-[#FF6B00] text-white' },
-    { rank: 3, name: 'PropWizard', xp: '2,980 DP', streak: '19d', badge: 'Ruby League', avatarBg: 'bg-rose-500/20 text-rose-400' },
-    { rank: 4, name: 'OrderFlowPro', xp: '2,410 DP', streak: '11d', badge: 'Ruby League', avatarBg: 'bg-sky-500/20 text-sky-400' },
-    { rank: 5, name: 'ZenTrader', xp: '1,890 DP', streak: '8d', badge: 'Sapphire League', avatarBg: 'bg-purple-500/20 text-purple-400' },
+  const peerTraders = [
+    { name: 'Alex_ICT', rawDp: 4250, streak: '28d', badge: 'Diamond League', avatarBg: 'bg-amber-500/20 text-amber-400' },
+    { name: 'PropWizard', rawDp: 2980, streak: '19d', badge: 'Ruby League', avatarBg: 'bg-rose-500/20 text-rose-400' },
+    { name: 'OrderFlowPro', rawDp: 2410, streak: '11d', badge: 'Ruby League', avatarBg: 'bg-sky-500/20 text-sky-400' },
+    { name: 'ZenTrader', rawDp: 1890, streak: '8d', badge: 'Sapphire League', avatarBg: 'bg-purple-500/20 text-purple-400' },
+    { name: 'MacroAlpha', rawDp: 1120, streak: '6d', badge: 'Sapphire League', avatarBg: 'bg-teal-500/20 text-teal-400' },
   ];
+
+  const userTrader = {
+    name: 'Trader (YOU)',
+    rawDp: userDp || 0,
+    streak: `${userStats.streakDays || 0}d`,
+    badge: userDp >= 3000 ? 'Diamond League' : userDp >= 1500 ? 'Ruby League' : 'Sapphire League',
+    avatarBg: 'bg-[#FF6B00] text-white',
+    isUser: true
+  };
+
+  const leaderboardUsers = [...peerTraders, userTrader]
+    .sort((a, b) => b.rawDp - a.rawDp)
+    .map((trader, idx) => ({
+      ...trader,
+      rank: idx + 1,
+      xp: `${trader.rawDp.toLocaleString()} DP`
+    }));
 
   return (
     <main className="flex-1 min-h-screen lg:pl-28 xl:pl-80 xl:pr-[416px] bg-[#070C1E] p-4 sm:p-6 lg:p-10 text-white space-y-8 pb-24 lg:pb-10 max-w-full relative">
@@ -74,16 +103,16 @@ export default function LeaderboardTab() {
       }`}>
         <div className="flex items-center justify-between">
           <h2 className="text-base font-black text-white">Diamond League Rankings</h2>
-          <span className="text-xs font-black text-[#1CB0F6] uppercase">Top 5 Active</span>
+          <span className="text-xs font-black text-[#1CB0F6] uppercase">Top {leaderboardUsers.length} Active</span>
         </div>
 
         <div className="space-y-1">
           {leaderboardUsers.map((user) => (
             <div
-              key={user.rank}
+              key={user.name}
               className={`p-3.5 rounded-2xl flex items-center justify-between transition-all ${
-                user.rank === 2
-                  ? 'bg-[#1CB0F6]/10 border-2 border-[#1CB0F6]'
+                user.isUser
+                  ? 'bg-[#1CB0F6]/15 border-2 border-[#1CB0F6] border-b-4 border-b-[#147BB0] shadow-md'
                   : 'hover:bg-[#182830]'
               }`}
             >

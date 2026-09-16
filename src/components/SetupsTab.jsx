@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import ManualTradeModal from './ManualTradeModal';
 import { parseTradeFile, calculateExecutionMatrix, calculateSetupExpectancy, formatCurrencyOrR } from '../utils/tradeParser';
-import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, buildDefaultPlaybooks } from '../utils/storage';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, buildDefaultPlaybooks, getAllStoredTrades } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl } from '../utils/financialMath';
 import InteractiveEquityCurve from './InteractiveEquityCurve';
@@ -20,6 +20,16 @@ export default function SetupsTab() {
   const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('goodtrader_stealth_mode', false));
   const [playbookSetups, setPlaybookSetups] = useState(() => loadStoredData('goodtrader_playbook_setups', buildDefaultPlaybooks()));
 
+  // Auto-Sync Accounts State
+  const [syncedAccounts, setSyncedAccounts] = useState(() => loadStoredData('goodtrader_synced_accounts', []));
+
+  // LIVE TRADE EXECUTIONS LOG TABLE DATA (Consolidates session trades, imports, and manual entries)
+  const [tradeLogs, setTradeLogs] = useState(() => {
+    const all = getAllStoredTrades();
+    if (all.length > 0) return all;
+    return loadStoredData('goodtrader_tradelogs', []);
+  });
+
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
       if (key === 'goodtrader_stealth_mode') {
@@ -28,9 +38,13 @@ export default function SetupsTab() {
       if (key === 'goodtrader_playbook_setups') {
         setPlaybookSetups(value);
       }
+      if (key && (key.startsWith('goodtrader_session_trades_') || key === 'goodtrader_tradelogs' || key.startsWith('day_'))) {
+        setTradeLogs(getAllStoredTrades());
+      }
     });
     return () => unsubscribe();
   }, []);
+
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [uploadedFileContent, setUploadedFileContent] = useState(null);
   const [importSuccess, setImportSuccess] = useState(false);
@@ -41,14 +55,6 @@ export default function SetupsTab() {
   const [activeChartLightbox, setActiveChartLightbox] = useState(null);
   const [showTradeLogsTable, setShowTradeLogsTable] = useState(false);
   const [expandedPlaybooksState, setExpandedPlaybooksState] = useState({});
-
-  // Auto-Sync Accounts State
-  const [syncedAccounts, setSyncedAccounts] = useState(() => loadStoredData('goodtrader_synced_accounts', []));
-
-  // LIVE TRADE EXECUTIONS LOG TABLE DATA
-  const [tradeLogs, setTradeLogs] = useState(() => {
-    return loadStoredData('goodtrader_tradelogs', []);
-  });
 
   const [deletedTradeBackup, setDeletedTradeBackup] = useState(null);
 
