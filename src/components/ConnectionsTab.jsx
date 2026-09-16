@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   Zap, Plus, Trash2, RefreshCw, ChevronDown, ChevronRight, 
   Check, CheckCircle2, Shield, Eye, EyeOff, Sparkles, ExternalLink, 
-  Pencil, Crown, Activity, Layers, HelpCircle, X
+  Pencil, Crown, Activity, Layers, HelpCircle, X, FileText
 } from 'lucide-react';
 import { DuoShieldIcon, DuoLightningIcon, DuoTrophyIcon, DuoStarIcon } from './DuoIcons';
 import { TradovateLogo, NinjaTraderLogo, TradeLockerLogo, MetaTrader5Logo, CsvLogo } from './BrokerLogos';
 import BrokerConnectModal from './BrokerConnectModal';
+import StatementImportModal from './StatementImportModal';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 import { parseFinancialNumber, formatFinancialCurrency, formatBalance as formatBalanceMath, formatRMultiple } from '../utils/financialMath';
@@ -14,6 +15,7 @@ import { parseFinancialNumber, formatFinancialCurrency, formatBalance as formatB
 export default function ConnectionsTab() {
   const [accounts, setAccounts] = useState(() => loadStoredData('goodtrader_accounts_data', []));
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('goodtrader_stealth_mode', false));
   const [isSyncing, setIsSyncing] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
@@ -258,6 +260,19 @@ export default function ConnectionsTab() {
             className="px-3.5 py-2 rounded-2xl bg-[#142127] hover:bg-[#182830] border-2 border-[#20323D] text-xs font-black text-slate-300 hover:text-white transition-all cursor-pointer"
           >
             {Object.values(expandedConnections).every(Boolean) ? 'Collapse all' : 'Expand all'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              soundFx.playPop();
+              setIsImportModalOpen(true);
+            }}
+            className="px-3.5 py-2 rounded-2xl bg-[#142127] hover:bg-[#182830] border-2 border-[#20323D] hover:border-[#1CB0F6] text-xs font-black text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:translate-y-0.5"
+            title="Upload CSV or HTML Broker Statement"
+          >
+            <FileText size={14} className="text-[#1CB0F6]" />
+            <span>Import Statement</span>
           </button>
 
           <button
@@ -645,6 +660,7 @@ export default function ConnectionsTab() {
       <BrokerConnectModal 
         isOpen={isBrokerModalOpen}
         onClose={() => setIsBrokerModalOpen(false)}
+        onOpenStatementImport={() => setIsImportModalOpen(true)}
         onAccountAdded={({ account, accounts: newAccounts }) => {
           const toAdd = newAccounts && newAccounts.length > 0 ? newAccounts : (account ? [account] : []);
           const updated = [...toAdd, ...accounts];
@@ -653,6 +669,16 @@ export default function ConnectionsTab() {
           soundFx.playLevelUp();
           setToastMsg(`Successfully added ${toAdd.length} account${toAdd.length > 1 ? 's' : ''}!`);
           setTimeout(() => setToastMsg(''), 3500);
+        }}
+      />
+
+      <StatementImportModal 
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={(count, accName) => {
+          soundFx.playLevelUp();
+          setToastMsg(`Successfully imported ${count} trade fills for ${accName}!`);
+          setTimeout(() => setToastMsg(''), 4000);
         }}
       />
     </main>

@@ -82,8 +82,24 @@ function parseCsvTradeData(csvText, baseRisk = 350) {
     const sideFormatted = sideRaw.toUpperCase().includes('SELL') || sideRaw.toUpperCase().includes('SHORT') ? 'SELL' : 'BUY';
     const holdDurationStr = calculateHoldDuration(time, closeTime);
 
+    const account = getVal(['account', 'account id', 'account name', 'accountnumber', 'acct', 'login']) || '';
+    const comment = getVal(['comment', 'setup', 'notes', 'strategy', 'tag']) || 'Imported Fill';
+
+    // Extract trade date (YYYY-MM-DD)
+    let tradeDate = '';
+    const explicitDate = getVal(['date', 'trade date', 'close date', 'open date']);
+    if (explicitDate && /^\d{4}[-/]\d{2}[-/]\d{2}/.test(explicitDate)) {
+      tradeDate = explicitDate.slice(0, 10).replace(/\//g, '-');
+    } else if (/^\d{4}[-/]\d{2}[-/]\d{2}/.test(time)) {
+      tradeDate = time.slice(0, 10).replace(/\//g, '-');
+    } else {
+      tradeDate = new Date().toISOString().slice(0, 10);
+    }
+
     trades.push({
       id: rawId.startsWith('TRD-') ? rawId : `TRD-${rawId}`,
+      date: tradeDate,
+      account: account || 'CSV Import',
       time: time.length > 15 ? time.substring(11, 19) + ' NY' : time,
       symbol: symbol.toUpperCase(),
       side: sideFormatted,
@@ -93,7 +109,7 @@ function parseCsvTradeData(csvText, baseRisk = 350) {
       pnlNum: pnlNum,
       pnl: formatFinancialCurrency(pnlNum),
       type: isWin ? 'FOLLOW_WIN' : 'FOLLOW_LOSS', // Rule engine will classify
-      setup: 'Imported Fill',
+      setup: comment,
       r: formatRMultiple(pnlNum, baseRisk),
       holdDuration: holdDurationStr
     });

@@ -3,13 +3,13 @@ import {
   CheckCircle2, ShieldAlert, ShieldCheck, Lock, Key, RefreshCw, X, Zap, 
   Activity, ArrowLeft, Sparkles, ChevronRight, Eye, EyeOff, Layers, CheckSquare, Square
 } from 'lucide-react';
-import { TradovateLogo, NinjaTraderLogo, TradeLockerLogo } from './BrokerLogos';
+import { TradovateLogo, NinjaTraderLogo, TradeLockerLogo, CsvLogo } from './BrokerLogos';
 import { loadStoredData, saveStoredData } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 import { detectPlatformFromAccountId } from '../utils/platformDetector';
 import { parseFinancialNumber, formatBalance } from '../utils/financialMath';
 
-export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) {
+export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, onOpenStatementImport }) {
   const [authSuccess, setAuthSuccess] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState(null);
   const [step, setStep] = useState('platform'); // 'platform' | 'credentials' | 'select_accounts'
@@ -63,11 +63,24 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded }) 
       icon: TradeLockerLogo, 
       badge: 'CLOUD API',
       color: '#CE82FF'
+    },
+    { 
+      id: 'csv', 
+      name: 'Universal CSV / Statement', 
+      subtitle: 'Upload Tradovate, NT, MT5, or Rithmic file',
+      icon: CsvLogo, 
+      badge: 'OFFLINE STATEMENT',
+      color: '#1CB0F6'
     }
   ];
 
   const handleSelectPlatform = (platform) => {
     soundFx.playPop();
+    if (platform.id === 'csv') {
+      onClose();
+      if (onOpenStatementImport) onOpenStatementImport();
+      return;
+    }
     setSelectedPlatform(platform);
     setUsername('');
     setPassword('');
