@@ -55,7 +55,15 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }) {
       onClose();
     } catch (err) {
       console.warn('[Google Auth Error]:', err);
-      setError(err.message || 'Google sign-in was cancelled or blocked.');
+      const code = err.code || '';
+      const message = err.message || '';
+      if (code === 'auth/unauthorized-domain' || message.includes('unauthorized-domain')) {
+        setError('This domain is not yet authorized in Firebase. Add your domain to Firebase Console > Authentication > Settings > Authorized Domains (or use email/password below).');
+      } else if (code === 'auth/popup-closed-by-user') {
+        setError('Sign-in cancelled.');
+      } else {
+        setError(message || 'Google sign-in was cancelled or blocked.');
+      }
     } finally {
       setIsSubmitting(false);
     }
