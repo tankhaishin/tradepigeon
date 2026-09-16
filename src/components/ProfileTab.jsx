@@ -20,6 +20,7 @@ import {
 export default function ProfileTab() {
   const { user, signOutUser } = useAuth();
   const [googleUser, setGoogleUser] = useState(() => loadStoredData('goodtrader_google_user', null));
+  const [isPro, setIsPro] = useState(() => loadStoredData('goodtrader_is_pro', false));
   const [activeSubTab, setActiveSubTab] = useState('DEBRIEF_HISTORY');
   const [isProcessingStripe, setIsProcessingStripe] = useState(false);
   const [profileToast, setProfileToast] = useState('');
@@ -138,6 +139,9 @@ export default function ProfileTab() {
       if (key === 'goodtrader_debrief_history') {
         setHistoricalLogs(value || []);
       }
+      if (key === 'goodtrader_is_pro') {
+        setIsPro(Boolean(value));
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -206,7 +210,9 @@ export default function ProfileTab() {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-2xl sm:text-3xl font-black text-white">{activeUser?.name || 'Trader'}</h2>
-              <span className="px-2.5 py-0.5 rounded-lg bg-[#58CC02] text-white text-[10px] font-black uppercase">PROP MASTER</span>
+              <span className={`px-2.5 py-0.5 rounded-lg text-white text-[10px] font-black uppercase ${isPro ? 'bg-[#FF6B00] border border-[#C2410C]' : 'bg-[#58CC02]'}`}>
+                {isPro ? 'PRO SUBSCRIBER' : 'PROP TRADER'}
+              </span>
             </div>
             {activeUser?.email && (
               <div className="text-xs font-bold text-slate-400">{activeUser.email}</div>
@@ -216,14 +222,21 @@ export default function ProfileTab() {
 
         <div className="flex flex-wrap items-center gap-3 shrink-0">
           <GoogleAuthButton className="py-2.5 text-xs" buttonText="Google Identity" />
-          <button
-            onClick={handleStripeCheckout}
-            disabled={isProcessingStripe}
-            className="duo-btn-orange px-4 py-2.5 text-xs flex items-center justify-center gap-2"
-          >
-            <Sparkles size={16} />
-            <span>{isProcessingStripe ? 'Connecting Stripe...' : 'Upgrade to Pro ($9.99/mo)'}</span>
-          </button>
+          {isPro ? (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#58CC02]/20 border-2 border-[#58CC02] border-b-4 border-b-[#388202] text-xs font-black text-white shadow-md">
+              <CheckCircle2 size={16} className="text-[#58CC02]" />
+              <span>PRO ACTIVE</span>
+            </div>
+          ) : (
+            <button
+              onClick={handleStripeCheckout}
+              disabled={isProcessingStripe}
+              className="duo-btn-orange px-4 py-2.5 text-xs flex items-center justify-center gap-2"
+            >
+              <Sparkles size={16} />
+              <span>{isProcessingStripe ? 'Connecting Stripe...' : 'Upgrade to Pro ($9.99/mo)'}</span>
+            </button>
+          )}
           <button
             onClick={handleSignOut}
             className="px-3.5 py-2.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border-2 border-rose-500/30 hover:border-rose-500 border-b-4 border-b-rose-700/60 text-xs font-black text-rose-400 hover:text-rose-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:translate-y-0.5"

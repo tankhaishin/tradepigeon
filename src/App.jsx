@@ -107,6 +107,24 @@ export default function App() {
   const [latestTradeAlert, setLatestTradeAlert] = useState(null);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
 
+  // Handle Stripe Checkout return URLs (auto-activate Pro status & celebrate)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const hasSuccess = params.get('status') === 'success' || 
+                       params.get('payment') === 'success' || 
+                       params.get('session') === 'pro' ||
+                       params.get('checkout') === 'success';
+
+    if (hasSuccess) {
+      saveStoredData('goodtrader_is_pro', true);
+      soundFx.playTrophy();
+      setConfettiTrigger(prev => prev + 1);
+      // Clean up URL search query without triggering a browser reload
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   // Automatically close right drawer & expanded overlay whenever active tab changes
   useEffect(() => {
     setIsMobileRightHubOpen(false);
