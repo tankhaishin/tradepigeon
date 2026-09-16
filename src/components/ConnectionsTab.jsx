@@ -496,6 +496,7 @@ export default function ConnectionsTab() {
                       </thead>
                       <tbody className="divide-y divide-white/5 font-medium">
                         {conn.accounts.map((acc, idx) => {
+                          const isActive = acc.isActive !== false;
                           const isLead = acc.isLead || idx === 0;
                           const rawPnl = acc.pnlNum !== undefined ? acc.pnlNum : parseFinancialNumber(acc.pnl, 0);
                           const isEditing = editingAccountId === acc.id;
