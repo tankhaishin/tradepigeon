@@ -437,14 +437,14 @@ export const factoryResetCleanSlate = ({ keepBrokerAccounts = true } = {}) => {
 export const exportFullBackup = () => {
   if (typeof window === 'undefined') return;
   const backup = {
-    version: '1.0',
+    version: '2.0',
     appName: 'TradePigeon',
     exportedAt: new Date().toISOString(),
     data: {}
   };
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.startsWith('goodtrader_')) {
+    if (key && (key.startsWith('goodtrader_') || key.startsWith('day_'))) {
       try {
         backup.data[key] = JSON.parse(localStorage.getItem(key));
       } catch (e) {
@@ -464,6 +464,91 @@ export const exportFullBackup = () => {
   URL.revokeObjectURL(url);
 };
 
+export const exportTradesCsv = () => {
+  if (typeof window === 'undefined') return;
+  const allTrades = [];
+  
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    
+    if (key.startsWith('day_') || key.startsWith('goodtrader_session_trades_')) {
+      try {
+        const raw = localStorage.getItem(key);
+        const data = JSON.parse(raw);
+        const trades = Array.isArray(data) ? data : (data?.trades || []);
+        if (Array.isArray(trades)) {
+          trades.forEach(t => {
+            if (t && (t.pnl !== undefined || t.pnlNum !== undefined || t.symbol || t.account)) {
+              const defaultDate = key.startsWith('day_') ? key.replace('day_', '') : new Date().toISOString().slice(0, 10);
+              allTrades.push({
+                date: t.date || defaultDate,
+                account: t.account || 'Default Account',
+                symbol: t.symbol || t.contract || 'ES',
+                type: t.action || t.side || t.type || 'BUY',
+                contracts: t.contracts || t.quantity || t.qty || 1,
+                entryPrice: t.entryPrice || t.entry || '',
+                exitPrice: t.exitPrice || t.exit || '',
+                pnl: t.pnlNum !== undefined ? t.pnlNum : (t.pnl || 0),
+                rMultiple: t.rMultiple || t.r || '',
+                setup: t.setup || t.playbook || 'General',
+                status: t.status || (Number(t.pnl || t.pnlNum) >= 0 ? 'WIN' : 'LOSS'),
+                executedTime: t.time || t.executedTime || '',
+                mistake: t.mistake || '',
+                notes: t.notes || ''
+              });
+            }
+          });
+        }
+      } catch (_) {}
+    }
+  }
+
+  if (allTrades.length === 0) {
+    alert('No trades found in your journal to export.');
+    return;
+  }
+
+  // Deduplicate trades
+  const seen = new Set();
+  const uniqueTrades = allTrades.filter(t => {
+    const sig = `${t.date}_${t.account}_${t.symbol}_${t.pnl}_${t.executedTime}`;
+    if (seen.has(sig)) return false;
+    seen.add(sig);
+    return true;
+  });
+
+  const headers = ['Date', 'Account', 'Symbol', 'Side', 'Contracts', 'Entry Price', 'Exit Price', 'PnL ($)', 'R Multiple', 'Setup', 'Status', 'Execution Time', 'Mistake', 'Discipline Notes'];
+  const rows = uniqueTrades.map(t => [
+    `"${t.date}"`,
+    `"${t.account}"`,
+    `"${t.symbol}"`,
+    `"${t.type}"`,
+    `"${t.contracts}"`,
+    `"${t.entryPrice}"`,
+    `"${t.exitPrice}"`,
+    `"${t.pnl}"`,
+    `"${t.rMultiple}"`,
+    `"${t.setup}"`,
+    `"${t.status}"`,
+    `"${t.executedTime}"`,
+    `"${(t.mistake || '').replace(/"/g, '""')}"`,
+    `"${(t.notes || '').replace(/"/g, '""')}"`
+  ]);
+
+  const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `tradepigeon_trades_export_${dateStr}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
 export const importFullBackup = (backupInput) => {
   if (typeof window === 'undefined') return { success: false, error: 'No browser environment' };
   try {
@@ -476,9 +561,9 @@ export const importFullBackup = (backupInput) => {
       return { success: false, error: 'Backup file contains no TradePigeon data.' };
     }
     keys.forEach(k => {
-      if (k.startsWith('goodtrader_')) {
+      if (k.startsWith('goodtrader_') || k.startsWith('day_')) {
         const val = parsed.data[k];
-        localStorage.setItem(k, typeof val === 'string' ? val : JSON.stringify(val));
+        saveStoredData(k, val);
       }
     });
     return { success: true, count: keys.length };

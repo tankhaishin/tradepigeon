@@ -4,6 +4,7 @@ import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoProfileIcon, DuoTroph
 import GoogleAuthButton from './GoogleAuthButton';
 import MobileAlertSettings from './MobileAlertSettings';
 import { soundFx } from '../utils/audioEngine';
+import { useAuth } from '../context/AuthContext';
 import { 
   loadStoredData, 
   saveStoredData, 
@@ -11,11 +12,14 @@ import {
   DEFAULT_USER_STATS, 
   factoryResetCleanSlate,
   exportFullBackup,
+  exportTradesCsv,
   importFullBackup,
   wipeAccountTrades
 } from '../utils/storage';
 
 export default function ProfileTab() {
+  const { user, signOutUser } = useAuth();
+  const [googleUser, setGoogleUser] = useState(() => loadStoredData('goodtrader_google_user', null));
   const [activeSubTab, setActiveSubTab] = useState('DEBRIEF_HISTORY');
   const [isProcessingStripe, setIsProcessingStripe] = useState(false);
   const [profileToast, setProfileToast] = useState('');
@@ -88,41 +92,35 @@ export default function ProfileTab() {
     factoryResetCleanSlate({ keepBrokerAccounts: keepBrokersOnReset });
   };
 
-  const handleStripeCheckout = async () => {
-    setIsProcessingStripe(true);
-    try {
-      const response = await fetch('/api/stripe/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          priceId: 'price_123456789',
-          successUrl: window.location.href,
-          cancelUrl: window.location.href,
-        }),
-      });
+  const handleExportCsv = () => {
+    soundFx.playSuccess();
+    exportTradesCsv();
+    triggerToast('Trades exported (CSV)');
+  };
 
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        triggerToast("Connecting to secure Stripe gateway...");
-      }
-    } catch (err) {
-      console.warn('[Stripe Trigger Error]:', err);
-      triggerToast("Connecting to secure Stripe gateway...");
-    } finally {
-      setIsProcessingStripe(false);
-    }
+  const handleStripeCheckout = () => {
+    soundFx.playPop();
+    setIsProcessingStripe(true);
+    const monthlyUrl = import.meta.env.VITE_STRIPE_MONTHLY_LINK || 'https://buy.stripe.com/00w28t0HrfyO93VamV7ss01';
+    const emailParam = user?.email ? `?prefilled_email=${encodeURIComponent(user.email)}` : '';
+    window.open(`${monthlyUrl}${emailParam}`, '_blank', 'noopener,noreferrer');
+    setTimeout(() => setIsProcessingStripe(false), 800);
   };
 
   const handleCancelSubscription = () => {
     triggerToast("Pro access active through billing cycle.");
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     soundFx.playPop();
     if (window.confirm('Are you sure you want to log out of TradePigeon?')) {
+      try {
+        await signOutUser();
+      } catch (err) {
+        console.warn('[Sign Out Error]:', err);
+      }
       saveStoredData('goodtrader_google_user', null);
+      triggerToast('Signed out of TradePigeon');
     }
   };
 
@@ -182,15 +180,35 @@ export default function ProfileTab() {
   // Live User Stats from Storage
   const userStats = loadStoredData('goodtrader_user_stats', DEFAULT_USER_STATS);
   const userDp = loadStoredData('goodtrader_user_dp', 0);
+  const activeUser = user || googleUser;
 
   return (
     <main className="flex-1 min-h-screen lg:pl-28 xl:pl-80 xl:pr-[416px] bg-[#070C1E] p-4 sm:p-6 lg:p-8 text-white space-y-8 pb-24 lg:pb-10 max-w-full overflow-hidden">
       
       {/* 1. TOP HEADER: PURE FLOATING DUOLINGO HEADER */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <h2 className="text-2xl sm:text-3xl font-black text-white">Trader</h2>
-          <span className="px-2.5 py-0.5 rounded-lg bg-[#58CC02] text-white text-[10px] font-black uppercase">PROP MASTER</span>
+        <div className="flex items-center gap-3">
+          {activeUser?.picture ? (
+            <img 
+              src={activeUser.picture} 
+              alt={activeUser.name || 'Trader'} 
+              className="w-11 h-11 rounded-2xl object-cover border-2 border-[#FF6B00] shadow-md shrink-0"
+              onError={(e) => { e.target.src = '/parrot_logo.png'; }}
+            />
+          ) : (
+            <div className="w-11 h-11 rounded-2xl bg-[#0D1635] border-2 border-[#FF6B00] flex items-center justify-center shrink-0">
+              <User size={22} className="text-[#FF6B00]" />
+            </div>
+          )}
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl sm:text-3xl font-black text-white">{activeUser?.name || 'Trader'}</h2>
+              <span className="px-2.5 py-0.5 rounded-lg bg-[#58CC02] text-white text-[10px] font-black uppercase">PROP MASTER</span>
+            </div>
+            {activeUser?.email && (
+              <div className="text-xs font-bold text-slate-400">{activeUser.email}</div>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 shrink-0">
@@ -434,6 +452,15 @@ export default function ProfileTab() {
               >
                 <Download size={14} />
                 <span>Export Full Backup (JSON)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                className="duo-btn-dark px-4 py-2.5 text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer hover:border-[#58CC02] hover:text-[#58CC02] shadow-md"
+              >
+                <FileText size={14} />
+                <span>Export Trades (CSV)</span>
               </button>
 
               <button
