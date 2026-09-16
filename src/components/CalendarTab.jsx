@@ -9,10 +9,17 @@ import InteractiveParrotMascot from './InteractiveParrotMascot';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS } from '../utils/storage';
 import { auditAndSanitizeCalendarState } from '../utils/calendarEngine';
 import { soundFx } from '../utils/audioEngine';
-import { parseFinancialNumber, formatFinancialCurrency } from '../utils/financialMath';
+import { parseFinancialNumber, formatFinancialCurrency, sumTradesPnl } from '../utils/financialMath';
 
 export default function CalendarTab() {
-  const [currentMonthIndex, setCurrentMonthIndex] = useState(1); // August 2026
+  const [currentMonthIndex, setCurrentMonthIndex] = useState(() => {
+    const currentMonth = new Date().getMonth(); // 8 for September
+    if (currentMonth === 8) return 2;
+    if (currentMonth === 7) return 1;
+    if (currentMonth === 6) return 0;
+    if (currentMonth === 9) return 3;
+    return 2;
+  });
   const [calendarViewMode, setCalendarViewMode] = useState('pnl'); // 'pnl' | 'discipline'
   const [selectedBasketFilter, setSelectedBasketFilter] = useState('ALL');
   const [basketsList] = useState(() => loadStoredData('goodtrader_baskets_list', [
@@ -22,10 +29,46 @@ export default function CalendarTab() {
   const [activeCategoryFilter, setActiveCategoryFilter] = useState('ALL'); // 'ALL' | 'win' | 'good_loss' | 'toxic_win' | 'double_failure'
   const [activeModalDay, setActiveModalDay] = useState(null);
 
+  // Dynamic storage-backed Calendar State
+  const [monthsData, setMonthsData] = useState(() => {
+    try {
+      const loaded = loadStoredData(STORAGE_KEYS.CALENDAR_DATA, null);
+      return auditAndSanitizeCalendarState(loaded || []);
+    } catch (e) {
+      return auditAndSanitizeCalendarState([]);
+    }
+  });
+
+  useEffect(() => {
+    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
+      if (key === STORAGE_KEYS.CALENDAR_DATA && value) {
+        setMonthsData(auditAndSanitizeCalendarState(value));
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const rawMonth = monthsData[currentMonthIndex] || monthsData[2] || monthsData[0] || { days: [], monthName: 'SEPTEMBER 2026' };
+
   const modalDayTrades = useMemo(() => {
     if (!activeModalDay) return [];
-    return loadStoredData(`goodtrader_session_trades_day_${activeModalDay.date}`, []);
-  }, [activeModalDay]);
+    const year = rawMonth.year || 2026;
+    const monthIdx = rawMonth.monthIndex !== undefined ? rawMonth.monthIndex : 8;
+    const padMonth = String(monthIdx + 1).padStart(2, '0');
+    const padDate = String(activeModalDay.date).padStart(2, '0');
+    const isoDate = `${year}-${padMonth}-${padDate}`;
+
+    const numTrades = loadStoredData(`goodtrader_session_trades_day_${activeModalDay.date}`, null);
+    if (Array.isArray(numTrades) && numTrades.length > 0) return numTrades;
+
+    const isoTrades = loadStoredData(`goodtrader_session_trades_day_${isoDate}`, null);
+    if (Array.isArray(isoTrades) && isoTrades.length > 0) return isoTrades;
+
+    const generalDay = loadStoredData(`day_${isoDate}`, null);
+    if (Array.isArray(generalDay?.trades) && generalDay.trades.length > 0) return generalDay.trades;
+
+    return [];
+  }, [activeModalDay, rawMonth]);
 
   const modalCategoryTotals = useMemo(() => {
     let disciplinedWin = 0;
@@ -59,34 +102,61 @@ export default function CalendarTab() {
     };
   }, [modalDayTrades]);
 
-  // Dynamic storage-backed Calendar State
-  const [monthsData, setMonthsData] = useState(() => {
-    try {
-      const loaded = loadStoredData(STORAGE_KEYS.CALENDAR_DATA, null);
-      return auditAndSanitizeCalendarState(loaded || []);
-    } catch (e) {
-      return auditAndSanitizeCalendarState([]);
-    }
-  });
-
-  useEffect(() => {
-    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === STORAGE_KEYS.CALENDAR_DATA && value) {
-        setMonthsData(auditAndSanitizeCalendarState(value));
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const rawMonth = monthsData[currentMonthIndex] || monthsData[0] || { days: [], monthName: 'AUGUST 2026' };
-
   const currentMonth = useMemo(() => {
     if (!rawMonth) return { days: [], totalPnl: '$0.00', disciplineScore: '100%', weeklySummaries: [] };
+    const year = rawMonth.year || 2026;
+    const monthIdx = rawMonth.monthIndex !== undefined ? rawMonth.monthIndex : (currentMonthIndex === 0 ? 6 : currentMonthIndex === 1 ? 7 : currentMonthIndex === 2 ? 8 : 9);
+
     let totalPnlNum = 0;
     let disciplinedDays = 0;
     let totalTradeDays = 0;
 
     const days = (rawMonth.days || []).map(day => {
+      const padMonth = String(monthIdx + 1).padStart(2, '0');
+      const padDate = String(day.date).padStart(2, '0');
+      const isoDate = `${year}-${padMonth}-${padDate}`;
+
+      // Check session trades for this day
+      const sessionTradesNum = loadStoredData(`goodtrader_session_trades_day_${day.date}`, null);
+      const sessionTradesIso = loadStoredData(`goodtrader_session_trades_day_${isoDate}`, null);
+      const sessionTradesGeneral = loadStoredData(`day_${isoDate}`, null);
+
+      const resolvedTrades = (Array.isArray(sessionTradesNum) && sessionTradesNum.length > 0)
+        ? sessionTradesNum
+        : (Array.isArray(sessionTradesIso) && sessionTradesIso.length > 0)
+        ? sessionTradesIso
+        : (sessionTradesGeneral?.trades || []);
+
+      if (resolvedTrades && resolvedTrades.length > 0) {
+        const dayPnl = sumTradesPnl(resolvedTrades);
+        totalPnlNum += dayPnl;
+        totalTradeDays++;
+
+        const isFollowed = resolvedTrades.every(t => 
+          t.type?.includes('FOLLOW') || t.type === 'win' || t.type === 'good_loss' || t.type === 'breakeven'
+        );
+
+        let dayStatus = 'breakeven';
+        if (dayPnl > 5) {
+          dayStatus = isFollowed ? 'win' : 'toxic_win';
+          if (isFollowed) disciplinedDays++;
+        } else if (dayPnl < -5) {
+          dayStatus = isFollowed ? 'good_loss' : 'double_failure';
+          if (isFollowed) disciplinedDays++;
+        } else {
+          dayStatus = 'breakeven';
+          disciplinedDays++;
+        }
+
+        return {
+          ...day,
+          pnl: formatFinancialCurrency(dayPnl, { showPlus: true }),
+          status: dayStatus,
+          count: `${resolvedTrades.length} trades`
+        };
+      }
+
+      // Preserve day.pnl if already populated
       if (day.pnl && day.pnl !== '-' && !String(day.pnl).includes('CLOSED')) {
         const clean = parseFinancialNumber(day.pnl, NaN);
         if (!isNaN(clean)) {
@@ -103,24 +173,46 @@ export default function CalendarTab() {
     const calculatedTotalPnl = formatFinancialCurrency(totalPnlNum, { showPlus: true });
     const calculatedDisciplineScore = totalTradeDays > 0 ? `${Math.round((disciplinedDays / totalTradeDays) * 100)}%` : '100%';
 
-    const weeklySummaries = rawMonth.weeklySummaries && rawMonth.weeklySummaries.length > 0 
-      ? rawMonth.weeklySummaries 
-      : [
-          { weekLabel: 'Week 1', pnl: '$0.00', count: '0 trades' },
-          { weekLabel: 'Week 2', pnl: '$0.00', count: '0 trades' },
-          { weekLabel: 'Week 3', pnl: '$0.00', count: '0 trades' },
-          { weekLabel: 'Week 4', pnl: '$0.00', count: '0 trades' },
-          { weekLabel: 'Week 5', pnl: '$0.00', count: '0 trades' },
-        ];
+    // Dynamically calculate weekly summaries by row of 7 days
+    const startOffset = rawMonth.startOffset || 0;
+    const gridItems = [];
+    for (let o = 0; o < startOffset; o++) gridItems.push(null);
+    days.forEach(d => gridItems.push(d));
+
+    const weeklySummaries = [];
+    let weekRowIdx = 0;
+    for (let i = 0; i < gridItems.length; i += 7) {
+      const weekChunk = gridItems.slice(i, i + 7).filter(Boolean);
+      let weekPnl = 0;
+      let weekTrades = 0;
+
+      weekChunk.forEach(d => {
+        if (d.pnl && d.pnl !== '-' && !String(d.pnl).includes('CLOSED')) {
+          const val = parseFinancialNumber(d.pnl, 0);
+          weekPnl += val;
+        }
+        if (d.count) {
+          const match = String(d.count).match(/\d+/);
+          if (match) weekTrades += parseInt(match[0], 10);
+        }
+      });
+
+      weeklySummaries.push({
+        weekLabel: `Week ${weekRowIdx + 1}`,
+        pnl: formatFinancialCurrency(weekPnl, { showPlus: true }),
+        count: `${weekTrades} trade${weekTrades === 1 ? '' : 's'}`
+      });
+      weekRowIdx++;
+    }
 
     return {
       ...rawMonth,
       days,
-      totalPnl: rawMonth.totalPnl && rawMonth.totalPnl !== '$0.00' && rawMonth.totalPnl !== '-' ? rawMonth.totalPnl : calculatedTotalPnl,
-      disciplineScore: rawMonth.disciplineScore && rawMonth.disciplineScore !== '0%' ? rawMonth.disciplineScore : calculatedDisciplineScore,
+      totalPnl: calculatedTotalPnl,
+      disciplineScore: calculatedDisciplineScore,
       weeklySummaries
     };
-  }, [rawMonth]);
+  }, [rawMonth, currentMonthIndex]);
 
   const handlePrevMonth = () => {
     soundFx.playPop();
