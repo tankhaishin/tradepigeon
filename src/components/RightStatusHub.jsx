@@ -1692,6 +1692,8 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       {/* MANDATORY POST-SESSION AUDIT & JOURNAL MODAL */}
       {isDebriefModalOpen && (
         <AiDebriefModal
+          isOpen={isDebriefModalOpen}
+          currentDay={activeAuditDay}
           onClose={() => setIsDebriefModalOpen(false)}
           onFinish={() => {
             setIsDebriefModalOpen(false);

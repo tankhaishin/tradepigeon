@@ -124,8 +124,8 @@ export default function ProfileTab() {
     }
   };
 
-  // VERIFIED TRADING EDGE LOG (Loaded from Storage with clean zero-state)
-  const historicalLogs = loadStoredData('goodtrader_debrief_history', []);
+  // VERIFIED TRADING EDGE LOG (Loaded from Storage with clean zero-state and live reactivity)
+  const [historicalLogs, setHistoricalLogs] = useState(() => loadStoredData('goodtrader_debrief_history', []));
 
   // Connected Auto-Synced Trading Accounts (Loaded from Storage with clean zero-state)
   const [connectedAccounts, setConnectedAccounts] = useState(() => loadStoredData('goodtrader_accounts_data', []));
@@ -134,6 +134,9 @@ export default function ProfileTab() {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
       if (key === 'goodtrader_accounts_data') {
         setConnectedAccounts(value || []);
+      }
+      if (key === 'goodtrader_debrief_history') {
+        setHistoricalLogs(value || []);
       }
     });
     return () => unsubscribe();
@@ -318,28 +321,51 @@ export default function ProfileTab() {
             </div>
           ) : (
             <div className="space-y-3">
-              {historicalLogs.map((item, idx) => (
-                <div key={idx} className="p-4 rounded-2xl bg-[#182830] border-2 border-[#2B3D47] border-b-4 border-b-[#142127] flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-base shrink-0 border-2 ${
-                      item.grade.startsWith('A') ? 'bg-[#58CC02] text-white border-[#46A302] border-b-4 border-b-[#388202]' : 'bg-amber-500 text-slate-950 border-amber-600 border-b-4 border-b-amber-700'
-                    }`}>
-                      {item.grade}
-                    </div>
-                    <div>
-                      <div className="text-sm font-black text-white">{item.date} &bull; <span className="text-[#1CB0F6]">{item.setup}</span></div>
-                      <div className="text-xs font-bold text-[#52656D] mt-0.5">{item.score} &bull; Mindset: {item.mood}</div>
-                    </div>
-                  </div>
+              {historicalLogs.map((item, idx) => {
+                const gradeStr = String(item.grade || 'A');
+                let badgeStyle = 'bg-[#58CC02] text-white border-[#46A302] border-b-4 border-b-[#388202]';
+                if (gradeStr.startsWith('B')) {
+                  badgeStyle = 'bg-[#1CB0F6] text-white border-[#1899D6] border-b-4 border-b-[#147BB0]';
+                } else if (gradeStr.startsWith('C')) {
+                  badgeStyle = 'bg-amber-500 text-slate-950 border-amber-600 border-b-4 border-b-amber-700';
+                } else if (gradeStr.startsWith('F')) {
+                  badgeStyle = 'bg-[#FF4B4B] text-white border-[#E53935] border-b-4 border-b-[#C62828]';
+                }
 
-                  <div className="text-right">
-                    <div className={`text-sm font-black ${item.pnl.startsWith('+') ? 'text-[#58CC02]' : 'text-rose-400'}`}>
-                      {item.pnl}
+                const pnlStr = String(item.pnl || '$0.00');
+                const isPositive = pnlStr.startsWith('+');
+                const isNegative = pnlStr.startsWith('-');
+
+                return (
+                  <div key={item.id || idx} className="p-4 rounded-2xl bg-[#182830] border-2 border-[#2B3D47] border-b-4 border-b-[#142127] flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-base shrink-0 border-2 shadow-sm ${badgeStyle}`}>
+                        {item.grade || 'A+'}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-black text-white truncate">
+                          {item.date} &bull; <span className="text-[#1CB0F6]">{item.setup || 'Daily Execution'}</span>
+                        </div>
+                        <div className="text-xs font-bold text-[#52656D] mt-0.5">
+                          {item.score || 'Score: 100/100'} &bull; Mindset: {item.mood || 'Disciplined'}
+                        </div>
+                        {item.notes && (
+                          <div className="text-xs italic text-slate-300 mt-1 line-clamp-1">
+                            "{item.notes}"
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-[10px] font-black uppercase text-slate-400 mt-0.5">{item.status}</div>
+
+                    <div className="text-right shrink-0">
+                      <div className={`text-sm font-black ${isPositive ? 'text-[#58CC02]' : isNegative ? 'text-rose-400' : 'text-slate-300'}`}>
+                        {item.pnl || '$0.00'}
+                      </div>
+                      <div className="text-[10px] font-black uppercase text-slate-400 mt-0.5">{item.status || 'COMPLIANT'}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

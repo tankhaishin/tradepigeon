@@ -102,6 +102,15 @@ export default function CalendarTab() {
     };
   }, [modalDayTrades]);
 
+  const modalDayIsoDate = useMemo(() => {
+    if (!activeModalDay) return '';
+    const year = rawMonth.year || 2026;
+    const monthIdx = rawMonth.monthIndex !== undefined ? rawMonth.monthIndex : 8;
+    const padMonth = String(monthIdx + 1).padStart(2, '0');
+    const padDate = String(activeModalDay.date).padStart(2, '0');
+    return `${year}-${padMonth}-${padDate}`;
+  }, [activeModalDay, rawMonth]);
+
   const currentMonth = useMemo(() => {
     if (!rawMonth) return { days: [], totalPnl: '$0.00', disciplineScore: '100%', weeklySummaries: [] };
     const year = rawMonth.year || 2026;
@@ -831,7 +840,7 @@ export default function CalendarTab() {
                     KEY SESSION TAKEAWAY:
                   </span>
                   <p className="text-base sm:text-lg font-black text-white leading-snug italic">
-                    "{loadStoredData(`goodtrader_session_note_day_${activeModalDay.date}`, 'No session debrief note recorded for this day.')}"
+                    "{loadStoredData(`goodtrader_session_note_day_${activeModalDay.date}`, null) || (modalDayIsoDate ? loadStoredData(`goodtrader_session_note_day_${modalDayIsoDate}`, null) : null) || 'No session debrief note recorded for this day.'}"
                   </p>
                 </div>
               </div>

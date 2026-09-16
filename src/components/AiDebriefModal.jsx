@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { Sparkles, Brain, AlertTriangle, AlertCircle, ShieldCheck, CheckCircle2, ChevronRight, Award, Bot } from 'lucide-react';
+import { Sparkles, Brain, AlertTriangle, AlertCircle, ShieldCheck, CheckCircle2, ChevronRight, Award, Bot, X } from 'lucide-react';
 import { Duo3dZenBadge, Duo3dPulseBadge, Duo3dCrosshairBadge, Duo3dRocketBadge } from './DuolingoFeatureBadges';
 import InteractiveParrotMascot from './InteractiveParrotMascot';
+import { loadStoredData, saveStoredData } from '../utils/storage';
+import { formatFinancialCurrency, parseFinancialNumber } from '../utils/financialMath';
+import { soundFx } from '../utils/audioEngine';
 
-export default function AiDebriefModal({ isOpen, onClose, selectedMood, onSaveSession }) {
+export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, onSaveSession, onFinish, currentDay = 1 }) {
   const [emotion, setEmotion] = useState('disciplined');
   const [followedPlan, setFollowedPlan] = useState(true);
   const [followedRules, setFollowedRules] = useState(true);
@@ -13,6 +16,46 @@ export default function AiDebriefModal({ isOpen, onClose, selectedMood, onSaveSe
   const [aiReportGenerated, setAiReportGenerated] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleSetCompliance = (isCompliant) => {
+    setFollowedPlan(isCompliant);
+    setFollowedRules(isCompliant);
+  };
+
+  // Compute real-time grade, score, and status based on trader choices
+  let currentGrade = 'A+';
+  let currentScore = 'Score: 98/100';
+  let currentStatus = 'COMPLIANT';
+
+  if (followedPlan) {
+    if (emotion === 'disciplined') {
+      currentGrade = 'A+';
+      currentScore = 'Score: 98/100';
+      currentStatus = 'COMPLIANT';
+    } else if (emotion === 'anxious') {
+      currentGrade = 'A-';
+      currentScore = 'Score: 92/100';
+      currentStatus = 'COMPLIANT';
+    } else if (emotion === 'fomo') {
+      currentGrade = 'B+';
+      currentScore = 'Score: 88/100';
+      currentStatus = 'COMPLIANT';
+    } else if (emotion === 'revenge') {
+      currentGrade = 'B';
+      currentScore = 'Score: 82/100';
+      currentStatus = 'CAUTION';
+    }
+  } else {
+    if (emotion === 'revenge') {
+      currentGrade = 'F';
+      currentScore = 'Score: 40/100';
+      currentStatus = 'DEVIATED';
+    } else {
+      currentGrade = 'C';
+      currentScore = 'Score: 65/100';
+      currentStatus = 'DEVIATED';
+    }
+  }
 
   const handleGenerateAiReport = () => {
     setIsAnalyzing(true);
@@ -66,9 +109,87 @@ export default function AiDebriefModal({ isOpen, onClose, selectedMood, onSaveSe
   };
 
   const handleFinish = () => {
-    if (typeof onSaveSession === 'function') {
-      onSaveSession(notes);
+    const dayNum = currentDay || loadStoredData('goodtrader_current_day', 1);
+    const todayObj = new Date();
+    const todayIso = todayObj.toISOString().split('T')[0];
+    const formattedDate = todayObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    // Calculate actual PnL from today's trades
+    const dayTrades = loadStoredData(`goodtrader_session_trades_day_${dayNum}`, null)
+      || loadStoredData(`goodtrader_session_trades_day_${todayIso}`, null)
+      || loadStoredData(`goodtrader_session_trades_day_${todayObj.getDate()}`, null)
+      || loadStoredData('goodtrader_session_trades', []);
+
+    let totalPnlNum = 0;
+    let setupName = 'Session Execution';
+    if (Array.isArray(dayTrades) && dayTrades.length > 0) {
+      dayTrades.forEach(t => {
+        totalPnlNum += parseFinancialNumber(t.pnlNum !== undefined ? t.pnlNum : t.pnlValue !== undefined ? t.pnlValue : t.pnl, 0);
+      });
+      if (dayTrades[0]?.setup || dayTrades[0]?.strategy || dayTrades[0]?.name) {
+        setupName = dayTrades[0].setup || dayTrades[0].strategy || dayTrades[0].name;
+      }
     }
+    const pnlFormatted = formatFinancialCurrency(totalPnlNum, { showPlus: true });
+
+    const finalReport = aiReport || "Process discipline evaluated and recorded.";
+    const debriefNote = notes && notes.trim() !== '' ? notes.trim() : finalReport;
+
+    const historyItem = {
+      id: `debrief_${Date.now()}`,
+      date: formattedDate,
+      isoDate: todayIso,
+      day: dayNum,
+      setup: setupName,
+      grade: currentGrade,
+      score: currentScore,
+      mood: emotion.charAt(0).toUpperCase() + emotion.slice(1),
+      pnl: pnlFormatted,
+      status: currentStatus,
+      followedPlan,
+      followedRules: followedPlan,
+      notes: debriefNote,
+      aiReport: finalReport,
+      timestamp: new Date().toISOString()
+    };
+
+    // 1. Save debrief history to storage (automatically syncs to Cloud Firestore)
+    const prevHistory = loadStoredData('goodtrader_debrief_history', []);
+    const updatedHistory = [historyItem, ...prevHistory.filter(h => h.id !== historyItem.id && h.isoDate !== todayIso)];
+    saveStoredData('goodtrader_debrief_history', updatedHistory);
+
+    // 2. Award user DP (+150 DP)
+    const currentDp = loadStoredData('goodtrader_user_dp', 0);
+    saveStoredData('goodtrader_user_dp', Number(currentDp) + 150);
+
+    // 3. Update user stats
+    const currentStats = loadStoredData('goodtrader_user_stats', { streakDays: 0, tradesLogged: 0, disciplinePoints: 0 });
+    const nextStreak = followedPlan ? (currentStats.streakDays || 0) + 1 : Math.max(1, currentStats.streakDays || 0);
+    const updatedStats = {
+      ...currentStats,
+      streakDays: nextStreak,
+      tradesLogged: (currentStats.tradesLogged || 0) + (Array.isArray(dayTrades) ? dayTrades.length : 1),
+      disciplinePoints: (currentStats.disciplinePoints || 0) + 150
+    };
+    saveStoredData('goodtrader_user_stats', updatedStats);
+
+    // 4. Save session note for Calendar Tab
+    saveStoredData(`goodtrader_session_note_day_${dayNum}`, debriefNote);
+    saveStoredData(`goodtrader_session_note_day_${todayIso}`, debriefNote);
+    saveStoredData(`goodtrader_session_note_day_${todayObj.getDate()}`, debriefNote);
+
+    // 5. Fire callbacks
+    if (typeof onSaveSession === 'function') {
+      onSaveSession(debriefNote, historyItem);
+    }
+    if (typeof onFinish === 'function') {
+      onFinish(historyItem);
+    }
+
+    try {
+      soundFx?.playLevelUp?.();
+    } catch (_) {}
+
     setAiReportGenerated(false);
     onClose();
   };
@@ -88,6 +209,15 @@ export default function AiDebriefModal({ isOpen, onClose, selectedMood, onSaveSe
               <h3 className="text-xl font-black text-white">Post-Session Accountability Audit</h3>
             </div>
           </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-xl bg-[#142127] border border-[#20323D] flex items-center justify-center text-slate-400 hover:text-white cursor-pointer transition-colors"
+              title="Close"
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
 
         {!aiReportGenerated ? (
@@ -129,7 +259,7 @@ export default function AiDebriefModal({ isOpen, onClose, selectedMood, onSaveSe
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => setFollowedPlan(true)}
+                  onClick={() => handleSetCompliance(true)}
                   className={`p-3.5 rounded-2xl border-2 font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
                     followedPlan === true 
                       ? 'bg-[#58CC02] border-[#46A302] border-b-4 border-b-[#388202] text-white shadow-lg font-black' 
@@ -140,7 +270,7 @@ export default function AiDebriefModal({ isOpen, onClose, selectedMood, onSaveSe
                   <span>Yes, 100% Compliant</span>
                 </button>
                 <button
-                  onClick={() => setFollowedPlan(false)}
+                  onClick={() => handleSetCompliance(false)}
                   className={`p-3.5 rounded-2xl border-2 font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
                     followedPlan === false 
                       ? 'bg-rose-600 border-rose-700 border-b-4 border-b-rose-900 text-white shadow-lg font-black' 
@@ -226,8 +356,8 @@ export default function AiDebriefModal({ isOpen, onClose, selectedMood, onSaveSe
             <div className="p-5 rounded-3xl bg-[#142127] border-2 border-[#20323D] space-y-4">
               <div className="flex items-center justify-between text-xs font-black">
                 <span className="text-[#1CB0F6]">SESSION SCORE & BEHAVIOR DIAGNOSTIC</span>
-                <span className={`px-3 py-1 rounded-xl font-black ${followedRules ? 'bg-[#58CC02]/20 text-[#58CC02] border border-[#58CC02]/40' : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'}`}>
-                  {followedRules ? 'DISCIPLINE GRADE: A+' : 'DISCIPLINE GRADE: C (RULES BROKEN)'}
+                <span className={`px-3 py-1 rounded-xl font-black ${followedPlan ? 'bg-[#58CC02]/20 text-[#58CC02] border border-[#58CC02]/40' : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'}`}>
+                  DISCIPLINE GRADE: {currentGrade} {!followedPlan ? '(RULES BROKEN)' : ''}
                 </span>
               </div>
 
@@ -239,7 +369,7 @@ export default function AiDebriefModal({ isOpen, onClose, selectedMood, onSaveSe
 
                 <div className="p-3 rounded-2xl bg-[#182830] flex items-center justify-between">
                   <span>Targeted Behavioral Fix:</span>
-                  <span className="text-sky-300 font-black">{followedRules ? 'Keep Position Sizing Static' : 'Mandatory 30m Walk Post-Loss'}</span>
+                  <span className="text-sky-300 font-black">{followedPlan ? 'Keep Position Sizing Static' : 'Mandatory 30m Walk Post-Loss'}</span>
                 </div>
               </div>
             </div>

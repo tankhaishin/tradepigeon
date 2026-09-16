@@ -451,6 +451,7 @@ export default function CenterPath() {
       saveStoredData('goodtrader_completed_steps', []);
       setActiveStep(1);
       setIsStepModalOpen(false);
+      saveStoredData('goodtrader_trading_status', 'DONE');
     } else {
       setActiveStep(stepNum + 1);
     }
@@ -1671,6 +1672,7 @@ export default function CenterPath() {
       <AiDebriefModal 
         isOpen={isDebriefOpen} 
         selectedMood={selectedMood}
+        currentDay={currentDay}
         onSaveSession={(userNotes) => {
           if (userNotes && userNotes.trim() !== '') {
             saveStoredData(`goodtrader_session_note_day_${currentDay}`, userNotes.trim());
