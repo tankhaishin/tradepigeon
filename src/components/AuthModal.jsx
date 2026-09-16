@@ -3,7 +3,7 @@ import { X, Mail, Lock, User, ArrowRight, ShieldCheck, AlertCircle, Sparkles } f
 import { useAuth } from '../context/AuthContext';
 import { soundFx } from '../utils/audioEngine';
 
-export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }) {
+export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode = 'signin' }) {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, isLiveCloud } = useAuth();
   const [mode, setMode] = useState(initialMode); // 'signin' | 'signup'
   const [email, setEmail] = useState('');
@@ -20,17 +20,21 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }) {
     setIsSubmitting(true);
 
     try {
+      let loggedUser = null;
       if (mode === 'signup') {
         if (!displayName.trim()) {
           setError('Please enter your trader handle or name.');
           setIsSubmitting(false);
           return;
         }
-        await signUpWithEmail(email, password, displayName.trim());
+        loggedUser = await signUpWithEmail(email, password, displayName.trim());
       } else {
-        await signInWithEmail(email, password);
+        loggedUser = await signInWithEmail(email, password);
       }
       onClose();
+      if (onAuthSuccess && loggedUser) {
+        onAuthSuccess(loggedUser);
+      }
     } catch (err) {
       console.warn('[Auth Error]:', err);
       let msg = err.message || 'Authentication failed.';
@@ -51,8 +55,11 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }) {
     setError('');
     setIsSubmitting(true);
     try {
-      await signInWithGoogle();
+      const loggedUser = await signInWithGoogle();
       onClose();
+      if (onAuthSuccess && loggedUser) {
+        onAuthSuccess(loggedUser);
+      }
     } catch (err) {
       console.warn('[Google Auth Error]:', err);
       const code = err.code || '';

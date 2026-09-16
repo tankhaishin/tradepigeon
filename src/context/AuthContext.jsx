@@ -100,8 +100,16 @@ export function AuthProvider({ children }) {
 
     try {
       const result = await signInWithPopup(auth, googleProvider);
+      const fbUser = result.user;
+      const formatted = {
+        uid: fbUser.uid,
+        name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
+        email: fbUser.email || '',
+        picture: fbUser.photoURL || '/parrot_logo.png',
+        authenticatedAt: new Date().toISOString()
+      };
       soundFx.playSuccess();
-      return result.user;
+      return formatted;
     } catch (popupErr) {
       // If popup was blocked by mobile Safari or iframe, attempt redirect
       if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/cancelled-popup-request') {
@@ -128,8 +136,16 @@ export function AuthProvider({ children }) {
     }
 
     const result = await signInWithEmailAndPassword(auth, email, password);
+    const fbUser = result.user;
+    const formatted = {
+      uid: fbUser.uid,
+      name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
+      email: fbUser.email || '',
+      picture: fbUser.photoURL || '/parrot_logo.png',
+      authenticatedAt: new Date().toISOString()
+    };
     soundFx.playSuccess();
-    return result.user;
+    return formatted;
   };
 
   const signUpWithEmail = async (email, password, displayName) => {
@@ -152,8 +168,16 @@ export function AuthProvider({ children }) {
     if (displayName && result.user) {
       await updateProfile(result.user, { displayName });
     }
+    const fbUser = result.user;
+    const formatted = {
+      uid: fbUser.uid,
+      name: displayName || fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
+      email: fbUser.email || '',
+      picture: fbUser.photoURL || '/parrot_logo.png',
+      authenticatedAt: new Date().toISOString()
+    };
     soundFx.playSuccess();
-    return result.user;
+    return formatted;
   };
 
   const signOutUser = async () => {

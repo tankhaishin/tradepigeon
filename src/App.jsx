@@ -88,7 +88,9 @@ export default function App() {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
       if (key === 'tradepigeon_google_user') {
         setGoogleUser(value);
-        if (!value) {
+        if (value && value.email) {
+          setShowLanding(false);
+        } else {
           setShowLanding(true);
         }
       }
