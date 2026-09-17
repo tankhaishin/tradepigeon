@@ -12,7 +12,7 @@ import { parseFinancialNumber, formatFinancialCurrency, sumTradesPnl } from '../
 
 import AiDebriefModal from './AiDebriefModal';
 import InteractiveEquityCurve from './InteractiveEquityCurve';
-import RightStatusHub from './RightStatusHub';
+import RightStatusHub, { HESITATION_REASONS } from './RightStatusHub';
 import GuidebookModal from './GuidebookModal';
 import BrokerConnectModal from './BrokerConnectModal';
 
@@ -835,17 +835,37 @@ export default function CenterPath() {
 
                             {/* Separate Missed Setup / Hesitation Metric */}
                             {missedCount > 0 && (
-                              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between shadow-sm">
-                                <div className="flex items-center gap-2">
-                                  <DuoMissedTradeIcon className="w-5 h-5 shrink-0" />
-                                  <div>
-                                    <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider block">Missed Setups (Hesitation)</span>
-                                    <span className="text-[10px] text-slate-400 font-medium">Valid playbook setups watched without entering</span>
+                              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2 shadow-sm">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <DuoMissedTradeIcon className="w-5 h-5 shrink-0" />
+                                    <div>
+                                      <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider block">Missed Setups (Hesitation)</span>
+                                      <span className="text-[10px] text-slate-400 font-medium">Valid playbook setups watched without entering</span>
+                                    </div>
                                   </div>
+                                  <span className="text-xs font-black text-amber-300 font-mono bg-amber-500/20 px-2.5 py-1 rounded-lg border border-amber-500/30">
+                                    {missedCount} Missed ($0.00)
+                                  </span>
                                 </div>
-                                <span className="text-xs font-black text-amber-300 font-mono bg-amber-500/20 px-2.5 py-1 rounded-lg border border-amber-500/30">
-                                  {missedCount} Missed ($0.00)
-                                </span>
+
+                                {(() => {
+                                  const taggedMissed = dayTrades.filter(t => (t.type === 'missed_trade' || t.side === 'MISSED') && t.reason);
+                                  if (taggedMissed.length === 0) return null;
+                                  return (
+                                    <div className="flex flex-wrap gap-1.5 pt-1.5 border-t border-amber-500/20">
+                                      {taggedMissed.map((t) => {
+                                        const rObj = (HESITATION_REASONS || []).find(r => r.id === t.reason);
+                                        return (
+                                          <span key={t.id} className="text-[9px] font-bold bg-[#142127] text-amber-200 px-2 py-0.5 rounded-lg border border-[#20323D] flex items-center gap-1 shadow-sm">
+                                            <span>{rObj?.icon || '⚠️'}</span>
+                                            <span>{rObj?.label || t.reason}</span>
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             )}
                           </div>

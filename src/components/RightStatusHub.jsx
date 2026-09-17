@@ -12,6 +12,14 @@ import { auditAndSanitizeCalendarState } from '../utils/calendarEngine';
 import { soundFx } from '../utils/audioEngine';
 import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl } from '../utils/financialMath';
 
+export const HESITATION_REASONS = [
+  { id: 'fear', label: 'Post-Loss Fear', icon: '🥶', advice: 'A previous loss has zero mathematical bearing on this trade. Focus on process, not outcome!' },
+  { id: 'paralysis', label: 'Over-Analysis', icon: '🔍', advice: 'Perfection does not exist in live markets. Execute as soon as your criteria align!' },
+  { id: 'fast_move', label: 'Price Moved Too Fast', icon: '💨', advice: 'Great discipline not chasing a runaway candle. Wait patiently for the retest!' },
+  { id: 'distracted', label: 'Distracted / Late', icon: '📱', advice: 'Guard your killzone focus like gold. Screen discipline protects equity!' },
+  { id: 'rules', label: 'Rule Ambiguity', icon: '❓', advice: 'Review your playbook rules checklist. Ambiguity is the enemy of execution speed!' },
+];
+
 export default function RightStatusHub({ isExpanded = false, onToggleExpand, isMobileOpen = false, onCloseMobile, isInPage = false, onOpenCalendarTab }) {
   const [internalExpanded, setInternalExpanded] = useState(isExpanded);
   const [tradingStatus, setTradingStatusState] = useState(() => loadStoredData('tradepigeon_trading_status', 'TRADING'));
@@ -255,6 +263,29 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     const updated = sessionTrades.map(t => t.id === tradeId ? { ...t, playbook: nextPlaybook } : t);
     setSessionTrades(updated);
     saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
+  };
+
+  const handleUpdateTradeReason = (tradeId, reason) => {
+    soundFx.playPop();
+    const updated = sessionTrades.map(t => {
+      if (t.id === tradeId) {
+        return { ...t, reason };
+      }
+      return t;
+    });
+    setSessionTrades(updated);
+    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
+
+    if (reason) {
+      soundFx.playSuccess();
+      const currentStats = loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS);
+      const updatedStats = {
+        ...currentStats,
+        disciplinePoints: (currentStats.disciplinePoints || 0) + 25
+      };
+      saveStoredData('tradepigeon_user_stats', updatedStats);
+      setUserStats(updatedStats);
+    }
   };
 
   const handleRepairStreak = () => {
@@ -1304,12 +1335,65 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
                         {/* Trade Confirmation & Classification Section */}
                         {(trade.side === 'MISSED' || trade.type === 'missed_trade') ? (
-                          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs mt-1 shadow-sm">
-                            <div className="flex items-center gap-1.5 text-amber-400 font-bold text-[10px]">
-                              <AlertCircle size={12} className="text-amber-400 shrink-0" />
-                              <span>MISSED SETUP • HESITATED / NO FILL</span>
+                          <div className="space-y-1.5 mt-1">
+                            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs shadow-sm">
+                              <div className="flex items-center gap-1.5 text-amber-400 font-bold text-[10px]">
+                                <AlertCircle size={12} className="text-amber-400 shrink-0" />
+                                <span>MISSED SETUP • NO EXECUTION</span>
+                              </div>
+                              <span className="text-[9px] font-black text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">$0.00 PnL</span>
                             </div>
-                            <span className="text-[9px] font-black text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">$0.00 PnL</span>
+
+                            {/* 1-Click Hesitation Reason Tagging */}
+                            {trade.reason ? (
+                              (() => {
+                                const rObj = HESITATION_REASONS.find(r => r.id === trade.reason);
+                                return (
+                                  <div className="p-2.5 rounded-xl bg-[#182830] border border-[#20323D] space-y-1 shadow-sm animate-fade-in">
+                                    <div className="flex items-center justify-between text-[10px]">
+                                      <div className="flex items-center gap-1.5 font-black text-amber-300">
+                                        <span className="text-sm">{rObj?.icon || '⚠️'}</span>
+                                        <span>{rObj?.label || trade.reason}</span>
+                                        <span className="text-[9px] font-black text-[#58CC02] bg-[#58CC02]/15 px-1.5 py-0.5 rounded border border-[#58CC02]/30">+25 DP</span>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateTradeReason(trade.id, null)}
+                                        className="text-[9px] text-slate-400 hover:text-white underline cursor-pointer"
+                                      >
+                                        Change
+                                      </button>
+                                    </div>
+                                    {rObj?.advice && (
+                                      <p className="text-[10px] text-slate-300 italic pl-5 leading-tight">
+                                        "{rObj.advice}"
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })()
+                            ) : (
+                              <div className="space-y-1.5 p-2 rounded-xl bg-[#142127] border border-[#20323D]">
+                                <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-slate-400">
+                                  <span>Why was this setup missed? (1-Tap Tag)</span>
+                                  <span className="text-amber-400 font-bold">+25 DP</span>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                                  {HESITATION_REASONS.map((r) => (
+                                    <button
+                                      key={r.id}
+                                      type="button"
+                                      onClick={() => handleUpdateTradeReason(trade.id, r.id)}
+                                      className="p-1.5 rounded-lg bg-[#182830] hover:bg-[#20323D] border border-[#20323D] hover:border-amber-500/60 text-left cursor-pointer transition-all active:scale-95 flex items-center gap-1.5 shadow-sm group"
+                                      title={r.advice}
+                                    >
+                                      <span className="text-xs shrink-0 group-hover:scale-110 transition-transform">{r.icon}</span>
+                                      <span className="text-[9px] font-bold text-slate-300 group-hover:text-white truncate">{r.label}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ) : trade.confirmed ? (
                           /* CONFIRMED / AUDITED DONE STATE */
@@ -1663,17 +1747,39 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
             {/* Separate Missed Setups / Hesitations Metric */}
             {sessionTrades.filter(t => t.type === 'missed_trade' || t.side === 'MISSED').length > 0 && (
-              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between mt-2.5">
-                <div className="flex items-center gap-2">
-                  <AlertCircle size={14} className="text-amber-400 shrink-0" />
-                  <div>
-                    <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider block">Missed Setups (Hesitation)</span>
-                    <span className="text-[9px] text-slate-400 font-medium">Valid setups watched without entering</span>
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2 mt-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle size={14} className="text-amber-400 shrink-0" />
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider block">Missed Setups (Hesitation)</span>
+                      <span className="text-[9px] text-slate-400 font-medium">Valid setups watched without entering</span>
+                    </div>
                   </div>
+                  <span className="text-xs font-black text-amber-300 font-mono bg-amber-500/20 px-2.5 py-1 rounded-lg border border-amber-500/30">
+                    {sessionTrades.filter(t => t.type === 'missed_trade' || t.side === 'MISSED').length} Missed ($0.00)
+                  </span>
                 </div>
-                <span className="text-xs font-black text-amber-300 font-mono bg-amber-500/20 px-2.5 py-1 rounded-lg border border-amber-500/30">
-                  {sessionTrades.filter(t => t.type === 'missed_trade' || t.side === 'MISSED').length} Missed ($0.00)
-                </span>
+
+                {/* Reasons Breakdown Tags */}
+                {(() => {
+                  const missedList = sessionTrades.filter(t => t.type === 'missed_trade' || t.side === 'MISSED');
+                  const taggedList = missedList.filter(t => t.reason);
+                  if (taggedList.length === 0) return null;
+                  return (
+                    <div className="flex flex-wrap gap-1.5 pt-1.5 border-t border-amber-500/20">
+                      {taggedList.map((t) => {
+                        const rObj = HESITATION_REASONS.find(r => r.id === t.reason);
+                        return (
+                          <span key={t.id} className="text-[9px] font-bold bg-[#142127] text-amber-200 px-2 py-0.5 rounded-lg border border-[#20323D] flex items-center gap-1 shadow-sm">
+                            <span>{rObj?.icon || '⚠️'}</span>
+                            <span>{rObj?.label || t.reason}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
