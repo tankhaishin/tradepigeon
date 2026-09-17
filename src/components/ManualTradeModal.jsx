@@ -26,7 +26,6 @@ export default function ManualTradeModal({ isOpen, onClose, onTradeAdded }) {
     { grade: 'C', type: 'Toxic Win', desc: 'Violated rules but got lucky on PnL', color: 'border-amber-400 bg-amber-400/10 text-amber-400' },
     { grade: 'C-', type: 'Toxic Breakeven', desc: 'Violated rules & scratched at breakeven', color: 'border-[#00F0FF] bg-[#00F0FF]/10 text-[#00F0FF]' },
     { grade: 'F', type: 'Double Failure', desc: 'Broke rules & took an emotional loss', color: 'border-rose-500 bg-rose-500/10 text-rose-400' },
-    { grade: 'MISSED', type: 'Missed Setup', desc: 'Valid playbook setup presented but hesitated', color: 'border-amber-500 bg-amber-500/10 text-amber-400' },
   ];
 
   const handleSubmit = (e) => {

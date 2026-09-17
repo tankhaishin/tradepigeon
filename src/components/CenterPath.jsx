@@ -795,44 +795,59 @@ export default function CenterPath() {
                           { id: 'toxic_win', label: 'TOXIC WIN', count: toxicWinCount, pnl: calcPnlStr('toxic_win', savedCounts.toxicWinCount), activeBg: 'bg-[#FFC800] border-b-4 border-[#8A6B00] text-slate-950' },
                           { id: 'toxic_be', label: 'TOXIC BE', count: toxicBeCount, pnl: calcPnlStr('toxic_be', 0), activeBg: 'bg-[#00F0FF] border-b-4 border-[#00B3BF] text-slate-950' },
                           { id: 'double_failure', label: 'DOUBLE FAILURE', count: doubleFailureCount, pnl: calcPnlStr('double_failure', savedCounts.doubleFailureCount), activeBg: 'bg-[#FF4B4B] border-b-4 border-[#C62828] text-white' },
-                          { id: 'missed_trade', label: 'MISSED SETUP', count: missedCount, pnl: missedCount ? `${missedCount} Setups` : '$0.00', activeBg: 'bg-amber-500 border-b-4 border-amber-700 text-slate-950', isFullWidth: true },
                         ];
 
                         return (
-                          <div className="grid grid-cols-2 gap-3 pt-1">
-                            {categories.map((cat) => {
-                              const hasTrades = cat.count > 0;
-                              return (
-                                <div
-                                  key={cat.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    soundFx.playPop();
-                                  }}
-                                  className={`p-4 rounded-2xl transition-all duration-150 space-y-1.5 shadow-md hover:-translate-y-1 hover:scale-105 active:translate-y-0.5 cursor-pointer ${
-                                    cat.isFullWidth ? 'col-span-2' : ''
-                                  } ${
-                                    hasTrades
-                                      ? `${cat.activeBg} shadow-lg ring-2 ring-white/20`
-                                      : 'bg-[#182830] border-2 border-[#20323D] text-slate-300 hover:border-[#1CB0F6]'
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-black uppercase tracking-wider block opacity-95">
-                                      {cat.label}
-                                    </span>
-                                    {hasTrades && (
-                                      <span className="text-[10px] font-black font-mono opacity-90 bg-black/25 px-2 py-0.5 rounded-lg border border-white/20">
-                                        {cat.pnl}
+                          <div className="space-y-2.5 pt-1">
+                            <div className="grid grid-cols-2 gap-3">
+                              {categories.map((cat) => {
+                                const hasTrades = cat.count > 0;
+                                return (
+                                  <div
+                                    key={cat.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      soundFx.playPop();
+                                    }}
+                                    className={`p-4 rounded-2xl transition-all duration-150 space-y-1.5 shadow-md hover:-translate-y-1 hover:scale-105 active:translate-y-0.5 cursor-pointer ${
+                                      hasTrades
+                                        ? `${cat.activeBg} shadow-lg ring-2 ring-white/20`
+                                        : 'bg-[#182830] border-2 border-[#20323D] text-slate-300 hover:border-[#1CB0F6]'
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[10px] font-black uppercase tracking-wider block opacity-95">
+                                        {cat.label}
                                       </span>
-                                    )}
+                                      {hasTrades && (
+                                        <span className="text-[10px] font-black font-mono opacity-90 bg-black/25 px-2 py-0.5 rounded-lg border border-white/20">
+                                          {cat.pnl}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-xl font-black leading-none">
+                                      {`${cat.count} ${cat.count === 1 ? 'Trade' : 'Trades'}`}
+                                    </div>
                                   </div>
-                                  <div className="text-xl font-black leading-none">
-                                    {cat.id === 'missed_trade' ? `${cat.count} Missed` : `${cat.count} ${cat.count === 1 ? 'Trade' : 'Trades'}`}
+                                );
+                              })}
+                            </div>
+
+                            {/* Separate Missed Setup / Hesitation Metric */}
+                            {missedCount > 0 && (
+                              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between shadow-sm">
+                                <div className="flex items-center gap-2">
+                                  <DuoMissedTradeIcon className="w-5 h-5 shrink-0" />
+                                  <div>
+                                    <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider block">Missed Setups (Hesitation)</span>
+                                    <span className="text-[10px] text-slate-400 font-medium">Valid playbook setups watched without entering</span>
                                   </div>
                                 </div>
-                              );
-                            })}
+                                <span className="text-xs font-black text-amber-300 font-mono bg-amber-500/20 px-2.5 py-1 rounded-lg border border-amber-500/30">
+                                  {missedCount} Missed ($0.00)
+                                </span>
+                              </div>
+                            )}
                           </div>
                         );
                       })()}

@@ -827,11 +827,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 </span>
               </div>
             </div>
-
-            <span className="text-[9px] font-black uppercase tracking-wider text-[#1CB0F6] px-2 py-0.5 rounded-lg bg-[#1CB0F6]/10 border border-[#1CB0F6]/30 flex items-center gap-1">
-              <Zap size={10} className="text-[#1CB0F6] shrink-0" />
-              <span>AUTO-SYNC</span>
-            </span>
           </div>
 
           {/* Responsive Action Buttons (2-Column Grid on sm+, Stacked on tight sidebars) */}
@@ -1274,7 +1269,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                               {isChecked && <Check size={9} strokeWidth={4} />}
                             </button>
 
-                            <span className={`text-[9px] font-black px-1 py-0.5 rounded ${trade.side === 'LONG' ? 'bg-[#58CC02]/20 text-[#58CC02]' : 'bg-rose-500/20 text-rose-400'}`}>
+                            <span className={`text-[9px] font-black px-1 py-0.5 rounded ${trade.side === 'LONG' ? 'bg-[#58CC02]/20 text-[#58CC02]' : trade.side === 'MISSED' ? 'bg-amber-500/20 text-amber-400' : 'bg-rose-500/20 text-rose-400'}`}>
                               {trade.side}
                             </span>
                             <span className="font-black text-white text-[11px]">{trade.symbol}</span>
@@ -1308,7 +1303,15 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                         </div>
 
                         {/* Trade Confirmation & Classification Section */}
-                        {trade.confirmed ? (
+                        {(trade.side === 'MISSED' || trade.type === 'missed_trade') ? (
+                          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs mt-1 shadow-sm">
+                            <div className="flex items-center gap-1.5 text-amber-400 font-bold text-[10px]">
+                              <AlertCircle size={12} className="text-amber-400 shrink-0" />
+                              <span>MISSED SETUP • HESITATED / NO FILL</span>
+                            </div>
+                            <span className="text-[9px] font-black text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">$0.00 PnL</span>
+                          </div>
+                        ) : trade.confirmed ? (
                           /* CONFIRMED / AUDITED DONE STATE */
                           <div className="p-2 rounded-xl bg-[#58CC02]/15 border border-[#58CC02]/40 flex items-center justify-between text-xs animate-fade-in mt-1 shadow-sm">
                             <div className="flex items-center gap-1.5 text-[#58CC02] font-black text-[10px]">
@@ -1321,7 +1324,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                                   { id: 'toxic_win', label: 'Toxic Win' },
                                   { id: 'toxic_be', label: 'Toxic BE' },
                                   { id: 'double_failure', label: 'Double Failure' },
-                                  { id: 'missed_trade', label: 'Missed Setup' },
                                 ].find(o => o.id === trade.type)?.label.toUpperCase() || 'DISCIPLINED LOSS'
                               }</span>
                               <span className="text-[9px] font-black text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">+50 DP</span>
@@ -1335,7 +1337,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                             </button>
                           </div>
                         ) : (
-                          /* UNCONFIRMED / SELECTION STATE */
+                          /* UNCONFIRMED / SELECTION STATE - 6 EXECUTED TYPES ONLY */
                           <div className="space-y-1.5 pt-1">
                             <div className="grid grid-cols-3 gap-1">
                               {[
@@ -1345,7 +1347,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                                 { id: 'toxic_win', label: 'Toxic Win', color: 'bg-[#FFC800] border-[#8A6B00] text-slate-950' },
                                 { id: 'toxic_be', label: 'Toxic BE', color: 'bg-[#00F0FF] border-[#00B3BF] text-slate-950' },
                                 { id: 'double_failure', label: 'Double Failure', color: 'bg-[#FF4B4B] border-[#C62828] text-white' },
-                                { id: 'missed_trade', label: 'Missed Setup', color: 'bg-[#FF9600] border-[#B86C00] text-white', colSpan: 'col-span-3' },
                               ].map((typeOption) => {
                                 const isSelected = trade.type === typeOption.id;
                                 return (
@@ -1353,7 +1354,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                                     key={typeOption.id}
                                     type="button"
                                     onClick={() => handleVerifyTrade(trade.id, typeOption.id)}
-                                    className={`py-1 px-0.5 rounded-lg text-[8px] font-black transition-all cursor-pointer border text-center truncate ${typeOption.colSpan || ''} ${
+                                    className={`py-1 px-0.5 rounded-lg text-[8px] font-black transition-all cursor-pointer border text-center truncate ${
                                       isSelected
                                         ? `${typeOption.color} font-black scale-[1.02] shadow-sm`
                                         : 'bg-[#182830] border-[#20323D] text-slate-400 hover:text-white'
@@ -1573,20 +1574,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
               );
             })}
           </div>
-
-          {/* Quick Link Button to Dedicated Calendar Tab */}
-          <button
-            onClick={() => {
-              soundFx.playPop();
-              if (onOpenCalendarTab) {
-                onOpenCalendarTab();
-              }
-            }}
-            className="w-full py-2 rounded-xl bg-[#142127] hover:bg-[#20323D] border border-[#20323D] text-[#1CB0F6] text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 mt-1"
-          >
-            <Calendar size={13} />
-            <span>Full Performance Calendar Tab</span>
-          </button>
         </div>
 
 
@@ -1651,7 +1638,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 { id: 'toxic_win', label: 'TOXIC WIN', activeBg: 'bg-[#FFC800] border-b-4 border-[#8A6B00] text-slate-950' },
                 { id: 'toxic_be', label: 'TOXIC BE', activeBg: 'bg-[#00F0FF] border-b-4 border-[#00B3BF] text-slate-950' },
                 { id: 'double_failure', label: 'DOUBLE FAILURE', activeBg: 'bg-[#FF4B4B] border-b-4 border-[#C62828] text-white' },
-                { id: 'missed_trade', label: 'MISSED TRADE', activeBg: 'bg-amber-500 border-b-4 border-amber-700 text-slate-950', isFullWidth: true },
               ].map((cat) => {
                 const count = sessionTrades.filter(t => t.type === cat.id).length;
                 const hasTrades = count > 0;
@@ -1659,8 +1645,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                   <div
                     key={cat.id}
                     className={`p-3 rounded-2xl transition-all space-y-0.5 shadow-md ${
-                      cat.isFullWidth ? 'col-span-2' : ''
-                    } ${
                       hasTrades
                         ? cat.activeBg
                         : 'bg-[#142127] border-2 border-[#20323D] text-slate-500 opacity-60'
@@ -1670,12 +1654,28 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                       {cat.label}
                     </span>
                     <div className="text-base font-black leading-tight">
-                      {cat.id === 'missed_trade' ? `${count} Missed` : `${count} ${count === 1 ? 'Trade' : 'Trades'}`}
+                      {`${count} ${count === 1 ? 'Trade' : 'Trades'}`}
                     </div>
                   </div>
                 );
               })}
             </div>
+
+            {/* Separate Missed Setups / Hesitations Metric */}
+            {sessionTrades.filter(t => t.type === 'missed_trade' || t.side === 'MISSED').length > 0 && (
+              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between mt-2.5">
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={14} className="text-amber-400 shrink-0" />
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider block">Missed Setups (Hesitation)</span>
+                    <span className="text-[9px] text-slate-400 font-medium">Valid setups watched without entering</span>
+                  </div>
+                </div>
+                <span className="text-xs font-black text-amber-300 font-mono bg-amber-500/20 px-2.5 py-1 rounded-lg border border-amber-500/30">
+                  {sessionTrades.filter(t => t.type === 'missed_trade' || t.side === 'MISSED').length} Missed ($0.00)
+                </span>
+              </div>
+            )}
 
             <button 
               onClick={() => setIsRulesModalOpen(false)}
@@ -1786,12 +1786,11 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                     { id: 'toxic_win', label: 'Toxic Win' },
                     { id: 'toxic_be', label: 'Toxic BE' },
                     { id: 'double_failure', label: 'Double Failure' },
-                    { id: 'missed_trade', label: 'Missed Setup', isFullWidth: true },
                   ].map((opt) => (
                     <button
                       key={opt.id}
                       onClick={() => setNewTradeType(opt.id)}
-                      className={`p-2 rounded-xl text-[10px] font-black cursor-pointer border-2 text-left ${opt.isFullWidth ? 'col-span-2 text-center' : ''} ${
+                      className={`p-2 rounded-xl text-[10px] font-black cursor-pointer border-2 text-left ${
                         newTradeType === opt.id
                           ? 'bg-[#1CB0F6] text-white border-[#147BB0]'
                           : 'bg-[#142127] border-[#20323D] text-slate-300'
