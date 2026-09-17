@@ -248,3 +248,26 @@
 .duo-mascot-float {
   animation: duoFloat 3s ease-in-out infinite;
 }
+
+/* SLEEK CUSTOM SCROLLBAR ENGINE */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(13, 22, 53, 0.3);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #1C2A4E;
+  border-radius: 9999px;
+  border: 1px solid rgba(28, 176, 246, 0.15);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #1CB0F6;
+}
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #1C2A4E rgba(13, 22, 53, 0.3);
+}
+

@@ -281,7 +281,7 @@ export default function App() {
           {activeTab === 'shop' && <ShopTab />}
           {activeTab === 'profile' && <ProfileTab />}
           {activeTab === 'status' && (
-            <main className="flex-1 min-h-screen lg:pl-28 xl:pl-80 bg-[#070C1E] p-4 sm:p-6 lg:p-8 text-white space-y-8 pb-24 lg:pb-10 max-w-5xl mx-auto overflow-hidden">
+            <main className="flex-1 min-h-screen lg:pl-28 xl:pl-80 bg-[#070C1E] p-4 sm:p-6 lg:p-8 text-white space-y-8 pb-24 lg:pb-10 max-w-5xl mx-auto overflow-y-auto custom-scrollbar">
               <RightStatusHub isInPage={true} />
             </main>
           )}

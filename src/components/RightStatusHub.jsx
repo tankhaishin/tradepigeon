@@ -706,7 +706,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
         />
       )}
 
-      <aside className={isInPage ? "w-full space-y-6 block pb-20" : `h-screen fixed right-0 top-0 bg-[#070C1E] border-l-2 border-[#1C2A4E] p-6 pb-36 space-y-6 overflow-y-auto z-[95] transition-all duration-300 ${
+      <aside className={isInPage ? "w-full space-y-6 block pb-28" : `h-screen fixed right-0 top-0 bg-[#070C1E] border-l-2 border-[#1C2A4E] p-6 pb-36 space-y-6 overflow-y-auto custom-scrollbar z-[95] transition-all duration-300 ${
         internalExpanded 
           ? 'w-full sm:w-[720px] lg:w-[760px] xl:w-[820px] shadow-[0_0_60px_rgba(0,0,0,0.85)] block' 
           : isMobileOpen 
@@ -930,7 +930,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
             </div>
 
             {/* Trades List for Past Day */}
-            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-0.5 scrollbar-none">
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
               {sessionTrades.length === 0 ? (
                 <div className="p-2 rounded-xl bg-[#142127] border border-[#20323D] text-center text-[10px] font-bold text-slate-400">
                   No trades recorded for Day {activeAuditDay}.
@@ -1236,8 +1236,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
             {/* Trade Cards List */}
             <div 
-              className="space-y-2 max-h-44 overflow-y-auto pr-0.5 scrollbar-none"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              className="space-y-2 max-h-56 overflow-y-auto pr-1 custom-scrollbar"
             >
               {filteredTrades.length === 0 ? (
                 <div className="p-3.5 rounded-xl bg-[#142127] border border-[#20323D] text-center space-y-2.5 animate-fade-in">

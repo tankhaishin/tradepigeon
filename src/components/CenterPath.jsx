@@ -1045,7 +1045,7 @@ export default function CenterPath() {
         </div>
 
         {/* RIGHT STAGE (5 Cols): REAL INTERACTIVE RIGHT STATUS & CALENDAR HUB */}
-        <div className="xl:col-span-5 space-y-6 xl:sticky xl:top-8 xl:self-start">
+        <div className="xl:col-span-5 xl:sticky xl:top-4 xl:self-start xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto custom-scrollbar xl:pr-1.5 overscroll-y-contain">
           <RightStatusHub isInPage={true} />
         </div>
 
