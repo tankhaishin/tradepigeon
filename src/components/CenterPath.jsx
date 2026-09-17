@@ -12,7 +12,7 @@ import { parseFinancialNumber, formatFinancialCurrency, sumTradesPnl } from '../
 
 import AiDebriefModal from './AiDebriefModal';
 import InteractiveEquityCurve from './InteractiveEquityCurve';
-import RightStatusHub, { HESITATION_REASONS } from './RightStatusHub';
+import RightStatusHub, { HESITATION_REASONS, getHesitationIcon } from './RightStatusHub';
 import GuidebookModal from './GuidebookModal';
 import BrokerConnectModal from './BrokerConnectModal';
 
@@ -858,7 +858,7 @@ export default function CenterPath() {
                                         const rObj = (HESITATION_REASONS || []).find(r => r.id === t.reason);
                                         return (
                                           <span key={t.id} className="text-[9px] font-bold bg-[#142127] text-amber-200 px-2 py-0.5 rounded-lg border border-[#20323D] flex items-center gap-1 shadow-sm">
-                                            <span>{rObj?.icon || '⚠️'}</span>
+                                            {getHesitationIcon(rObj?.id, 11)}
                                             <span>{rObj?.label || t.reason}</span>
                                           </span>
                                         );

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Flame, Gem, Heart, Trophy, ChevronRight, ChevronLeft, ChevronDown, Lock, Calendar, CheckCircle2, ShieldAlert, CheckSquare, Plus, X, ShieldCheck, Check, Sparkles, Coffee, Activity, Moon, Trash2, AlertCircle, Zap, RotateCcw, Layers, RefreshCw } from 'lucide-react';
+import { Flame, Gem, Heart, Trophy, ChevronRight, ChevronLeft, ChevronDown, Lock, Calendar, CheckCircle2, ShieldAlert, CheckSquare, Plus, X, ShieldCheck, Check, Sparkles, Coffee, Activity, Moon, Trash2, AlertCircle, Zap, RotateCcw, Layers, RefreshCw, Snowflake, Search, Wind, Clock, HelpCircle } from 'lucide-react';
 import { DuoLightningIcon, DuoIceIcon, DuoLockIcon, DuoChestIcon, DuoPlaneIcon, DuoPalmtreeIcon, DuoUndoIcon, DuoShieldIcon, DuoGemIcon, DuoStarIcon, DuoTrophyIcon } from './DuoIcons';
 import InteractiveParrotMascot from './InteractiveParrotMascot';
 import AiDebriefModal from './AiDebriefModal';
@@ -13,12 +13,29 @@ import { soundFx } from '../utils/audioEngine';
 import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl } from '../utils/financialMath';
 
 export const HESITATION_REASONS = [
-  { id: 'fear', label: 'Post-Loss Fear', icon: '🥶', advice: 'A previous loss has zero mathematical bearing on this trade. Focus on process, not outcome!' },
-  { id: 'paralysis', label: 'Over-Analysis', icon: '🔍', advice: 'Perfection does not exist in live markets. Execute as soon as your criteria align!' },
-  { id: 'fast_move', label: 'Price Moved Too Fast', icon: '💨', advice: 'Great discipline not chasing a runaway candle. Wait patiently for the retest!' },
-  { id: 'distracted', label: 'Distracted / Late', icon: '📱', advice: 'Guard your killzone focus like gold. Screen discipline protects equity!' },
-  { id: 'rules', label: 'Rule Ambiguity', icon: '❓', advice: 'Review your playbook rules checklist. Ambiguity is the enemy of execution speed!' },
+  { id: 'fear', label: 'Post-Loss Fear', advice: 'A previous loss has zero mathematical bearing on this trade. Focus on process, not outcome!' },
+  { id: 'paralysis', label: 'Over-Analysis', advice: 'Perfection does not exist in live markets. Execute as soon as your criteria align!' },
+  { id: 'fast_move', label: 'Price Moved Too Fast', advice: 'Great discipline not chasing a runaway candle. Wait patiently for the retest!' },
+  { id: 'distracted', label: 'Distracted / Late', advice: 'Guard your killzone focus like gold. Screen discipline protects equity!' },
+  { id: 'rules', label: 'Rule Ambiguity', advice: 'Review your playbook rules checklist. Ambiguity is the enemy of execution speed!' },
 ];
+
+export function getHesitationIcon(id, size = 13) {
+  switch (id) {
+    case 'fear':
+      return <Snowflake size={size} className="text-[#00F0FF] shrink-0" />;
+    case 'paralysis':
+      return <Search size={size} className="text-[#1CB0F6] shrink-0" />;
+    case 'fast_move':
+      return <Wind size={size} className="text-amber-400 shrink-0" />;
+    case 'distracted':
+      return <Clock size={size} className="text-[#CE82FF] shrink-0" />;
+    case 'rules':
+      return <HelpCircle size={size} className="text-[#FF4B4B] shrink-0" />;
+    default:
+      return <AlertCircle size={size} className="text-amber-400 shrink-0" />;
+  }
+}
 
 export default function RightStatusHub({ isExpanded = false, onToggleExpand, isMobileOpen = false, onCloseMobile, isInPage = false, onOpenCalendarTab }) {
   const [internalExpanded, setInternalExpanded] = useState(isExpanded);
@@ -1352,7 +1369,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                                   <div className="p-2.5 rounded-xl bg-[#182830] border border-[#20323D] space-y-1 shadow-sm animate-fade-in">
                                     <div className="flex items-center justify-between text-[10px]">
                                       <div className="flex items-center gap-1.5 font-black text-amber-300">
-                                        <span className="text-sm">{rObj?.icon || '⚠️'}</span>
+                                        {getHesitationIcon(rObj?.id, 14)}
                                         <span>{rObj?.label || trade.reason}</span>
                                         <span className="text-[9px] font-black text-[#58CC02] bg-[#58CC02]/15 px-1.5 py-0.5 rounded border border-[#58CC02]/30">+25 DP</span>
                                       </div>
@@ -1387,7 +1404,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                                       className="p-1.5 rounded-lg bg-[#182830] hover:bg-[#20323D] border border-[#20323D] hover:border-amber-500/60 text-left cursor-pointer transition-all active:scale-95 flex items-center gap-1.5 shadow-sm group"
                                       title={r.advice}
                                     >
-                                      <span className="text-xs shrink-0 group-hover:scale-110 transition-transform">{r.icon}</span>
+                                      {getHesitationIcon(r.id, 13)}
                                       <span className="text-[9px] font-bold text-slate-300 group-hover:text-white truncate">{r.label}</span>
                                     </button>
                                   ))}
@@ -1772,7 +1789,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                         const rObj = HESITATION_REASONS.find(r => r.id === t.reason);
                         return (
                           <span key={t.id} className="text-[9px] font-bold bg-[#142127] text-amber-200 px-2 py-0.5 rounded-lg border border-[#20323D] flex items-center gap-1 shadow-sm">
-                            <span>{rObj?.icon || '⚠️'}</span>
+                            {getHesitationIcon(rObj?.id, 11)}
                             <span>{rObj?.label || t.reason}</span>
                           </span>
                         );
