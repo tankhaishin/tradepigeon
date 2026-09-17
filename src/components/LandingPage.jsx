@@ -228,7 +228,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
 
           {/* Duolingo 3D Tactile Broker Badges */}
           <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-2.5 text-[11px] font-black text-slate-300">
-            <span className="text-[10px] uppercase text-[#52656D] tracking-widest w-full text-center lg:text-left mb-1">DIRECT BROKER API & PROP FIRM TELEMETRY</span>
+            <span className="text-[10px] uppercase text-[#52656D] tracking-widest w-full text-center lg:text-left mb-1">DIRECT BROKER API & TELEMETRY</span>
             <div className="duo-card flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] hover:border-[#FF6B00] active:translate-y-[2px] transition-all cursor-pointer">
               <TradovateLogo className="w-4 h-4" />
               <span>Tradovate</span>
@@ -236,10 +236,6 @@ export default function LandingPage({ onGetStarted, onLogin }) {
             <div className="duo-card flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] hover:border-[#58CC02] active:translate-y-[2px] transition-all cursor-pointer">
               <NinjaTraderLogo className="w-4 h-4" />
               <span>NinjaTrader</span>
-            </div>
-            <div className="duo-card flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] hover:border-[#00E5FF] active:translate-y-[2px] transition-all cursor-pointer">
-              <TradovateLogo className="w-4 h-4" />
-              <span>Apex / TopStep</span>
             </div>
             <div className="duo-card flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] hover:border-[#CE82FF] active:translate-y-[2px] transition-all cursor-pointer">
               <TradeLockerLogo className="w-4 h-4" />
