@@ -1,9 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, CheckCircle2, AlertTriangle, FileText, ArrowRight, Layers } from 'lucide-react';
 import { parseTradeFile } from '../utils/tradeParser';
-import { loadStoredData, saveStoredData } from '../utils/storage';
+import { loadStoredData, saveStoredData, DEFAULT_USER_STATS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
-import { formatFinancialCurrency, sumTradesPnl } from '../utils/financialMath';
+import { formatFinancialCurrency, sumTradesPnl, parseFinancialNumber } from '../utils/financialMath';
 
 export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
   const [dragOver, setDragOver] = useState(false);
@@ -14,6 +14,15 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -82,7 +91,7 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
     soundFx.playSuccess();
 
     try {
-      const currentDay = loadStoredData('tradepigeon_current-day', 1);
+      const currentDay = loadStoredData('tradepigeon_current_day', 1);
       const sessionKey = `tradepigeon_session_trades_day_${currentDay}`;
       const existingSessionTrades = loadStoredData(sessionKey, []);
 
@@ -90,15 +99,42 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
       const normalizedTrades = parsedTrades.map((t, idx) => ({
         ...t,
         id: t.id || `CSV-${Date.now()}-${idx}`,
-        account: accountName.trim() || t.account || 'Broker Account'
+        account: accountName.trim() || t.account || 'Broker Account',
+        confirmed: true
       }));
 
-      // Deduplicate by signature
-      const seen = new Set(existingSessionTrades.map(t => `${t.date}_${t.account}_${t.symbol}_${t.pnlNum}_${t.time}`));
-      const newTrades = normalizedTrades.filter(t => !seen.has(`${t.date}_${t.account}_${t.symbol}_${t.pnlNum}_${t.time}`));
+      // Deduplicate by signature against global history
+      const existingHistory = loadStoredData('tradepigeon_tradelogs', []);
+      const seenHistory = new Set(existingHistory.map(t => `${t.date}_${t.account}_${t.symbol}_${t.pnlNum}_${t.time}`));
+      const newTrades = normalizedTrades.filter(t => !seenHistory.has(`${t.date}_${t.account}_${t.symbol}_${t.pnlNum}_${t.time}`));
 
-      const mergedSessionTrades = [...newTrades, ...existingSessionTrades];
-      saveStoredData(sessionKey, mergedSessionTrades);
+      // Only merge trades for TODAY into today's open session trades
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const todayTrades = newTrades.filter(t => !t.date || t.date === todayIso);
+      if (todayTrades.length > 0) {
+        const seenToday = new Set(existingSessionTrades.map(t => `${t.date}_${t.account}_${t.symbol}_${t.pnlNum}_${t.time}`));
+        const uniqueTodayTrades = todayTrades.filter(t => !seenToday.has(`${t.date}_${t.account}_${t.symbol}_${t.pnlNum}_${t.time}`));
+        if (uniqueTodayTrades.length > 0) {
+          saveStoredData(sessionKey, [...uniqueTodayTrades, ...existingSessionTrades]);
+        }
+      }
+
+      // Also index trades by their explicit ISO dates for the CalendarTab
+      const dateGroups = {};
+      newTrades.forEach(t => {
+        if (t.date) {
+          dateGroups[t.date] = dateGroups[t.date] || [];
+          dateGroups[t.date].push(t);
+        }
+      });
+      Object.entries(dateGroups).forEach(([isoDate, tradesForDate]) => {
+        const isoKey = `tradepigeon_session_trades_day_${isoDate}`;
+        const existingIsoTrades = loadStoredData(isoKey, []);
+        saveStoredData(isoKey, [...tradesForDate, ...existingIsoTrades]);
+      });
+
+      // Also append to global trade history
+      saveStoredData('tradepigeon_tradelogs', [...newTrades, ...existingHistory]);
 
       // Also register or update the account in tradepigeon_accounts_data
       const currentAccounts = loadStoredData('tradepigeon_accounts_data', []);
@@ -107,11 +143,16 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
         (a.accountNumber && a.accountNumber.toLowerCase() === accountName.trim().toLowerCase())
       );
 
+      // Calculate PnL strictly from genuine newly-imported trades to prevent double-counting previously recorded trades
+      const actualNewPnL = sumTradesPnl(newTrades);
+
       let updatedAccounts = [...currentAccounts];
       if (existingAccIndex >= 0) {
+        const currentPnl = parseFinancialNumber(updatedAccounts[existingAccIndex].pnl, 0);
+        const newPnl = currentPnl + actualNewPnL;
         updatedAccounts[existingAccIndex] = {
           ...updatedAccounts[existingAccIndex],
-          pnl: (Number(updatedAccounts[existingAccIndex].pnl || 0) + totalPnL),
+          pnl: formatFinancialCurrency(newPnl, { showPlus: true }),
           status: 'Active',
           lastSync: 'Just now'
         };
@@ -121,7 +162,7 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
           name: accountName.trim(),
           accountNumber: accountName.trim(),
           broker: 'Statement Import',
-          pnl: totalPnL,
+          pnl: formatFinancialCurrency(actualNewPnL, { showPlus: true }),
           status: 'Active',
           type: 'MANUAL_IMPORT',
           lastSync: 'Just now',
@@ -129,6 +170,16 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
         });
       }
       saveStoredData('tradepigeon_accounts_data', updatedAccounts);
+
+      // Increment tradesLogged in userStats for QuestsTab
+      if (newTrades.length > 0) {
+        const currentStats = loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS);
+        const updatedStats = {
+          ...currentStats,
+          tradesLogged: (currentStats.tradesLogged || 0) + newTrades.length
+        };
+        saveStoredData('tradepigeon_user_stats', updatedStats);
+      }
 
       if (onSuccess) {
         onSuccess(newTrades.length, accountName.trim());
@@ -144,7 +195,7 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
 
   return (
     <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-      <div className="duo-card max-w-lg w-full p-6 space-y-5 border-2 border-[#1CB0F6] relative shadow-2xl">
+      <div className="duo-card max-w-lg w-full p-5 sm:p-6 space-y-5 border-2 border-[#1CB0F6] relative shadow-2xl max-h-[90vh] overflow-y-auto">
         <button 
           onClick={onClose}
           className="absolute top-4 right-4 p-2 rounded-xl bg-[#20323D] text-slate-400 hover:text-white cursor-pointer font-black text-xs transition-colors"
@@ -154,11 +205,8 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
         </button>
 
         <div className="space-y-1">
-          <span className="text-[10px] font-black uppercase tracking-wider text-[#1CB0F6]">STATEMENT INGESTION</span>
-          <h3 className="text-2xl font-black text-white">Import Broker Statement</h3>
-          <p className="text-xs font-bold text-[#52656D]">
-            Upload your CSV or HTML statement from Tradovate, NinjaTrader, MT5, or Rithmic
-          </p>
+          <span className="text-[10px] font-black uppercase tracking-wider text-[#1CB0F6]">IMPORT</span>
+          <h3 className="text-2xl font-black text-white">Import Statement</h3>
         </div>
 
         {/* Contained Drag-and-Drop Zone */}
@@ -185,10 +233,10 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
           </div>
           <div className="text-center">
             <div className="text-sm font-black text-white">
-              {selectedFile ? selectedFile.name : 'Click to Browse or Drag & Drop File Here'}
+              {selectedFile ? selectedFile.name : 'Drop file here or browse'}
             </div>
             <div className="text-[10px] font-bold text-[#52656D] mt-0.5">
-              {selectedFile ? `${(selectedFile.size / 1024).toFixed(1)} KB statement file` : 'Supports .CSV and .HTML broker statements'}
+              {selectedFile ? `${(selectedFile.size / 1024).toFixed(1)} KB statement file` : 'Supports CSV, HTML, or TXT'}
             </div>
           </div>
         </div>

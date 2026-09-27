@@ -65,12 +65,18 @@ export default function InteractiveParrotMascot({ pose = 'neutral', className = 
   // Random Blink Timer
   useEffect(() => {
     if (pose === 'tired' || pose === 'sleeping') return;
-    let timeoutId;
+    let isMounted = true;
+    let outerTimeoutId;
+    let innerTimeoutId;
+
     const scheduleBlink = () => {
+      if (!isMounted) return;
       const randomDelay = Math.floor(Math.random() * 2000) + 3000;
-      timeoutId = setTimeout(() => {
+      outerTimeoutId = setTimeout(() => {
+        if (!isMounted) return;
         setIsBlinking(true);
-        setTimeout(() => {
+        innerTimeoutId = setTimeout(() => {
+          if (!isMounted) return;
           setIsBlinking(false);
           scheduleBlink();
         }, 120);
@@ -78,7 +84,11 @@ export default function InteractiveParrotMascot({ pose = 'neutral', className = 
     };
 
     scheduleBlink();
-    return () => clearTimeout(timeoutId);
+    return () => {
+      isMounted = false;
+      clearTimeout(outerTimeoutId);
+      clearTimeout(innerTimeoutId);
+    };
   }, [pose]);
 
   return (

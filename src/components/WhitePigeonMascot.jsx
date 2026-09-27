@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { soundFx } from '../utils/audioEngine';
 
 /**
@@ -15,6 +15,15 @@ export default function WhitePigeonMascot({
   const [isHovered, setIsHovered] = useState(false);
   const [activeSpeech, setActiveSpeech] = useState(null);
   const [isAnimating, setIsAnimating] = useState(false);
+  const speechTimeoutRef = useRef(null);
+  const animTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
+      if (animTimeoutRef.current) clearTimeout(animTimeoutRef.current);
+    };
+  }, []);
 
   const cooQuotes = [
     "Coo! Coo!",
@@ -34,8 +43,11 @@ export default function WhitePigeonMascot({
     const randomQuote = cooQuotes[Math.floor(Math.random() * cooQuotes.length)];
     setActiveSpeech(randomQuote);
 
-    setTimeout(() => setIsAnimating(false), 600);
-    setTimeout(() => setActiveSpeech(null), 2500);
+    if (animTimeoutRef.current) clearTimeout(animTimeoutRef.current);
+    if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
+
+    animTimeoutRef.current = setTimeout(() => setIsAnimating(false), 600);
+    speechTimeoutRef.current = setTimeout(() => setActiveSpeech(null), 2500);
   };
 
   return (

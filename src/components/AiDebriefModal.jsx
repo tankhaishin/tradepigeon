@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { Sparkles, Brain, AlertTriangle, AlertCircle, ShieldCheck, CheckCircle2, ChevronRight, Award, Bot, X } from 'lucide-react';
-import { Duo3dZenBadge, Duo3dPulseBadge, Duo3dCrosshairBadge, Duo3dRocketBadge } from './DuolingoFeatureBadges';
-import InteractiveParrotMascot from './InteractiveParrotMascot';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, AlertTriangle, AlertCircle, ShieldCheck, CheckCircle2, ChevronRight, Award, X } from 'lucide-react';
+import { Duo3dZenBadge, Duo3dPulseBadge, Duo3dCrosshairBadge, Duo3dRocketBadge } from './GamifiedFeatureBadges';
 import { loadStoredData, saveStoredData } from '../utils/storage';
 import { formatFinancialCurrency, parseFinancialNumber } from '../utils/financialMath';
 import { soundFx } from '../utils/audioEngine';
+
+import { generateIntelligentSessionDebrief } from '../utils/aiDebriefEngine';
+import { generateAiDebriefWithGemini } from '../utils/geminiAiEngine';
 
 export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, onSaveSession, onFinish, currentDay = 1 }) {
   const [emotion, setEmotion] = useState('disciplined');
@@ -12,8 +14,18 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
   const [followedRules, setFollowedRules] = useState(true);
   const [notes, setNotes] = useState('');
   const [aiReport, setAiReport] = useState('');
+  const [aiReportObj, setAiReportObj] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiReportGenerated, setAiReportGenerated] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && onClose) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -22,12 +34,28 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
     setFollowedRules(isCompliant);
   };
 
-  // Compute real-time grade, score, and status based on trader choices
+  const getDayTrades = () => {
+    const dayNum = currentDay || loadStoredData('tradepigeon_current_day', 1);
+    const todayObj = new Date();
+    const todayIso = todayObj.toISOString().split('T')[0];
+    return loadStoredData(`tradepigeon_session_trades_day_${dayNum}`, null)
+      || loadStoredData(`tradepigeon_session_trades_day_${todayIso}`, null)
+      || loadStoredData(`tradepigeon_session_trades_day_${todayObj.getDate()}`, null)
+      || loadStoredData('tradepigeon_session_trades', []);
+  };
+
+  const dayTrades = getDayTrades();
+  const hasRecordedViolations = Array.isArray(dayTrades) && dayTrades.some(t => {
+    const rawType = (t.type || '').toLowerCase();
+    return rawType.includes('toxic') || rawType.includes('violate') || rawType === 'double_failure';
+  });
+
+  // Compute real-time grade, score, and status based on trader choices and recorded trades
   let currentGrade = 'A+';
   let currentScore = 'Score: 98/100';
   let currentStatus = 'COMPLIANT';
 
-  if (followedPlan) {
+  if (followedPlan && !hasRecordedViolations) {
     if (emotion === 'disciplined') {
       currentGrade = 'A+';
       currentScore = 'Score: 98/100';
@@ -46,9 +74,9 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
       currentStatus = 'CAUTION';
     }
   } else {
-    if (emotion === 'revenge') {
-      currentGrade = 'F';
-      currentScore = 'Score: 40/100';
+    if (emotion === 'revenge' || hasRecordedViolations) {
+      currentGrade = hasRecordedViolations ? 'D' : 'F';
+      currentScore = hasRecordedViolations ? 'Score: 50/100' : 'Score: 40/100';
       currentStatus = 'DEVIATED';
     } else {
       currentGrade = 'C';
@@ -57,55 +85,36 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
     }
   }
 
-  const handleGenerateAiReport = () => {
+  const handleGenerateAiReport = async () => {
     setIsAnalyzing(true);
+    soundFx.playPop();
+    const trades = getDayTrades();
 
-    // Multi-reply variations per scenario (never repetitive, tailored to user choices)
-    const reportBank = {
-      compliantDisciplined: [
-        "Exceptional process discipline today. All risk parameters and stop-loss boundaries were respected. Consistency is built by repeating this exact execution framework day after day.",
-        "Flawless risk adherence. You respected your defined position sizing and stop limits regardless of market noise. Keep your sizing static and focus on high-conviction setups.",
-        "High-grade execution today. Your focus remained on process over outcome, which is the true hallmark of long-term trading consistency."
-      ],
-      compliantEmotional: [
-        "Great job maintaining your risk boundaries despite feeling emotional tension. Recognizing impulse urges without acting on them is a major psychological victory.",
-        "Risk limits were respected even with market FOMO present. For your next session, focus on letting price come to your key levels before entering.",
-        "Solid discipline under pressure. You managed your risk parameters effectively despite feeling anxious. Stay patient and trust your playbook."
-      ],
-      deviatedRevenge: [
-        "Rule deviation detected under revenge pressure. When a loss triggers emotional anger, clear decision-making is compromised. Enforce a mandatory 30-minute walk post-loss before taking another fill.",
-        "Risk limits breached during revenge execution. Trying to win back capital immediately from the market leads to severe drawdowns. Enforce a hard daily risk limit tomorrow.",
-        "Emotional payback trade logged. Remember that taking a loss is simply a business expense—never an invitation to over-leverage or chase fills."
-      ],
-      deviatedGeneral: [
-        "Plan deviation logged today. Review your entry trigger checklist before your next session. Protecting your capital must take priority over capturing every market move.",
-        "Risk parameters were breached during today's session. Identify the exact trigger that caused you to abandon your stop limits and document it in your debrief.",
-        "Execution discipline fell below target today. Set hard broker risk locks or cut your position sizing in half until your compliance grade recovers."
-      ]
-    };
-
-    let selectedList = reportBank.compliantDisciplined;
-    if (followedPlan) {
-      if (emotion === 'anxious' || emotion === 'fomo' || emotion === 'revenge') {
-        selectedList = reportBank.compliantEmotional;
-      } else {
-        selectedList = reportBank.compliantDisciplined;
-      }
-    } else {
-      if (emotion === 'revenge') {
-        selectedList = reportBank.deviatedRevenge;
-      } else {
-        selectedList = reportBank.deviatedGeneral;
-      }
-    }
-
-    const randomReport = selectedList[Math.floor(Math.random() * selectedList.length)];
-    setAiReport(randomReport);
-
-    setTimeout(() => {
+    try {
+      const report = await generateAiDebriefWithGemini({
+        trades,
+        emotion,
+        followedPlan,
+        selectedMood,
+        notes
+      });
+      setAiReportObj(report);
+      const summaryText = `${report.integrityAnalysis || ''}\n\n${report.psychologicalAnalysis || ''}`.trim();
+      setAiReport(summaryText || 'Session execution evaluated: Risk parameters maintained.');
+    } catch (err) {
+      console.warn('Debrief generation error:', err);
+      const fallback = generateIntelligentSessionDebrief({
+        trades,
+        emotion,
+        followedPlan,
+        selectedMood,
+        notes
+      });
+      setAiReport(fallback);
+    } finally {
       setIsAnalyzing(false);
       setAiReportGenerated(true);
-    }, 600);
+    }
   };
 
   const handleFinish = () => {
@@ -115,10 +124,7 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
     const formattedDate = todayObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
     // Calculate actual PnL from today's trades
-    const dayTrades = loadStoredData(`tradepigeon_session_trades_day_${dayNum}`, null)
-      || loadStoredData(`tradepigeon_session_trades_day_${todayIso}`, null)
-      || loadStoredData(`tradepigeon_session_trades_day_${todayObj.getDate()}`, null)
-      || loadStoredData('tradepigeon_session_trades', []);
+    const dayTrades = getDayTrades();
 
     let totalPnlNum = 0;
     let setupName = 'Session Execution';
@@ -160,18 +166,36 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
 
     // 2. Award user DP (+150 DP)
     const currentDp = loadStoredData('tradepigeon_user_dp', 0);
-    saveStoredData('tradepigeon_user_dp', Number(currentDp) + 150);
+    const newDp = Number(currentDp) + 150;
+    saveStoredData('tradepigeon_user_dp', newDp);
 
-    // 3. Update user stats
+    // 3. Update user stats & streak discipline
     const currentStats = loadStoredData('tradepigeon_user_stats', { streakDays: 0, tradesLogged: 0, disciplinePoints: 0 });
-    const nextStreak = followedPlan ? (currentStats.streakDays || 0) + 1 : Math.max(1, currentStats.streakDays || 0);
+    let nextStreak = currentStats.streakDays || 0;
+
+    if (followedPlan) {
+      nextStreak += 1;
+    } else {
+      // Check for available streak freezes / shields
+      const availableFreezes = Number(loadStoredData('tradepigeon_streak_freezes', 0)) || 0;
+      if (availableFreezes > 0) {
+        saveStoredData('tradepigeon_streak_freezes', Math.max(0, availableFreezes - 1));
+        // Streak is protected by freeze shield
+      } else {
+        // Plan violation without shield resets streak to 0
+        nextStreak = 0;
+      }
+    }
+
     const updatedStats = {
       ...currentStats,
       streakDays: nextStreak,
-      tradesLogged: (currentStats.tradesLogged || 0) + (Array.isArray(dayTrades) ? dayTrades.length : 1),
-      disciplinePoints: (currentStats.disciplinePoints || 0) + 150
+      tradesLogged: currentStats.tradesLogged !== undefined ? currentStats.tradesLogged : (Array.isArray(dayTrades) ? dayTrades.length : 0),
+      disciplinePoints: newDp
     };
     saveStoredData('tradepigeon_user_stats', updatedStats);
+    saveStoredData('tradepigeon_trading_status', 'DONE');
+    saveStoredData('tradepigeon_vacation_active', false);
 
     // 4. Save session note for Calendar Tab
     saveStoredData(`tradepigeon_session_note_day_${dayNum}`, debriefNote);
@@ -202,11 +226,11 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
         <div className="flex items-center justify-between pb-4 border-b border-[#20323D]">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#FF6B00]/20 text-[#FF6B00] flex items-center justify-center text-xl font-black shrink-0">
-              <Bot size={22} className="text-[#FF6B00]" />
+              <ShieldCheck size={22} className="text-[#FF6B00]" />
             </div>
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#FF6B00]">SESSION DEBRIEF ENGINE</span>
-              <h3 className="text-xl font-black text-white">Post-Session Accountability Audit</h3>
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#FF6B00]">DAILY AUDIT</span>
+              <h3 className="text-xl font-black text-white">Session Debrief</h3>
             </div>
           </div>
           {onClose && (
@@ -225,7 +249,7 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
           <div className="space-y-5">
             <div className="space-y-3">
               <label className="text-xs font-black text-slate-200 uppercase tracking-wider">
-                1. What was your emotional mindset during today's trading session?
+                1. How was your mindset today?
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {[
@@ -255,7 +279,7 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
 
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-200 uppercase tracking-wider">
-                2. Did you strictly follow your pre-defined Stop-Loss & Max Drawdown limits?
+                2. Did you follow your risk rules?
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -267,7 +291,7 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
                   }`}
                 >
                   <CheckCircle2 size={16} />
-                  <span>Yes, 100% Compliant</span>
+                  <span>Followed Rules</span>
                 </button>
                 <button
                   onClick={() => handleSetCompliance(false)}
@@ -278,7 +302,7 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
                   }`}
                 >
                   <AlertCircle size={16} />
-                  <span>No, Deviated</span>
+                  <span>Broke Rules</span>
                 </button>
               </div>
             </div>
@@ -286,7 +310,7 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
             {/* TACTILE QUICK-TAKEAWAY CHIPS */}
             <div className="space-y-2 text-left">
               <label className="text-xs font-black text-slate-200 uppercase tracking-wider block">
-                3. Key Session Takeaway & Debrief Note
+                3. Session Takeaway
               </label>
 
               {/* Quick Select 3D Chips */}
@@ -334,7 +358,7 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
               ) : (
                 <>
                   <Sparkles size={18} />
-                  <span>Complete Session Audit (+150 DP)</span>
+                  <span>Complete Debrief (+150 DP)</span>
                 </>
               )}
             </button>
@@ -343,21 +367,40 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
           /* REPORT BREAKDOWN STEP */
           <div className="space-y-5 animate-fade-in text-left">
             <div className="p-5 rounded-2xl bg-[#142127] border-2 border-[#FF6B00]/40 space-y-3">
-              <div className="flex items-center gap-2 text-xs font-black text-[#FF6B00] uppercase tracking-wider">
-                <Sparkles size={16} />
-                <span>TradePigeon AI Execution Diagnosis</span>
+              <div className="flex items-center justify-between text-xs font-black">
+                <div className="flex items-center gap-2 text-[#FF6B00] uppercase tracking-wider">
+                  <Sparkles size={16} />
+                  <span>Session Diagnosis</span>
+                </div>
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-[#1CB0F6]/20 text-[#1CB0F6] border border-[#1CB0F6]/40">
+                  {aiReportObj?.aiModel || (aiReportObj?.isRealAi ? 'Gemini 1.5 Flash' : 'Process Rule Auditor')}
+                </span>
               </div>
               <p className="text-xs font-bold text-slate-300 leading-relaxed italic whitespace-pre-line">
                 "{aiReport || 'Session execution evaluated: All risk parameters and stop-loss rules were respected. Keep position sizing static and focus on quality entries.'}"
               </p>
+
+              {aiReportObj?.actionableRecommendations && aiReportObj.actionableRecommendations.length > 0 && (
+                <div className="pt-2 border-t border-[#20323D] space-y-1.5">
+                  <div className="text-[10px] font-black uppercase text-amber-400 tracking-wider">Tactical Recommendations:</div>
+                  <ul className="space-y-1">
+                    {aiReportObj.actionableRecommendations.map((rec, i) => (
+                      <li key={i} className="text-[11px] font-bold text-slate-200 flex items-start gap-1.5">
+                        <span className="text-[#58CC02] font-black">✓</span>
+                        <span>{rec}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
-            {/* AI Behavioral Diagnostic Card */}
+            {/* Behavioral Diagnostic Card */}
             <div className="p-5 rounded-3xl bg-[#142127] border-2 border-[#20323D] space-y-4">
               <div className="flex items-center justify-between text-xs font-black">
-                <span className="text-[#1CB0F6]">SESSION SCORE & BEHAVIOR DIAGNOSTIC</span>
+                <span className="text-[#1CB0F6]">SESSION GRADE</span>
                 <span className={`px-3 py-1 rounded-xl font-black ${followedPlan ? 'bg-[#58CC02]/20 text-[#58CC02] border border-[#58CC02]/40' : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'}`}>
-                  DISCIPLINE GRADE: {currentGrade} {!followedPlan ? '(RULES BROKEN)' : ''}
+                  GRADE: {currentGrade} {!followedPlan ? '(RULES BROKEN)' : ''}
                 </span>
               </div>
 
@@ -368,7 +411,7 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
                 </div>
 
                 <div className="p-3 rounded-2xl bg-[#182830] flex items-center justify-between">
-                  <span>Targeted Behavioral Fix:</span>
+                  <span>Targeted Directive:</span>
                   <span className="text-sky-300 font-black">{followedPlan ? 'Keep Position Sizing Static' : 'Mandatory 30m Walk Post-Loss'}</span>
                 </div>
               </div>
@@ -379,18 +422,18 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
               <div className="flex items-center gap-3">
                 <Award size={24} className="text-[#58CC02]" />
                 <div>
-                  <div className="text-xs font-black text-white">Session Audit Completed!</div>
-                  <div className="text-[10px] font-bold text-slate-300">Session saved to your lifetime consistency index.</div>
+                  <div className="text-xs font-black text-white">Debrief Complete!</div>
+                  <div className="text-[10px] font-bold text-slate-300">Saved to calendar.</div>
                 </div>
               </div>
-              <span className="text-sm font-black text-[#58CC02]">+150 DP (Discipline Points)</span>
+              <span className="text-sm font-black text-[#58CC02]">+150 DP</span>
             </div>
 
             <button
               onClick={handleFinish}
               className="duo-btn-green w-full py-4 text-xs uppercase tracking-wider flex items-center justify-center gap-2"
             >
-              <span>Save Session Audit (+150 DP)</span>
+              <span>Done (+150 DP)</span>
               <ChevronRight size={18} />
             </button>
           </div>

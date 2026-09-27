@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoPlusIcon 
 } from './DuoIcons';
@@ -6,8 +6,8 @@ import InteractiveParrotMascot from './InteractiveParrotMascot';
 import { ShieldCheck, ArrowRight, Sparkles, Check, CheckCircle2, ShieldAlert, Key, Zap, Lock, Server, RefreshCw, Activity, ExternalLink, X, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { sendDiscordSignupAlert } from '../utils/discordWebhook';
 import GoogleAuthButton from './GoogleAuthButton';
-import { TradovateLogo, MetaTrader5Logo, NinjaTraderLogo, TradeLockerLogo, CsvLogo } from './BrokerLogos';
-import { loadStoredData, saveStoredData, STORAGE_KEYS } from '../utils/storage';
+import { TradovateLogo, MetaTrader5Logo, NinjaTraderLogo, CsvLogo } from './BrokerLogos';
+import { loadStoredData, saveStoredData, safeRemoveItem, STORAGE_KEYS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 import { detectPlatformFromAccountId } from '../utils/platformDetector';
 import { parseFinancialNumber, formatBalance } from '../utils/financialMath';
@@ -57,11 +57,11 @@ export default function OnboardingModal({ isOpen, onComplete }) {
   }, [tradingStyle, customMaxDailyLoss, riskType, customPlaybookName, isOpen]);
 
   const clearDraftState = () => {
-    localStorage.removeItem(STORAGE_KEYS.ONBOARDING_STEP);
-    localStorage.removeItem(STORAGE_KEYS.ONBOARDING_DRAFT);
+    safeRemoveItem(STORAGE_KEYS.ONBOARDING_STEP);
+    safeRemoveItem(STORAGE_KEYS.ONBOARDING_DRAFT);
   };
 
-  const handleFinishOnboarding = async (skipBroker = false, connectedAccountParam = null, allAccountsParam = null) => {
+  const handleFinishOnboarding = useCallback(async (skipBroker = false, connectedAccountParam = null, allAccountsParam = null) => {
     clearDraftState();
     const finalStrategyName = customPlaybookName.trim() || 'Strategy 1';
     const finalRiskLimit = customMaxDailyLoss.trim() ? (riskType === 'FIXED_DOLLAR' ? `$${customMaxDailyLoss}` : `${customMaxDailyLoss}%`) : '$1,000';
@@ -87,7 +87,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
       maxDailyLoss: finalRiskLimit,
       connectedBroker: connectedBrokerObj
     });
-  };
+  }, [customPlaybookName, customMaxDailyLoss, riskType, tradingStyle, onComplete]);
 
   useEffect(() => {
     const handleOAuthMessage = (event) => {
@@ -108,19 +108,21 @@ export default function OnboardingModal({ isOpen, onComplete }) {
 
     window.addEventListener('message', handleOAuthMessage);
     return () => window.removeEventListener('message', handleOAuthMessage);
-  }, [tradingStyle, customPlaybookName, customMaxDailyLoss, riskType]);
+  }, [handleFinishOnboarding]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        soundFx.playPop();
+        handleFinishOnboarding(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, handleFinishOnboarding]);
 
   if (!isOpen) return null;
-
-  // Mascot Speech Prompts per Step
-  const stepDialogues = {
-    1: "Welcome! I'm TradePigeon. Select your trading framework so we can track your discipline!",
-    2: "Every disciplined trader sets a hard risk limit! What is your maximum daily drawdown threshold?",
-    3: "Name your strategy setup and get ready to calibrate your account!",
-    4: "Launch your broker's OAuth popup to authorize direct live socket auto-sync!"
-  };
-
-  const currentParrotPose = step === 1 ? 'welcoming' : step === 2 ? 'calculating' : step === 3 ? 'happy' : 'flying';
 
   const tradingStylePresets = [
     {
@@ -149,31 +151,21 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     { 
       id: 'tradovate', 
       name: 'Tradovate', 
-      desc: 'Official Direct REST & Telemetry Socket',
       icon: TradovateLogo, 
       badge: 'DIRECT API'
     },
     { 
       id: 'ninjatrader', 
       name: 'NinjaTrader', 
-      desc: 'Tradovate Cloud API Architecture',
       icon: NinjaTraderLogo, 
       badge: 'DIRECT API'
     },
     { 
       id: 'propfirms', 
       name: 'Apex / TopStep / Prop Firms', 
-      desc: 'Tradovate Gateway Multi-Account',
       icon: TradovateLogo, 
-      badge: 'PROP MULTI-ACCOUNT'
-    },
-    { 
-      id: 'tradelocker', 
-      name: 'TradeLocker', 
-      desc: 'Live Cloud Terminal & Stream',
-      icon: TradeLockerLogo, 
-      badge: 'CLOUD API'
-    },
+      badge: 'PROP FIRMS'
+    }
   ];
 
   const handleSelectPlatform = (platform) => {
@@ -235,9 +227,26 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     }, 1200);
   };
 
+  const handleLaunchOfficialSite = () => {
+    if (selectedPlatform?.url) {
+      window.open(selectedPlatform.url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 z-50 animate-fade-in">
-      <div className="duo-card max-w-2xl w-full p-6 sm:p-8 space-y-6 border-2 border-[#FF6B00] relative max-h-[92vh] overflow-y-auto">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          soundFx.playPop();
+          handleFinishOnboarding(true);
+        }
+      }}
+      className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 z-50 animate-fade-in"
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="duo-card max-w-2xl w-full p-6 sm:p-8 space-y-6 border-2 border-[#FF6B00] relative max-h-[92vh] overflow-y-auto"
+      >
         
         {/* PREMIUM PROGRESS STEP PILLS HEADER */}
         <div className="flex items-center justify-between pb-3 border-b border-[#20323D]">
@@ -276,29 +285,21 @@ export default function OnboardingModal({ isOpen, onComplete }) {
           </div>
         </div>
 
-        {/* HERO WELCOME STAGE: Mascot + Duolingo 3D Speech Bubble */}
-        <div className="flex flex-col sm:flex-row items-center gap-5 bg-gradient-to-br from-[#182830] to-[#101A1F] p-5 rounded-3xl border-2 border-[#20323D] relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[#FF6B00]/10 rounded-full blur-2xl pointer-events-none" />
-          
-          <div className="shrink-0 flex flex-col items-center">
-            <InteractiveParrotMascot pose={currentParrotPose} className="w-24 h-24 sm:w-28 sm:h-28" />
+        {/* Clean Step Header */}
+        <div className="flex items-center justify-between bg-[#142127] p-3.5 sm:p-4 rounded-2xl border border-[#20323D]">
+          <div className="flex items-center gap-3">
+            <InteractiveParrotMascot 
+              pose={step === 1 ? 'welcoming' : step === 2 ? 'calculating' : step === 3 ? 'reading' : 'pointing'} 
+              className="w-11 h-11 shrink-0" 
+            />
+            <span className="text-xs font-black uppercase tracking-wider text-slate-300">
+              {step === 1 && 'Trading Strategy'}
+              {step === 2 && 'Daily Risk Limit'}
+              {step === 3 && 'Name Playbook'}
+              {step === 4 && 'Connect Broker'}
+            </span>
           </div>
-
-          <div className="space-y-2 flex-1 text-center sm:text-left">
-            <div className="flex items-center justify-center sm:justify-start gap-2">
-              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-lg bg-[#FF6B00]/20 text-[#FF6B00] border border-[#FF6B00]/30">
-                TradePigeon Protocol Coach
-              </span>
-              <span className="text-[10px] font-bold text-slate-400">Step {step} of 4</span>
-            </div>
-            
-            {/* Duolingo Speech Bubble Arrow */}
-            <div className="relative bg-[#142127] p-4 rounded-2xl border-2 border-[#FF6B00]/30 shadow-lg">
-              <p className="text-xs font-black text-white leading-relaxed">
-                "{stepDialogues[step]}"
-              </p>
-            </div>
-          </div>
+          <span className="text-xs font-black font-mono text-[#FF6B00]">Step {step} of 4</span>
         </div>
 
         {/* STEP 1: TRADING METHODOLOGY PRESETS */}
@@ -315,9 +316,8 @@ export default function OnboardingModal({ isOpen, onComplete }) {
               <GoogleAuthButton className="py-2.5 text-xs shrink-0 w-full sm:w-auto" buttonText="Sign in with Google" />
             </div>
 
-            <div className="space-y-1 text-center sm:text-left">
-              <h2 className="text-2xl font-black text-white">Choose Your Trading Methodology</h2>
-              <p className="text-xs font-bold text-slate-400">Select your setup framework to auto-generate personalized risk & execution rules</p>
+            <div className="text-center sm:text-left">
+              <h2 className="text-2xl font-black text-white">Choose Your Trading Strategy</h2>
             </div>
 
             <div className="grid grid-cols-1 gap-2.5">
@@ -348,7 +348,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
               onClick={() => setStep(2)}
               className="duo-btn-orange w-full py-4 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Continue to Risk Management Setup</span>
+              <span>Continue</span>
               <ArrowRight size={16} />
             </button>
           </div>
@@ -357,9 +357,8 @@ export default function OnboardingModal({ isOpen, onComplete }) {
         {/* STEP 2: RISK MANAGEMENT CALIBRATION */}
         {step === 2 && (
           <div className="space-y-6 animate-fade-in">
-            <div className="space-y-1">
-              <h2 className="text-xl font-black text-white">Set Your Maximum Daily Risk Limit</h2>
-              <p className="text-xs font-bold text-[#52656D]">Your daily risk limit automatically flags trades if your drawdown exceeds this threshold</p>
+            <div>
+              <h2 className="text-xl font-black text-white">Set Daily Risk Limit</h2>
             </div>
 
             <div className="space-y-4">
@@ -446,7 +445,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
 
             <div className="flex gap-3">
               <button onClick={() => setStep(1)} className="flex-1 py-4 bg-[#142127] rounded-2xl border-2 border-[#20323D] text-white font-black text-xs uppercase cursor-pointer">Back</button>
-              <button onClick={() => setStep(3)} className="flex-[2] py-4 bg-[#FF6B00] rounded-2xl text-white font-black text-xs uppercase cursor-pointer">Confirm Rules</button>
+              <button onClick={() => setStep(3)} className="flex-[2] py-4 bg-[#FF6B00] rounded-2xl text-white font-black text-xs uppercase cursor-pointer">Continue</button>
             </div>
           </div>
         )}
@@ -454,9 +453,8 @@ export default function OnboardingModal({ isOpen, onComplete }) {
         {/* STEP 3: PLAYBOOK NAMING */}
         {step === 3 && (
           <div className="space-y-6 animate-fade-in">
-            <div className="space-y-1">
+            <div>
               <h2 className="text-xl font-black text-white">Name Your Strategy</h2>
-              <p className="text-xs font-bold text-[#52656D]">Give your strategy a name to track it in your personal playbook vault</p>
             </div>
 
             <input
@@ -469,7 +467,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
 
             <div className="flex gap-3">
               <button onClick={() => setStep(2)} className="flex-1 py-4 bg-[#142127] rounded-2xl border-2 border-[#20323D] text-white font-black text-xs uppercase cursor-pointer">Back</button>
-              <button onClick={() => setStep(4)} className="flex-[2] py-4 bg-[#FF6B00] rounded-2xl text-white font-black text-xs uppercase cursor-pointer">Next: Connect Broker Auto Sync</button>
+              <button onClick={() => setStep(4)} className="flex-[2] py-4 bg-[#FF6B00] rounded-2xl text-white font-black text-xs uppercase cursor-pointer">Continue</button>
             </div>
           </div>
         )}
@@ -480,7 +478,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-black text-white">
-                  {selectedPlatform ? `Authorize ${selectedPlatform.name}` : 'Connect Broker Live Socket Auto-Sync'}
+                  {selectedPlatform ? `Connect ${selectedPlatform.name}` : 'Connect Broker'}
                 </h2>
                 {selectedPlatform && (
                   <button
@@ -493,18 +491,13 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                   </button>
                 )}
               </div>
-              <p className="text-xs font-bold text-[#52656D]">
-                {selectedPlatform 
-                  ? 'Enter your account credentials to connect live socket sync in-app' 
-                  : 'Select your broker below to authorize direct live socket auto-sync'}
-              </p>
             </div>
 
             {authSuccess ? (
               <div className="p-4 text-center bg-[#58CC02]/20 border-2 border-[#58CC02] rounded-2xl space-y-1 animate-fade-in">
                 <div className="text-sm font-black text-[#58CC02] flex items-center justify-center gap-2">
                   <CheckCircle2 size={18} />
-                  <span>Broker Live Telemetry Connected!</span>
+                  <span>Broker Connected!</span>
                 </div>
                 <div className="text-xs font-bold text-slate-300">Completing onboarding setup...</div>
               </div>
@@ -553,7 +546,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                     <div className="text-[10px] text-[#FF6B00] font-black pt-1 border-t border-[#20323D]/60 flex items-center gap-1.5">
                       <Zap size={12} className="text-[#FF6B00]" />
                       <span>Direct In-App Sync:</span>
-                      <span className="text-slate-300 font-bold">Telemetry and execution fills track automatically into your session hub.</span>
+                      <span className="text-slate-300 font-bold">Fills track automatically into your session hub.</span>
                     </div>
                   </div>
                 </div>
@@ -697,7 +690,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                   ) : (
                     <>
                       <Zap size={16} />
-                      <span>Connect & Sync {selectedPlatform.name} ({username || 'Account'})</span>
+                      <span>Connect {selectedPlatform.name}</span>
                     </>
                   )}
                 </button>
@@ -727,12 +720,9 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                         </span>
                       </div>
 
-                      <div>
-                        <div className="text-xs font-black text-white group-hover:text-[#FF6B00] transition-colors flex items-center justify-between">
-                          <span>{p.name}</span>
-                          {isConnecting && <RefreshCw size={14} className="animate-spin text-[#FF6B00]" />}
-                        </div>
-                        <div className="text-[9px] font-bold text-slate-400">{p.desc}</div>
+                      <div className="text-xs font-black text-white group-hover:text-[#FF6B00] transition-colors flex items-center justify-between">
+                        <span>{p.name}</span>
+                        {isConnecting && <RefreshCw size={14} className="animate-spin text-[#FF6B00]" />}
                       </div>
                     </button>
                   );

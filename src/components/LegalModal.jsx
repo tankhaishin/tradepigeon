@@ -24,11 +24,28 @@ export default function LegalModal({ isOpen, onClose, documentType = 'TERMS' }) 
       });
   }, [isOpen, documentType]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && typeof onClose === 'function') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-      <div className="duo-card max-w-3xl w-full p-6 sm:p-8 space-y-6 border-2 border-[#1CB0F6] relative max-h-[88vh] flex flex-col">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget && typeof onClose === 'function') onClose();
+      }}
+      className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in"
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="duo-card max-w-3xl w-full p-6 sm:p-8 space-y-6 border-2 border-[#1CB0F6] relative max-h-[88vh] flex flex-col"
+      >
         
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-[#20323D]">

@@ -3,10 +3,9 @@ import {
   ShieldCheck, Zap, ArrowRight, CheckCircle2, Flame, Heart, Gem, Trophy, Star, 
   Sparkles, Lock, BarChart3, ChevronRight, Play, Check, Globe, Bell, Mail, X
 } from 'lucide-react';
-import InteractiveParrotMascot from './InteractiveParrotMascot';
 import LegalModal from './LegalModal';
-import { TradovateLogo, NinjaTraderLogo, TradeLockerLogo, CsvLogo } from './BrokerLogos';
-import { Duo3dShieldBadge, Duo3dFlameBadge, Duo3dChartBadge, Duo3dZapBadge, Duo3dLockBadge, Duo3dBellBadge, Duo3dCheckBadge } from './DuolingoFeatureBadges';
+import { TradovateLogo, NinjaTraderLogo, CsvLogo } from './BrokerLogos';
+import { Duo3dShieldBadge, Duo3dFlameBadge, Duo3dChartBadge, Duo3dZapBadge, Duo3dLockBadge, Duo3dBellBadge, Duo3dCheckBadge } from './GamifiedFeatureBadges';
 import { DuoDisciplinedWinIcon, DuoDisciplinedLossIcon, DuoDisciplinedBeIcon, DuoToxicWinIcon, DuoToxicBeIcon, DuoDoubleFailureIcon, DuoMissedTradeIcon } from './DuoIcons';
 import { soundFx } from '../utils/audioEngine';
 import { saveStoredData, loadStoredData, subscribeToStorageUpdate } from '../utils/storage';
@@ -15,7 +14,7 @@ import GoogleAuthButton from './GoogleAuthButton';
 import AuthModal from './AuthModal';
 
 export default function LandingPage({ onGetStarted, onLogin }) {
-  const [loggedInUser, setLoggedInUser] = useState(() => loadStoredData('tradepigeon_google_user', null));
+  const [loggedInUser, setLoggedInUser] = useState(() => loadStoredData('tradepigeon_auth_user', null) || loadStoredData('tradepigeon_google_user', null));
   const [isLegalTermsOpen, setIsLegalTermsOpen] = useState(false);
   const [isLegalPrivacyOpen, setIsLegalPrivacyOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -23,41 +22,20 @@ export default function LandingPage({ onGetStarted, onLogin }) {
   const [billingCycle, setBillingCycle] = useState('MONTHLY'); // Default: $9.99 / month
   const [activeRoadmapIndex, setActiveRoadmapIndex] = useState(0);
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
+  const [heroCardMode, setHeroCardMode] = useState('DISCIPLINED'); // 'DISCIPLINED' | 'TOXIC'
 
   useEffect(() => {
-    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === 'tradepigeon_google_user') {
+    const unsubscribe = subscribeToStorageUpdate(({ key, legacyKey, value }) => {
+      if (key === 'tradepigeon_auth_user' || key === 'tradepigeon_google_user' || legacyKey === 'tradepigeon_google_user') {
         setLoggedInUser(value);
       }
     });
     return unsubscribe;
   }, []);
-  
-  // DYNAMIC INTERACTIVE MASCOT REACTIVE STATE (Respectful Trading Companion Tone)
-  const mascotQuotes = [
-    { pose: 'welcoming', text: '"Welcome back, my friend! Ready to execute your strategy today?"' },
-    { pose: 'celebrating', text: '"Outstanding discipline! Sticking to your plan is how you protect your edge."' },
-    { pose: 'shielded', text: '"You respected your stop loss—that is a great trade in my book. Capital preserved!"' },
-    { pose: 'anxious', text: '"Patience, my friend. The market always offers another setup. Let\'s wait for yours."' },
-    { pose: 'revenge', text: '"Take a breather, my friend. Stepping away right now protects your account for tomorrow."' },
-    { pose: 'zen', text: '"Process first, profits follow. Stay calm and trade your playbook!"' },
-    { pose: 'thinking', text: '"What gets measured gets managed. Document every fill with proof."' },
-    { pose: 'trophy', text: '"Long-term consistency is built one disciplined session at a time."' }
-  ];
-  const [quoteIndex, setQuoteIndex] = useState(0);
-  const [activeMascotPose, setActiveMascotPose] = useState('welcoming');
-  const [speechText, setSpeechText] = useState(mascotQuotes[0].text);
 
-  const handleMascotClick = () => {
+  const toggleHeroCard = () => {
     soundFx.playPop();
-    let nextIndex;
-    do {
-      nextIndex = Math.floor(Math.random() * mascotQuotes.length);
-    } while (nextIndex === quoteIndex && mascotQuotes.length > 1);
-
-    setQuoteIndex(nextIndex);
-    setActiveMascotPose(mascotQuotes[nextIndex].pose);
-    setSpeechText(mascotQuotes[nextIndex].text);
+    setHeroCardMode(prev => prev === 'DISCIPLINED' ? 'TOXIC' : 'DISCIPLINED');
   };
 
   const handleStart = (userObj = loggedInUser) => {
@@ -70,42 +48,30 @@ export default function LandingPage({ onGetStarted, onLogin }) {
     const cycle = overrideCycle || billingCycle;
     const monthlyUrl = import.meta.env.VITE_STRIPE_MONTHLY_LINK || 'https://buy.stripe.com/00w28t0HrfyO93VamV7ss01';
     const annualUrl = import.meta.env.VITE_STRIPE_ANNUAL_LINK || 'https://buy.stripe.com/eVqbJ3bm5aeu2Fx52B7ss02';
+    const fallbackUrl = cycle === 'ANNUAL' ? annualUrl : (monthlyUrl || annualUrl);
 
-    const targetUrl = cycle === 'ANNUAL' ? annualUrl : (monthlyUrl || annualUrl);
-    window.location.href = targetUrl;
-  };
+    try {
+      const res = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan: cycle === 'ANNUAL' ? 'annual' : 'monthly',
+          customerEmail: loggedInUser?.email,
+          userId: loggedInUser?.id || loggedInUser?.uid
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.url) {
+          window.location.href = data.url;
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('[Stripe Checkout] Server endpoint unreachable, using direct checkout link:', err);
+    }
 
-  const handleExecutionTypeHover = (pose, speech) => {
-    soundFx.playPop();
-    setActiveMascotPose(pose);
-    setSpeechText(speech);
-  };
-
-  const handleExecutionTypeLeave = () => {
-    setActiveMascotPose(mascotQuotes[quoteIndex].pose);
-    setSpeechText(mascotQuotes[quoteIndex].text);
-  };
-
-  const handleManualEmailSubmit = (e) => {
-    e.preventDefault();
-    if (!manualEmail.trim()) return;
-
-    const emailClean = manualEmail.trim();
-    const namePart = manualName.trim() || emailClean.split('@')[0].replace(/[._]/g, ' ');
-    const nameClean = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-
-    const userObj = {
-      name: nameClean,
-      email: emailClean,
-      picture: '/parrot_logo.png',
-      sub: Date.now().toString(),
-      authenticatedAt: new Date().toISOString()
-    };
-
-    saveStoredData('tradepigeon_google_user', userObj);
-    soundFx.playSuccess();
-    setIsEmailModalOpen(false);
-    onGetStarted(userObj);
+    window.location.href = fallbackUrl;
   };
 
   return (
@@ -116,8 +82,13 @@ export default function LandingPage({ onGetStarted, onLogin }) {
         
         {/* Duolingo 3D Tactile Logo Mark */}
         <div className="flex items-center gap-3.5 cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-          <div className="w-11 h-11 rounded-2xl bg-[#0D1635] overflow-hidden border-2 border-[#FF6B00] border-b-4 border-b-[#C2410C] flex items-center justify-center shrink-0 shadow-lg group-hover:scale-105 transition-transform">
-            <img src="/parrot_logo.png" alt="Parrot Logo" className="w-full h-full object-cover" />
+          <div className="w-11 h-11 rounded-2xl bg-[#0D1635] overflow-hidden border-2 border-[#FF6B00] border-b-4 border-b-[#C2410C] flex items-center justify-center shrink-0 shadow-lg group-hover:scale-105 transition-transform p-1">
+            <img 
+              src="/parrot_logo.png" 
+              alt="TradePigeon Logo" 
+              className="w-full h-full object-contain" 
+              onError={(e) => { e.currentTarget.src = '/favicon.svg'; }}
+            />
           </div>
           <span className="text-2xl font-black text-white tracking-tight leading-none group-hover:text-[#FF6B00] transition-colors">
             TRADEPIGEON
@@ -159,14 +130,131 @@ export default function LandingPage({ onGetStarted, onLogin }) {
       {/* 2. HERO SECTION: MASCOT + DUOLINGO HIGH-IMPACT HEADLINE */}
       <main className="w-full max-w-7xl mx-auto px-6 py-10 md:py-16 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center flex-1 relative z-10">
         
-        {/* Left Hero Graphic: Clean, Lightweight Mascot Stage */}
-        <div className="lg:col-span-6 flex flex-col items-center justify-center relative">
-          <div 
-            onClick={handleMascotClick} 
-            className="relative z-10 cursor-pointer"
-            title="Click parrot to change pose!"
-          >
-            <InteractiveParrotMascot pose={activeMascotPose} className="w-72 h-72 sm:w-96 sm:h-96 filter drop-shadow-2xl" />
+        {/* Left Hero Graphic: Tactile Duolingo 3D Live Discipline Card */}
+        <div className="lg:col-span-6 flex flex-col items-center justify-center relative w-full">
+          <div className="w-full max-w-md mx-auto">
+            {/* DUOLINGO 3D TACTILE HERO CARD */}
+            <div className={`p-6 sm:p-7 rounded-3xl border-2 border-b-[8px] transition-all duration-300 shadow-2xl relative text-left select-none ${
+              heroCardMode === 'DISCIPLINED'
+                ? 'bg-[#0D1D16] border-[#58CC02] border-b-[#3C8901] shadow-[0_12px_40px_rgba(88,204,2,0.25)]'
+                : 'bg-[#221606] border-[#FFC800] border-b-[#C29600] shadow-[0_12px_40px_rgba(255,200,0,0.25)]'
+            }`}>
+              {/* Top Meta Status Strip */}
+              <div className="flex items-center justify-between gap-2 pb-4 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-xl font-mono border ${
+                    heroCardMode === 'DISCIPLINED'
+                      ? 'bg-[#58CC02]/20 text-[#58CC02] border-[#58CC02]/40'
+                      : 'bg-[#FFC800]/20 text-[#FFC800] border-[#FFC800]/40'
+                  }`}>
+                    {heroCardMode === 'DISCIPLINED' ? 'A+ GRADE EXECUTION' : 'C- GRADE ALERT'}
+                  </span>
+                  <span className="text-[10px] font-black text-slate-300 tracking-wider">
+                    {heroCardMode === 'DISCIPLINED' ? '14-DAY STREAK 🔥' : 'TILT RISK ⚠'}
+                  </span>
+                </div>
+                <span className={`text-xs font-black font-mono ${heroCardMode === 'DISCIPLINED' ? 'text-[#58CC02]' : 'text-[#FFC800]'}`}>
+                  {heroCardMode === 'DISCIPLINED' ? '+100 DP' : '-50 DP'}
+                </span>
+              </div>
+
+              {/* Main Card Trade Details */}
+              <div className="py-5 space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0 shadow-md">
+                      {heroCardMode === 'DISCIPLINED' ? (
+                        <DuoDisciplinedWinIcon className="w-9 h-9 drop-shadow-md" />
+                      ) : (
+                        <DuoToxicWinIcon className="w-9 h-9 drop-shadow-md" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-xs font-black uppercase tracking-wider text-slate-400">
+                        {heroCardMode === 'DISCIPLINED' ? 'Breakout Playbook' : 'Impulse FOMO Entry'}
+                      </div>
+                      <h3 className="text-xl sm:text-2xl font-black text-white leading-tight">
+                        ES Mini &bull; {heroCardMode === 'DISCIPLINED' ? '+$650.00' : '+$825.00'}
+                      </h3>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className={`text-xs font-black px-2.5 py-1 rounded-xl block ${
+                      heroCardMode === 'DISCIPLINED' ? 'bg-[#58CC02] text-white' : 'bg-[#FFC800] text-slate-950'
+                    }`}>
+                      {heroCardMode === 'DISCIPLINED' ? '+3.25 R' : 'UNPLANNED'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Checklist Rules / Audit */}
+                <div className="space-y-2.5 pt-1">
+                  {heroCardMode === 'DISCIPLINED' ? (
+                    <>
+                      <div className="flex items-center gap-2.5 text-xs font-bold text-emerald-200">
+                        <div className="w-5 h-5 rounded-lg bg-[#58CC02] text-white flex items-center justify-center shrink-0">
+                          <Check size={12} strokeWidth={3} />
+                        </div>
+                        <span>Entry strictly confirmed on strategy criteria</span>
+                      </div>
+                      <div className="flex items-center gap-2.5 text-xs font-bold text-emerald-200">
+                        <div className="w-5 h-5 rounded-lg bg-[#58CC02] text-white flex items-center justify-center shrink-0">
+                          <Check size={12} strokeWidth={3} />
+                        </div>
+                        <span>Stop loss respected ($200 defined risk)</span>
+                      </div>
+                      <div className="flex items-center gap-2.5 text-xs font-bold text-emerald-200">
+                        <div className="w-5 h-5 rounded-lg bg-[#58CC02] text-white flex items-center justify-center shrink-0">
+                          <Check size={12} strokeWidth={3} />
+                        </div>
+                        <span>Exited at target with zero emotional interference</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2.5 text-xs font-bold text-amber-200">
+                        <div className="w-5 h-5 rounded-lg bg-[#FFC800] text-slate-950 flex items-center justify-center shrink-0">
+                          <X size={12} strokeWidth={3} />
+                        </div>
+                        <span>Sized 4x over calibrated max daily risk</span>
+                      </div>
+                      <div className="flex items-center gap-2.5 text-xs font-bold text-amber-200">
+                        <div className="w-5 h-5 rounded-lg bg-[#FFC800] text-slate-950 flex items-center justify-center shrink-0">
+                          <X size={12} strokeWidth={3} />
+                        </div>
+                        <span>Widened stop loss during adverse excursion</span>
+                      </div>
+                      <div className="flex items-center gap-2.5 text-xs font-bold text-amber-200">
+                        <div className="w-5 h-5 rounded-lg bg-[#FFC800] text-slate-950 flex items-center justify-center shrink-0">
+                          <X size={12} strokeWidth={3} />
+                        </div>
+                        <span>Lucky win validates destructive habits</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Bottom Tactile Switch Action */}
+              <div className="pt-3 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={toggleHeroCard}
+                  className={`w-full py-3 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-y-0.5 border-b-4 ${
+                    heroCardMode === 'DISCIPLINED'
+                      ? 'bg-[#FFC800] text-slate-950 border-[#D9AA00] hover:bg-[#FFD21A]'
+                      : 'bg-[#58CC02] text-white border-[#3C8901] hover:bg-[#61E002]'
+                  }`}
+                >
+                  <Sparkles size={14} />
+                  <span>
+                    {heroCardMode === 'DISCIPLINED' 
+                      ? 'Tap to Compare: The Toxic Win Trap →' 
+                      : 'Tap to View: Disciplined Execution →'}
+                  </span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -228,7 +316,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
 
           {/* Duolingo 3D Tactile Broker Badges */}
           <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-2.5 text-[11px] font-black text-slate-300">
-            <span className="text-[10px] uppercase text-[#52656D] tracking-widest w-full text-center lg:text-left mb-1">DIRECT BROKER API & TELEMETRY</span>
+            <span className="text-[10px] uppercase text-[#52656D] tracking-widest w-full text-center lg:text-left mb-1">DIRECT BROKER SYNC</span>
             <div className="duo-card flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] hover:border-[#FF6B00] active:translate-y-[2px] transition-all cursor-pointer">
               <TradovateLogo className="w-4 h-4" />
               <span>Tradovate</span>
@@ -237,13 +325,9 @@ export default function LandingPage({ onGetStarted, onLogin }) {
               <NinjaTraderLogo className="w-4 h-4" />
               <span>NinjaTrader</span>
             </div>
-            <div className="duo-card flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] hover:border-[#CE82FF] active:translate-y-[2px] transition-all cursor-pointer">
-              <TradeLockerLogo className="w-4 h-4" />
-              <span>TradeLocker</span>
-            </div>
             <div className="duo-card flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] hover:border-amber-400 active:translate-y-[2px] transition-all cursor-pointer">
               <CsvLogo className="w-4 h-4" />
-              <span>Universal CSV</span>
+              <span>Universal CSV / Statement</span>
             </div>
           </div>
 
@@ -379,8 +463,6 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                     onClick={() => {
                       soundFx.playPop();
                       setActiveRoadmapIndex(itemIndex);
-                      setActiveMascotPose(item.pose);
-                      setSpeechText(item.speech);
                     }}
                     className={`p-5 rounded-3xl border-2 ${item.color} ${item.border} border-b-8 ${item.bottom} ${item.textColor} transition-all cursor-pointer flex flex-col justify-between space-y-4 text-left shadow-xl active:translate-y-1 ${
                       isActive 
@@ -421,8 +503,6 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                     onClick={() => {
                       soundFx.playPop();
                       setActiveRoadmapIndex(itemIndex);
-                      setActiveMascotPose(item.pose);
-                      setSpeechText(item.speech);
                     }}
                     className={`p-5 rounded-3xl border-2 ${item.color} ${item.border} border-b-8 ${item.bottom} ${item.textColor} transition-all cursor-pointer flex flex-col justify-between space-y-4 text-left shadow-xl active:translate-y-1 ${
                       isActive 
@@ -585,7 +665,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                   <div className="w-6 h-6 rounded-xl bg-[#58CC02] border border-[#58CC02] border-b-4 border-b-[#3C8901] flex items-center justify-center text-white shrink-0 shadow-md">
                     <Check size={14} strokeWidth={4} />
                   </div>
-                  <span>Supports MT4/MT5, Tradovate & TradeLocker</span>
+                  <span>Supports CME Futures, Tradovate, NinjaTrader & Universal CSV</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <div className="w-6 h-6 rounded-xl bg-[#58CC02] border border-[#58CC02] border-b-4 border-b-[#3C8901] flex items-center justify-center text-white shrink-0 shadow-md">
@@ -643,7 +723,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                   </div>
                   <div className="text-[10px] font-black uppercase text-[#1CB0F6] tracking-widest">TODAY</div>
                   <h4 className="text-base sm:text-lg font-black text-white">Instant Full Access</h4>
-                  <p className="text-xs sm:text-sm font-bold text-slate-300 leading-relaxed">Immediate access to risk warmups, statement parsing, and discipline telemetry.</p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-300 leading-relaxed">Immediate access to risk warmups, statement parsing, and discipline tracking.</p>
                 </div>
 
                 {/* Step 2: Day 5 */}
@@ -739,8 +819,13 @@ export default function LandingPage({ onGetStarted, onLogin }) {
         <div className="max-w-7xl mx-auto px-6 space-y-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-[#1C2A4E] pb-6">
             <div className="flex items-center gap-3 cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-              <div className="w-8 h-8 rounded-xl bg-[#0D1635] overflow-hidden border border-[#FF6B00] border-b-3 border-b-[#C2410C] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
-                <img src="/parrot_logo.png" alt="TradePigeon Logo" className="w-full h-full object-cover" />
+              <div className="w-8 h-8 rounded-xl bg-[#0D1635] overflow-hidden border border-[#FF6B00] border-b-3 border-b-[#C2410C] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform p-0.5">
+                <img 
+                  src="/parrot_logo.png" 
+                  alt="TradePigeon Logo" 
+                  className="w-full h-full object-contain" 
+                  onError={(e) => { e.currentTarget.src = '/favicon.svg'; }}
+                />
               </div>
               <span className="font-black text-white text-base tracking-tight group-hover:text-[#FF6B00] transition-colors">TradePigeon</span>
             </div>

@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, Lock, ArrowRight, ShieldCheck, Flame, Heart, Gem, CheckSquare, Zap, ArrowLeft, Layers, Check, RefreshCw, RotateCcw, Save, Plus, Trash2, Pencil, X, BookOpen, BarChart2, Tag, ChevronDown, ChevronUp, PlayCircle, Award, Sparkles, Lightbulb, AlertCircle, FileText, XCircle } from 'lucide-react';
-import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoLockIcon, DuoIceIcon, DuoStarIcon, DuoBookIcon, DuoHeadphonesIcon, DuoDumbbellIcon, DuoTrophyIcon, DuoHomeIcon, DuoPalmtreeIcon, DuoCalendarIcon } from './DuoIcons';
-import { Duo3dChartBadge, Duo3dPulseBadge, Duo3dBellBadge, Duo3dZenBadge, Duo3dCheckBadge } from './DuolingoFeatureBadges';
-import InteractiveParrotMascot from './InteractiveParrotMascot';
-import { getRandomDialogue, getRandomMarketWizardQuote } from '../data/dialogueBank';
+import { CheckCircle2, Lock, ArrowRight, ShieldCheck, Flame, Heart, Gem, CheckSquare, Zap, ArrowLeft, Layers, Check, RefreshCw, RotateCcw, Save, Plus, Trash2, Pencil, X, BookOpen, BarChart2, Tag, ChevronDown, ChevronUp, PlayCircle, Award, Sparkles, Lightbulb, AlertCircle, FileText, XCircle, ShieldAlert, Activity } from 'lucide-react';
+import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoLockIcon, DuoIceIcon, DuoStarIcon, DuoBookIcon, DuoHeadphonesIcon, DuoDumbbellIcon, DuoTrophyIcon, DuoHomeIcon, DuoPalmtreeIcon, DuoCalendarIcon, DuoMissedTradeIcon } from './DuoIcons';
+import { Duo3dChartBadge, Duo3dPulseBadge, Duo3dBellBadge, Duo3dZenBadge, Duo3dCheckBadge } from './GamifiedFeatureBadges';
 import { COURSE_MODULES } from '../data/educationBank';
-import { loadStoredData, saveStoredData, subscribeToStorageUpdate, sanitizeAccountBasketData, STORAGE_KEYS } from '../utils/storage';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, sanitizeAccountBasketData, STORAGE_KEYS, DEFAULT_USER_STATS, addDisciplinePoints } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 import { parseFinancialNumber, formatFinancialCurrency, sumTradesPnl } from '../utils/financialMath';
 
@@ -15,6 +13,8 @@ import InteractiveEquityCurve from './InteractiveEquityCurve';
 import RightStatusHub, { HESITATION_REASONS, getHesitationIcon } from './RightStatusHub';
 import GuidebookModal from './GuidebookModal';
 import BrokerConnectModal from './BrokerConnectModal';
+import MercyModal from './MercyModal';
+import BasketActionModal from './BasketActionModal';
 
 export default function CenterPath() {
   const [activeStep, setActiveStep] = useState(() => loadStoredData('tradepigeon_active_step', 1));
@@ -23,6 +23,8 @@ export default function CenterPath() {
   const [completedSteps, setCompletedSteps] = useState(() => loadStoredData('tradepigeon_completed_steps', []));
   const [currentDay, setCurrentDay] = useState(() => loadStoredData('tradepigeon_current_day', 1));
   const [completedDays, setCompletedDays] = useState(() => loadStoredData('tradepigeon_completed_days', []));
+  const [season, setSeason] = useState(() => loadStoredData('tradepigeon_season', 1));
+  const [userStats, setUserStats] = useState(() => loadStoredData(STORAGE_KEYS.USER_STATS, DEFAULT_USER_STATS));
   const [isVacationActive, setIsVacationActive] = useState(() => loadStoredData('tradepigeon_vacation_active', false));
   const [showDetailsState, setShowDetailsState] = useState({});
   const [sessionTrades, setSessionTrades] = useState(() => loadStoredData(`tradepigeon_session_trades_day_${currentDay}`, []));
@@ -34,29 +36,35 @@ export default function CenterPath() {
       if (key === `tradepigeon_session_trades_day_${currentDay}`) {
         setSessionTrades(value || []);
       }
+      if (key === 'trades_cleared') {
+        setSessionTrades([]);
+      }
       if (key === 'tradepigeon_completed_steps') {
         setCompletedSteps(value || []);
       }
+      if (key === 'tradepigeon_completed_days') {
+        setCompletedDays(value || []);
+      }
+      if (key === 'tradepigeon_current_day') {
+        setCurrentDay(Number(value) || 1);
+      }
       if (key === 'tradepigeon_accounts_data') {
         setAccountsData(value || []);
+      }
+      if (key === STORAGE_KEYS.USER_STATS && value) {
+        setUserStats(value);
+      }
+      if (key === 'tradepigeon_season' && value) {
+        setSeason(value);
+      }
+      if (key === 'tradepigeon_vacation_active') {
+        setIsVacationActive(!!value);
       }
     });
     return unsubscribe;
   }, [currentDay]);
 
   const uncalibratedCount = sessionTrades.filter(t => !t.confirmed).length;
-
-  useEffect(() => {
-    const checkVacation = () => {
-      setIsVacationActive(loadStoredData('tradepigeon_vacation_active', false));
-    };
-    window.addEventListener('storage', checkVacation);
-    const interval = setInterval(checkVacation, 1000);
-    return () => {
-      window.removeEventListener('storage', checkVacation);
-      clearInterval(interval);
-    };
-  }, []);
   const unitTitles = [
     "Foundations of Discipline",
     "Advanced Risk Cockpit & Sizing",
@@ -146,7 +154,6 @@ export default function CenterPath() {
   const [selectedMarketRegime, setSelectedMarketRegime] = useState('trending');
   const [selectedCockpitAcc, setSelectedCockpitAcc] = useState('ALL');
   const [isDebriefOpen, setIsDebriefOpen] = useState(false);
-  const [selectedSetupTags, setSelectedSetupTags] = useState(['Breakout & Retest', 'S/R Level Sweep']);
   const [expandedModuleId, setExpandedModuleId] = useState('mod_1');
   const [basketsList, setBasketsList] = useState(() => loadStoredData('tradepigeon_baskets_list', []));
   const [basketCheckedRules, setBasketCheckedRules] = useState({});
@@ -182,11 +189,11 @@ export default function CenterPath() {
     setTimeout(() => setPresetToast(''), 3000);
   };
 
-  const handleDropAccountToBasket = (targetBasketName) => {
-    if (!draggedAccountId) return;
+  const handleAssignAccountToBasket = (accId, targetBasketName) => {
+    if (!accId) return;
     
     const updated = accountsData.map(acc => {
-      if (acc.id === draggedAccountId) {
+      if (acc.id === accId) {
         return { ...acc, basketName: targetBasketName };
       }
       return acc;
@@ -199,14 +206,11 @@ export default function CenterPath() {
     soundFx.playSuccess();
   };
 
-  const [selectedAccountToEdit, setSelectedAccountToEdit] = useState(null);
-  const [tempAccountPnlInput, setTempAccountPnlInput] = useState('');
-  const [tempAccountType, setTempAccountType] = useState('FUNDED ACCOUNT');
-  const [tempRiskPctInput, setTempRiskPctInput] = useState('0.50');
-  const [tempMaxLossInput, setTempMaxLossInput] = useState('1000');
-  const [tempBasketName, setTempBasketName] = useState('Basket A');
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncSuccessMsg, setSyncSuccessMsg] = useState('');
+  const handleDropAccountToBasket = (targetBasketName, explicitId = null) => {
+    const targetId = explicitId || draggedAccountId;
+    if (!targetId) return;
+    handleAssignAccountToBasket(targetId, targetBasketName);
+  };
 
   const [strategyLibrary, setStrategyLibrary] = useState(() => loadStoredData('tradepigeon_strategy_library', [
     { id: 'strat_1', name: 'Breakout & Retest (Key S/R)', rules: ['Key Liquidity Level Swept', '15m Candle Confirmation', 'Minimum 2.0 R:R Target'] },
@@ -215,22 +219,10 @@ export default function CenterPath() {
     { id: 'strat_4', name: 'Custom Playbook Strategy', rules: ['Risk Cap Must Not Exceed 0.50%', 'Manual Exit Rules Enforced'] }
   ]));
 
+  const [basketActionModal, setBasketActionModal] = useState(null);
+
   const handleAddRuleToStrategy = (stratId) => {
-    const newRuleText = prompt('Enter Custom Entry Rule / Confluence (e.g., FVG Tapped, News Clear for 30m):');
-    if (!newRuleText || newRuleText.trim() === '') return;
-    const cleanRule = newRuleText.trim();
-
-    const updated = strategyLibrary.map(s => s.id === stratId ? { ...s, rules: [...s.rules, cleanRule] } : s);
-    setStrategyLibrary(updated);
-    saveStoredData('tradepigeon_strategy_library', updated);
-    soundFx.playSuccess();
-  };
-
-  const handleRemoveRuleFromStrategy = (stratId, ruleIndex) => {
-    const updated = strategyLibrary.map(s => s.id === stratId ? { ...s, rules: s.rules.filter((_, idx) => idx !== ruleIndex) } : s);
-    setStrategyLibrary(updated);
-    saveStoredData('tradepigeon_strategy_library', updated);
-    soundFx.playPop();
+    setBasketActionModal({ type: 'add_rule', stratId, text: '' });
   };
 
   const [selectedPlaybookId, setSelectedPlaybookId] = useState('strat_1');
@@ -238,8 +230,6 @@ export default function CenterPath() {
 
   const [isMercyModalOpen, setIsMercyModalOpen] = useState(false);
   const [mercyDateStr, setMercyDateStr] = useState('');
-
-  const totalCumulativePnl = accountsData.reduce((acc, curr) => acc + parseFinancialNumber(curr.pnl, 0), 0);
 
   const hasConnectedAccounts = accountsData && accountsData.length > 0;
   const todayTradesCount = sessionTrades.length;
@@ -260,6 +250,7 @@ export default function CenterPath() {
     }, 600);
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks(exhaustive-deps)
   useEffect(() => {
     const sanitized = sanitizeAccountBasketData(accountsData, basketsList);
     setAccountsData(sanitized);
@@ -281,13 +272,21 @@ export default function CenterPath() {
       
       const processedMercyDate = loadStoredData('tradepigeon_processed_mercy_date', null);
       if (processedMercyDate !== yesterdayStr && yesterday.getDay() !== 0 && yesterday.getDay() !== 6) {
+        const availableFreezes = Number(loadStoredData('tradepigeon_streak_freezes', 0)) || 0;
         const purchasedShopItemsRaw = loadStoredData(STORAGE_KEYS.SHOP_ITEMS, []);
         const purchasedShopItems = Array.isArray(purchasedShopItemsRaw) ? purchasedShopItemsRaw : [];
-        if (purchasedShopItems.includes('streak_freeze')) {
-          const updatedShopItems = purchasedShopItems.filter(i => i !== 'streak_freeze');
-          saveStoredData(STORAGE_KEYS.SHOP_ITEMS, updatedShopItems);
+        const hasShopFreeze = purchasedShopItems.includes('streak_freeze');
+
+        if (availableFreezes > 0 || hasShopFreeze) {
+          if (availableFreezes > 0) {
+            saveStoredData('tradepigeon_streak_freezes', Math.max(0, availableFreezes - 1));
+          }
+          if (hasShopFreeze) {
+            saveStoredData(STORAGE_KEYS.SHOP_ITEMS, purchasedShopItems.filter(i => i !== 'streak_freeze'));
+          }
           saveStoredData('tradepigeon_processed_mercy_date', yesterdayStr);
-          setPresetToast('Streak Shield automatically consumed! Your 14-Day Streak is protected.');
+          const activeStreak = userStats?.streakDays || 1;
+          setPresetToast(`Streak Shield automatically consumed! Your ${activeStreak}-Day Streak is protected.`);
           setTimeout(() => setPresetToast(''), 4000);
         } else {
           setMercyDateStr(yesterdayStr);
@@ -295,47 +294,28 @@ export default function CenterPath() {
         }
       }
     }
+    // Intentionally runs once on mount to evaluate cold-start account sanitization and streak mercy rules
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleResync = () => {
-    setIsSyncing(true);
-    soundFx.playPop();
-    setTimeout(() => {
-      setIsSyncing(false);
-      setSyncSuccessMsg('Broker Sockets & Statements Synced Successfully!');
-      soundFx.playSuccess();
-      setTimeout(() => setSyncSuccessMsg(''), 3000);
-    }, 900);
-  };
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (isStepModalOpen) setIsStepModalOpen(false);
+        if (isMercyModalOpen) setIsMercyModalOpen(false);
+        if (basketActionModal) setBasketActionModal(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isStepModalOpen, isMercyModalOpen, basketActionModal]);
 
   const handleRenameBasket = (oldName) => {
-    const newName = prompt(`Rename "${oldName}" to:`, oldName);
-    if (!newName || newName.trim() === '' || newName === oldName) return;
-    const cleanName = newName.trim();
-    
-    const updatedBaskets = basketsList.map(b => b.name === oldName ? { ...b, name: cleanName } : b);
-    setBasketsList(updatedBaskets);
-    saveStoredData('tradepigeon_baskets_list', updatedBaskets);
-
-    const updatedAccounts = accountsData.map(acc => acc.basketName === oldName ? { ...acc, basketName: cleanName } : acc);
-    setAccountsData(updatedAccounts);
-    saveStoredData('tradepigeon_accounts_data', updatedAccounts);
-    soundFx.playSuccess();
+    setBasketActionModal({ type: 'rename', oldName, text: oldName });
   };
 
   const handleAddNewBasket = () => {
-    const basketNameInput = prompt('Enter New Risk Management Basket Name (e.g., Aggressive 1.5%, Conservative 0.25%, Scalp Pack):');
-    if (!basketNameInput || basketNameInput.trim() === '') return;
-    const cleanName = basketNameInput.trim();
-    const newBasket = { 
-      id: `b_${Date.now()}`, 
-      name: cleanName,
-      riskLabel: 'Custom Risk Profile'
-    };
-    const updatedBaskets = [...basketsList, newBasket];
-    setBasketsList(updatedBaskets);
-    saveStoredData('tradepigeon_baskets_list', updatedBaskets);
-    soundFx.playSuccess();
+    setBasketActionModal({ type: 'add', text: '' });
   };
 
   const handleDeleteBasket = (basketId, basketName) => {
@@ -343,41 +323,60 @@ export default function CenterPath() {
       console.warn('You must keep at least 1 active strategy basket.');
       return;
     }
-    if (!confirm(`Delete basket "${basketName}"? Accounts in this basket will be moved to No Trade Today.`)) return;
-
-    const updatedBaskets = basketsList.filter(b => b.id !== basketId);
-    setBasketsList(updatedBaskets);
-    saveStoredData('tradepigeon_baskets_list', updatedBaskets);
-
-    const updatedAccounts = accountsData.map(acc => 
-      acc.basketName === basketName ? { ...acc, basketName: 'No Trade Today' } : acc
-    );
-    setAccountsData(updatedAccounts);
-    saveStoredData('tradepigeon_accounts_data', updatedAccounts);
-    soundFx.playPop();
+    setBasketActionModal({ type: 'delete', basketId, basketName });
   };
 
-  const handleSaveAccountPnlOverride = (e) => {
-    e.preventDefault();
-    if (!selectedAccountToEdit) return;
-    const parsedPnl = parseFinancialNumber(tempAccountPnlInput, 0);
-    const parsedRiskPct = parseFinancialNumber(tempRiskPctInput, 0.5);
-    const parsedMaxLoss = parseFinancialNumber(tempMaxLossInput, 1000);
+  const handleConfirmBasketAction = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!basketActionModal) return;
 
-    const updated = accountsData.map(acc => 
-      acc.id === selectedAccountToEdit.id ? { 
-        ...acc, 
-        pnl: parsedPnl,
-        type: tempAccountType,
-        riskPct: parsedRiskPct,
-        maxLossVal: parsedMaxLoss,
-        basketName: tempBasketName
-      } : acc
-    );
-    setAccountsData(updated);
-    saveStoredData('tradepigeon_accounts_data', updated);
-    soundFx.playSuccess();
-    setSelectedAccountToEdit(null);
+    if (basketActionModal.type === 'add_rule') {
+      const cleanRule = (basketActionModal.text || '').trim();
+      if (cleanRule) {
+        const updated = strategyLibrary.map(s => s.id === basketActionModal.stratId ? { ...s, rules: [...s.rules, cleanRule] } : s);
+        setStrategyLibrary(updated);
+        saveStoredData('tradepigeon_strategy_library', updated);
+        soundFx.playSuccess();
+      }
+    } else if (basketActionModal.type === 'rename') {
+      const cleanName = (basketActionModal.text || '').trim();
+      if (cleanName && cleanName !== basketActionModal.oldName) {
+        const updatedBaskets = basketsList.map(b => b.name === basketActionModal.oldName ? { ...b, name: cleanName } : b);
+        setBasketsList(updatedBaskets);
+        saveStoredData('tradepigeon_baskets_list', updatedBaskets);
+
+        const updatedAccounts = accountsData.map(acc => acc.basketName === basketActionModal.oldName ? { ...acc, basketName: cleanName } : acc);
+        setAccountsData(updatedAccounts);
+        saveStoredData('tradepigeon_accounts_data', updatedAccounts);
+        soundFx.playSuccess();
+      }
+    } else if (basketActionModal.type === 'add') {
+      const cleanName = (basketActionModal.text || '').trim();
+      if (cleanName) {
+        const newBasket = {
+          id: `b_${Date.now()}`,
+          name: cleanName,
+          riskLabel: 'Custom Risk Profile'
+        };
+        const updatedBaskets = [...basketsList, newBasket];
+        setBasketsList(updatedBaskets);
+        saveStoredData('tradepigeon_baskets_list', updatedBaskets);
+        soundFx.playSuccess();
+      }
+    } else if (basketActionModal.type === 'delete') {
+      const updatedBaskets = basketsList.filter(b => b.id !== basketActionModal.basketId);
+      setBasketsList(updatedBaskets);
+      saveStoredData('tradepigeon_baskets_list', updatedBaskets);
+
+      const updatedAccounts = accountsData.map(acc =>
+        acc.basketName === basketActionModal.basketName ? { ...acc, basketName: 'No Trade Today' } : acc
+      );
+      setAccountsData(updatedAccounts);
+      saveStoredData('tradepigeon_accounts_data', updatedAccounts);
+      soundFx.playPop();
+    }
+
+    setBasketActionModal(null);
   };
 
   useEffect(() => {
@@ -387,36 +386,6 @@ export default function CenterPath() {
   useEffect(() => {
     saveStoredData('tradepigeon_completed_steps', completedSteps);
   }, [completedSteps]);
-
-  // Market Wizard Quote of the Day state
-  const [wizardQuote, setWizardQuote] = useState(getRandomMarketWizardQuote());
-
-  // Dynamic randomized parrot speech bubble text
-  const [parrotSpeech, setParrotSpeech] = useState(getRandomDialogue('initialGreeting'));
-
-  const currentParrotPose = 
-    activeStep > 4 ? 'celebrating' :
-    activeStep === 4 ? 'thinking' :
-    selectedMood === 'revenge' ? 'revenge' :
-    selectedMood === 'anxious' ? 'anxious' :
-    selectedMood === 'tired' ? 'tired' :
-    selectedMood === 'zen' ? 'happy' : 'neutral';
-
-  useEffect(() => {
-    if (activeStep > 4) {
-      setParrotSpeech(getRandomDialogue('completed'));
-    } else if (activeStep === 4) {
-      setParrotSpeech(getRandomDialogue('step4'));
-    } else if (activeStep === 3) {
-      setParrotSpeech(getRandomDialogue('step3'));
-    } else if (activeStep === 2) {
-      setParrotSpeech(getRandomDialogue('step2'));
-    } else if (selectedMood) {
-      setParrotSpeech(getRandomDialogue(selectedMood));
-    } else {
-      setParrotSpeech(getRandomDialogue('initialGreeting'));
-    }
-  }, [selectedMood, activeStep]);
 
   const moods = [
     { id: 'zen', label: 'In The Zone (Flow State)', icon: <DuoShieldIcon className="w-7 h-7" />, badge: 'PRO EDGE' },
@@ -435,8 +404,20 @@ export default function CenterPath() {
 
   const markStepComplete = (stepNum) => {
     soundFx.playSuccess();
-    const newCompletedSteps = completedSteps.includes(stepNum) ? completedSteps : [...completedSteps, stepNum];
+    const alreadyCompleted = completedSteps.includes(stepNum);
+    const newCompletedSteps = alreadyCompleted ? completedSteps : [...completedSteps, stepNum];
     setCompletedSteps(newCompletedSteps);
+    saveStoredData('tradepigeon_completed_steps', newCompletedSteps);
+
+    // Award promised DP rewards for Step 1 (+50 DP), Step 2 (+50 DP), and Step 3 (+100 DP)
+    if (!alreadyCompleted) {
+      const stepDpMap = { 1: 50, 2: 50, 3: 100 };
+      const dpReward = stepDpMap[stepNum];
+      if (dpReward) {
+        const newDp = addDisciplinePoints(dpReward);
+        setUserStats(prev => ({ ...prev, disciplinePoints: newDp }));
+      }
+    }
 
     if (stepNum === 4) {
       if (!completedDays.includes(currentDay)) {
@@ -457,12 +438,40 @@ export default function CenterPath() {
     }
   };
 
-  const toggleSetupTag = (tag) => {
-    if (selectedSetupTags.includes(tag)) {
-      setSelectedSetupTags(selectedSetupTags.filter(t => t !== tag));
-    } else {
-      setSelectedSetupTags([...selectedSetupTags, tag]);
-    }
+  const handleClaim30DayBadgeAndRollover = () => {
+    soundFx.playTrophy();
+    
+    // 1. Award +1000 Prestige DP & Advance Level Title
+    const newDp = addDisciplinePoints(1000);
+    const stats = loadStoredData(STORAGE_KEYS.USER_STATS, DEFAULT_USER_STATS);
+    const updatedStats = {
+      ...stats,
+      disciplinePoints: newDp,
+      level: (stats.level || 1) + 1,
+      levelTitle: 'Disciplined Master'
+    };
+    saveStoredData(STORAGE_KEYS.USER_STATS, updatedStats);
+    setUserStats(updatedStats);
+
+    // 2. Archive Season completed days and increment season
+    const currentSeason = season || 1;
+    const nextSeason = currentSeason + 1;
+    setSeason(nextSeason);
+    saveStoredData('tradepigeon_season', nextSeason);
+    saveStoredData(`tradepigeon_season_${currentSeason}_completed_days`, completedDays);
+
+    // 3. Reset for Season 2+: Day 1
+    setCurrentDay(1);
+    saveStoredData('tradepigeon_current_day', 1);
+    setCompletedDays([]);
+    saveStoredData('tradepigeon_completed_days', []);
+    setCompletedSteps([]);
+    saveStoredData('tradepigeon_completed_steps', []);
+    setActiveStep(1);
+
+    window.dispatchEvent(new CustomEvent('tradepigeon-storage-update', {
+      detail: { key: 'season_advanced', value: nextSeason }
+    }));
   };
 
   return (
@@ -574,10 +583,10 @@ export default function CenterPath() {
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-[11px] font-black uppercase tracking-wider bg-white/20 border border-white/30 px-3 py-1 rounded-full text-white">
-                              UNIT {unitNum} OF 6 &bull; SESSION {dayNum} OF 30
+                              {season > 1 ? `SEASON ${season} • ` : ''}UNIT {unitNum} OF 6 &bull; SESSION {dayNum} OF 30
                             </span>
                             <span className="text-[11px] font-black uppercase tracking-wider bg-[#FFC800] text-slate-950 px-3 py-1 rounded-full border border-amber-500 shadow-sm">
-                              14-SESSION STREAK
+                              {userStats.streakDays || 0}-SESSION STREAK
                             </span>
                           </div>
 
@@ -642,39 +651,29 @@ export default function CenterPath() {
                           const currentStepNum = !completedSteps.includes(1) ? 1 : !completedSteps.includes(2) ? 2 : !completedSteps.includes(3) ? 3 : 4;
                           
                           return (
-                            <div className={`w-full p-4 sm:p-5 rounded-2xl text-white space-y-3 shadow-xl text-left border-2 border-b-4 transition-all duration-200 ${
+                            <div className={`w-full p-4 sm:p-5 rounded-2xl text-white shadow-xl text-left border-2 border-b-4 transition-all duration-200 ${
                               hasUncalibratedFills
                                 ? 'bg-[#FF6B00] border-[#E05E00] border-b-[#B84D00]'
                                 : 'bg-[#1CB0F6] border-[#1899D6] border-b-[#147BB0]'
                             }`}>
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div className="flex items-center justify-between gap-3">
                                 <div className="space-y-1 min-w-0 flex-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-lg flex items-center gap-1.5 ${
-                                      hasUncalibratedFills ? 'bg-amber-950/40 text-amber-200 border border-amber-300/30' : 'bg-black/20 text-sky-100 border border-white/20'
-                                    }`}>
-                                      {hasUncalibratedFills ? (
-                                        <>
-                                          <AlertCircle size={12} className="text-yellow-200 shrink-0" />
-                                          <span>{uncalibratedCount} UN-CALIBRATED {uncalibratedCount === 1 ? 'FILL' : 'FILLS'} DETECTED &bull; STEP {currentStepNum} OF 4</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Sparkles size={12} className="text-yellow-300 shrink-0" />
-                                          <span>CURRENT ACTION &bull; STEP {currentStepNum} OF 4</span>
-                                        </>
-                                      )}
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-lg bg-black/20 text-white/90 border border-white/20">
+                                      {hasUncalibratedFills 
+                                        ? `${uncalibratedCount} Fills Captured • Step ${currentStepNum} of 4` 
+                                        : `Step ${currentStepNum} of 4 • ${currentStepNum === 1 ? '+50 DP' : currentStepNum === 2 ? '+50 DP' : currentStepNum === 3 ? '+100 DP' : '+150 DP'}`}
                                     </span>
                                   </div>
 
-                                  <h4 className="text-base sm:text-lg font-black text-white leading-tight">
+                                  <h4 className="text-base sm:text-lg font-black text-white leading-tight truncate">
                                     {!completedSteps.includes(1) 
-                                      ? "1. Complete Pre-Market Mindset Check" 
+                                      ? "1. Pre-Market Mindset Check" 
                                       : !completedSteps.includes(2)
-                                      ? "2. Calibrate Playbook Risk & Drawdown"
+                                      ? "2. Risk & Account Cockpit"
                                       : !completedSteps.includes(3)
-                                      ? "3. Active Trading & Live Fills"
-                                      : "4. Complete Post-Market Journal Audit"}
+                                      ? "3. Active Trading & Execution"
+                                      : "4. Session Journal & Debrief"}
                                   </h4>
                                 </div>
 
@@ -691,37 +690,8 @@ export default function CenterPath() {
                                       : 'bg-white text-[#1CB0F6] hover:bg-sky-50 border-b-sky-200'
                                   }`}
                                 >
-                                  <span>{!completedSteps.includes(1) ? 'Start Step 1 →' : !completedSteps.includes(2) ? 'Start Step 2 →' : !completedSteps.includes(3) ? 'View Fills →' : 'Log Audit →'}</span>
+                                  <span>{!completedSteps.includes(1) ? 'Start →' : !completedSteps.includes(2) ? 'Start →' : !completedSteps.includes(3) ? 'View →' : 'Audit →'}</span>
                                 </button>
-                              </div>
-
-                              <div className="p-3 rounded-xl bg-black/20 border border-white/15 text-[11px] font-bold text-white/90 leading-relaxed flex items-start gap-2">
-                                {hasUncalibratedFills ? (
-                                  <>
-                                    <AlertCircle size={14} className="text-yellow-300 shrink-0 mt-0.5" />
-                                    <span>Your fills were auto-captured! Complete Step 1 & 2 to unlock behavioral classification.</span>
-                                  </>
-                                ) : !completedSteps.includes(1) ? (
-                                  <>
-                                    <Sparkles size={14} className="text-yellow-300 shrink-0 mt-0.5" />
-                                    <span>Protocol Requirement: Complete your 60-second Mindset Check to prime your emotional discipline before placing any live trades.</span>
-                                  </>
-                                ) : !completedSteps.includes(2) ? (
-                                  <>
-                                    <ShieldAlert size={14} className="text-amber-300 shrink-0 mt-0.5" />
-                                    <span>Risk Requirement: Lock in your maximum daily drawdown limit and position size before execution.</span>
-                                  </>
-                                ) : !completedSteps.includes(3) ? (
-                                  <>
-                                    <Activity size={14} className="text-emerald-400 shrink-0 mt-0.5 animate-pulse" />
-                                    <span>Live Fills Active: Trade fills are auto-syncing in real time across your connected broker accounts.</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle2 size={14} className="text-sky-300 shrink-0 mt-0.5" />
-                                    <span>Post-Session Requirement: Log your 60-second Audit Journal to lock in today's streak and earn +150 DP!</span>
-                                  </>
-                                )}
                               </div>
                             </div>
                           );
@@ -766,20 +736,61 @@ export default function CenterPath() {
 
                       {/* 2. PROCESS-FIRST BEHAVIORAL MATRIX (VIBRANT ONLY FOR CATEGORIES WITH TRADES TAKEN) */}
                       {(() => {
-                        const dayTrades = loadStoredData(`tradepigeon_session_trades_day_${dayNum}`, []);
+                        let dayTrades = loadStoredData(`tradepigeon_session_trades_day_${dayNum}`, []);
+                        if (!Array.isArray(dayTrades) || dayTrades.length === 0) {
+                          if (dayNum === currentDay) {
+                            dayTrades = loadStoredData('tradepigeon_session_trades', []);
+                          }
+                        }
+                        if (!Array.isArray(dayTrades) || dayTrades.length === 0) {
+                          const allLogs = loadStoredData('tradepigeon_tradelogs', []);
+                          if (Array.isArray(allLogs) && allLogs.length > 0) {
+                            const matching = allLogs.filter(t => t?.dayNum === dayNum || t?.day === dayNum);
+                            if (matching.length > 0) {
+                              dayTrades = matching;
+                            }
+                          }
+                        }
+                        if (!Array.isArray(dayTrades)) dayTrades = [];
+
                         const savedCounts = loadStoredData(`tradepigeon_trade_counts_day_${dayNum}`, { winCount: 0, goodLossCount: 0, toxicWinCount: 0, doubleFailureCount: 0 });
 
-                        const winCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'win').length : (savedCounts.winCount || 0);
-                        const goodLossCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'good_loss').length : (savedCounts.goodLossCount || 0);
-                        const breakevenCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'breakeven').length : 0;
-                        const toxicWinCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'toxic_win' || t.type === 'violate_win').length : (savedCounts.toxicWinCount || 0);
-                        const toxicBeCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'toxic_be').length : 0;
-                        const doubleFailureCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'double_failure' || t.type === 'violate_loss').length : (savedCounts.doubleFailureCount || 0);
-                        const missedCount = dayTrades.length > 0 ? dayTrades.filter(t => t.type === 'missed_trade').length : 0;
+                        const classifyTrade = (t) => {
+                          const rawType = String(t.type || '').toLowerCase();
+                          const execType = String(t.executionType || '').toLowerCase();
+                          const isViolated = t.followedRules === false || t.violated === true || t.violatedRules === true ||
+                            rawType.includes('toxic') || rawType.includes('violate') || rawType.includes('double_failure') || rawType.includes('double failure') ||
+                            execType.includes('toxic') || execType.includes('double failure');
 
-                        const calcPnlStr = (typeId, fallbackCount) => {
+                          if (rawType.includes('missed') || execType.includes('missed')) {
+                            return 'missed_trade';
+                          }
+
+                          const pnl = t.pnlValue !== undefined ? t.pnlValue : parseFinancialNumber(t.pnl, 0);
+
+                          if (isViolated) {
+                            if (rawType === 'toxic_win' || execType.includes('win') || pnl > 5) return 'toxic_win';
+                            if (rawType === 'double_failure' || rawType.includes('loss') || execType.includes('loss') || rawType.includes('double') || execType.includes('double') || pnl < -5) return 'double_failure';
+                            return 'toxic_be';
+                          } else {
+                            if (rawType === 'win' || rawType.includes('win') || execType.includes('win') || pnl > 5) return 'win';
+                            if (rawType === 'good_loss' || rawType.includes('loss') || execType.includes('loss') || pnl < -5) return 'good_loss';
+                            return 'breakeven';
+                          }
+                        };
+
+                        const classifiedTrades = dayTrades.map(classifyTrade);
+                        const winCount = dayTrades.length > 0 ? classifiedTrades.filter(c => c === 'win').length : (savedCounts.winCount || 0);
+                        const goodLossCount = dayTrades.length > 0 ? classifiedTrades.filter(c => c === 'good_loss').length : (savedCounts.goodLossCount || 0);
+                        const breakevenCount = dayTrades.length > 0 ? classifiedTrades.filter(c => c === 'breakeven').length : 0;
+                        const toxicWinCount = dayTrades.length > 0 ? classifiedTrades.filter(c => c === 'toxic_win').length : (savedCounts.toxicWinCount || 0);
+                        const toxicBeCount = dayTrades.length > 0 ? classifiedTrades.filter(c => c === 'toxic_be').length : 0;
+                        const doubleFailureCount = dayTrades.length > 0 ? classifiedTrades.filter(c => c === 'double_failure').length : (savedCounts.doubleFailureCount || 0);
+                        const missedCount = dayTrades.length > 0 ? classifiedTrades.filter(c => c === 'missed_trade').length : 0;
+
+                        const calcPnlStr = (categoryKey, fallbackCount) => {
                           if (dayTrades.length > 0) {
-                            const sum = dayTrades.filter(t => t.type === typeId).reduce((acc, t) => {
+                            const sum = dayTrades.filter(t => classifyTrade(t) === categoryKey).reduce((acc, t) => {
                               const p = t.pnlValue !== undefined ? t.pnlValue : parseFinancialNumber(t.pnl, 0);
                               return acc + p;
                             }, 0);
@@ -839,10 +850,7 @@ export default function CenterPath() {
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
                                     <DuoMissedTradeIcon className="w-5 h-5 shrink-0" />
-                                    <div>
-                                      <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider block">Missed Setups (Hesitation)</span>
-                                      <span className="text-[10px] text-slate-400 font-medium">Valid playbook setups watched without entering</span>
-                                    </div>
+                                    <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider">Missed Setups (Hesitation)</span>
                                   </div>
                                   <span className="text-xs font-black text-amber-300 font-mono bg-amber-500/20 px-2.5 py-1 rounded-lg border border-amber-500/30">
                                     {missedCount} Missed ($0.00)
@@ -952,32 +960,22 @@ export default function CenterPath() {
                                 className={`relative flex flex-col items-center transition-all duration-300 ${isStepActive ? 'z-20' : 'z-10'}`}
                                 style={{ transform: `translateX(${node.x}px)` }}
                               >
-                                {/* ORANGE TRADEPIGEON MASCOT PLANTED DIRECTLY ON TOP OF 3D PUCK */}
+                                {/* SLEEK MINIMAL 3D START INDICATOR DIRECTLY ON TOP OF ACTIVE PUCK */}
                                 {isCurrentNextStep && (
                                   <motion.div 
-                                    layoutId="activeMascotPigeon"
+                                    layoutId="activeStepIndicator"
                                     transition={{ type: "spring", stiffness: 400, damping: 22 }}
                                     onClick={() => {
                                       setActiveStep(node.stepNum);
                                       setIsStepModalOpen(true);
                                       soundFx.playPop();
                                     }}
-                                    className="absolute -top-16 left-1/2 -translate-x-1/2 z-30 cursor-pointer flex flex-col items-center group pointer-events-auto"
+                                    className="absolute -top-10 left-1/2 -translate-x-1/2 z-30 cursor-pointer flex flex-col items-center group pointer-events-auto"
                                   >
-                                    {/* Speech Badge Above Head */}
-                                    <div className="px-3 py-0.5 bg-[#1CB0F6] border-2 border-[#1899D6] border-b-4 border-b-[#147BB0] rounded-xl text-white font-black text-[11px] uppercase tracking-wider animate-bounce shadow-xl whitespace-nowrap mb-0.5">
+                                    <div className="px-3.5 py-1 bg-[#1CB0F6] border-2 border-[#1899D6] border-b-4 border-b-[#147BB0] rounded-2xl text-white font-black text-xs uppercase tracking-wider animate-bounce shadow-xl whitespace-nowrap">
                                       START
                                       <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#1CB0F6] rotate-45" />
                                     </div>
-
-                                    {/* Hero 3D TradePigeon Mascot Standing Solidly On Button */}
-                                    <InteractiveParrotMascot 
-                                      pose={isStepCompleted ? 'happy' : 'map_perched'} 
-                                      className="w-14 h-14 group-hover:scale-110 transition-transform" 
-                                    />
-                                    
-                                    {/* Contact Ground Foot Shadow */}
-                                    <div className="w-9 h-2 bg-black/50 rounded-[50%] blur-[1px] -mt-1.5 z-0" />
                                   </motion.div>
                                 )}
 
@@ -1057,24 +1055,30 @@ export default function CenterPath() {
               </div>
               <div className="space-y-1">
                 <span className="text-[11px] font-black uppercase tracking-wider bg-black/10 px-3 py-1 rounded-xl">
-                  SEASON 1 FINISH LINE &bull; DAY 30 MILESTONE
+                  SEASON {season || 1} FINISH LINE &bull; 30 SESSIONS
                 </span>
                 <h3 className="text-xl font-black text-black leading-tight pt-1">
                   30-Day Execution Consistency Badge
                 </h3>
                 <p className="text-xs font-bold text-amber-950/80 max-w-sm">
-                  30 days doesn't make you a guru—it proves you can follow a rules-based process without tilting. Claim your 30-Day Badge and unlock Season 2!
+                  30 sessions proves you can follow a rules-based process without tilting. Claim your Prestige Badge and unlock Season {(season || 1) + 1}!
                 </p>
               </div>
-              <button 
-                onClick={() => {
-                  soundFx.playTrophy();
-                }}
-                className="w-full py-3.5 rounded-2xl bg-black text-white font-black text-xs uppercase tracking-wider hover:bg-slate-900 transition-all cursor-pointer shadow-lg border-b-4 border-b-slate-800 flex items-center justify-center gap-2"
-              >
-                <DuoTrophyIcon className="w-4 h-4 text-yellow-400 shrink-0" />
-                <span>Claim 30-Day Execution Badge</span>
-              </button>
+
+              {completedDays.length >= 30 || currentDay > 30 ? (
+                <button 
+                  onClick={handleClaim30DayBadgeAndRollover}
+                  className="w-full py-4 rounded-2xl bg-black hover:bg-slate-900 text-yellow-300 font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-xl border-b-4 border-b-slate-800 flex items-center justify-center gap-2 active:scale-98"
+                >
+                  <DuoTrophyIcon className="w-5 h-5 text-yellow-400 shrink-0" />
+                  <span>Graduate & Unlock Season {(season || 1) + 1} (+1,000 DP Prestige)</span>
+                </button>
+              ) : (
+                <div className="w-full p-3 rounded-2xl bg-black/15 border border-black/10 text-xs font-black text-amber-950/80 flex items-center justify-between">
+                  <span>Campaign Progress:</span>
+                  <span className="font-mono">{completedDays.length} / 30 Sessions Completed</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1089,11 +1093,17 @@ export default function CenterPath() {
       {/* FIXED CENTRAL SCREEN DUOLINGO STEP MODAL (NO COLLISION, NO SQUISHING, FULL WIDTH) */}
       <AnimatePresence>
         {isStepModalOpen && activeStep && (
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto pointer-events-auto">
+          <div 
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setIsStepModalOpen(false);
+            }}
+            className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto pointer-events-auto"
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
               className="w-full max-w-2xl bg-[#1CB0F6] border-4 border-[#1899D6] border-b-8 border-b-[#147BB0] rounded-3xl p-6 sm:p-8 text-white shadow-[0_25px_80px_rgba(0,0,0,0.85)] relative space-y-6 text-left my-auto"
             >
               {/* Modal Header */}
@@ -1156,15 +1166,14 @@ export default function CenterPath() {
                       disabled={!selectedMood}
                       onClick={() => {
                         markStepComplete(1);
-                        setIsStepModalOpen(false); // Close modal to return to 3D map!
-                        setActiveStep(2); // TradePigeon hops down to Step 2!
+                        setActiveStep(2); // Seamlessly advance into Step 2 inside modal!
                         soundFx.playLevelUp();
                       }}
                       className={`duo-btn-green w-full py-4 text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl ${
                         !selectedMood ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                     >
-                      <span>Lock Mindset (+50 DP)</span>
+                      <span>Lock Mindset & Advance to Sizing (+50 DP)</span>
                       <ArrowRight size={18} />
                     </button>
                   </div>
@@ -1243,7 +1252,7 @@ export default function CenterPath() {
                             <Layers size={16} className="text-[#1CB0F6]" />
                             <span>UNASSIGNED ACCOUNTS ({unassignedAccs.length})</span>
                           </span>
-                          <span className="text-[#1CB0F6]">DRAG TO ASSIGN</span>
+                          <span className="text-[#1CB0F6]">DRAG OR TAP TO ASSIGN</span>
                         </div>
 
                         {unassignedAccs.length === 0 ? (
@@ -1270,6 +1279,10 @@ export default function CenterPath() {
                               <div
                                 key={acc.id}
                                 draggable
+                                onClick={() => {
+                                  const targetBasket = basketsList[0]?.name || 'Primary Group';
+                                  handleAssignAccountToBasket(acc.id, targetBasket);
+                                }}
                                 onDragStart={(e) => {
                                   e.stopPropagation();
                                   e.dataTransfer.setData('text/plain', String(acc.id));
@@ -1280,9 +1293,10 @@ export default function CenterPath() {
                                   e.stopPropagation();
                                   setDraggedAccountId(null);
                                 }}
-                                className={`p-3 rounded-2xl bg-[#F7F9FA] border-2 border-slate-200 border-b-4 border-b-slate-300 font-black text-xs cursor-grab active:cursor-grabbing shadow-md hover:scale-[1.03] transition-all flex items-center justify-between gap-2 select-none ${
+                                className={`p-3 rounded-2xl bg-[#F7F9FA] border-2 border-slate-200 border-b-4 border-b-slate-300 font-black text-xs cursor-pointer active:scale-95 shadow-md hover:scale-[1.03] transition-all flex items-center justify-between gap-2 select-none ${
                                   draggedAccountId === acc.id ? 'opacity-40 scale-95 ring-4 ring-[#FFC800]' : ''
                                 }`}
+                                title="Tap or drag to assign to active group"
                               >
                                 <div className="truncate">
                                   <span className="font-extrabold text-slate-800 block truncate">{acc.name}</span>
@@ -1508,12 +1522,6 @@ export default function CenterPath() {
 
                   {(() => {
                     const activeStrat = strategyLibrary.find(s => s.id === selectedPlaybookId) || strategyLibrary[0] || { name: 'Default Playbook', rules: [] };
-                    const activeBaskets = basketsList.filter(b => {
-                      if (b.isOffDuty || b.name.includes('Off-Duty') || b.name.includes('No Trade')) return false;
-                      const accsInBasket = accountsData.filter(a => a.basketName === b.name);
-                      return accsInBasket.length > 0;
-                    });
-
                     const rulesList = activeStrat?.rules || [];
 
                     return (
@@ -1648,6 +1656,15 @@ export default function CenterPath() {
                               );
                             })
                           )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleAddRuleToStrategy(selectedPlaybookId)}
+                            className="w-full py-3 rounded-2xl border-2 border-dashed border-[#1CB0F6]/40 text-[#1CB0F6] hover:bg-[#1CB0F6]/10 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
+                          >
+                            <Plus size={15} />
+                            <span>+ Add Confluence Rule to Playbook</span>
+                          </button>
                         </div>
                       </div>
                     );
@@ -1712,6 +1729,8 @@ export default function CenterPath() {
           if (userNotes && userNotes.trim() !== '') {
             saveStoredData(`tradepigeon_session_note_day_${currentDay}`, userNotes.trim());
           }
+          saveStoredData('tradepigeon_trading_status', 'DONE');
+          saveStoredData('tradepigeon_vacation_active', false);
           markStepComplete(4);
           setIsStepModalOpen(false);
           setIsDebriefOpen(false);
@@ -1724,66 +1743,41 @@ export default function CenterPath() {
       />
 
       {/* 3D DUOLINGO MERCY CATCH-UP MODAL */}
-      {isMercyModalOpen && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="duo-card max-w-md w-full p-6 sm:p-8 space-y-6 border-2 border-[#1CB0F6] relative shadow-2xl">
-            <div className="flex items-center gap-3">
-              <InteractiveParrotMascot pose="welcoming" className="w-16 h-16 shrink-0" />
-              <div>
-                <span className="text-[10px] font-black uppercase text-[#1CB0F6] tracking-wider">STREAK PROTECTOR &bull; CHECK-IN</span>
-                <h3 className="text-xl font-black text-white">Missed Session Catch-Up</h3>
-              </div>
-            </div>
-
-            <p className="text-xs font-bold text-slate-300 leading-relaxed bg-[#142127] p-4 rounded-2xl border-2 border-[#20323D]">
-              Hey! We noticed you didn't log yesterday's trading session ({mercyDateStr}). What happened?
-            </p>
-
-            <div className="space-y-3">
-              <button
-                onClick={() => {
-                  soundFx.playSuccess();
-                  saveStoredData('tradepigeon_processed_mercy_date', mercyDateStr);
-                  setIsMercyModalOpen(false);
-                  setPresetToast('Yesterday marked as Rest Day! Your active streak is intact.');
-                  setTimeout(() => setPresetToast(''), 4000);
-                }}
-                className="duo-btn-green w-full py-3.5 text-xs uppercase tracking-wider flex items-center justify-center gap-2"
-              >
-                <DuoPalmtreeIcon className="w-4 h-4 shrink-0" />
-                <span>It Was An Offline Rest Day</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  soundFx.playPop();
-                  saveStoredData('tradepigeon_processed_mercy_date', mercyDateStr);
-                  setIsMercyModalOpen(false);
-                  setIsDebriefOpen(true);
-                }}
-                className="duo-btn-blue w-full py-3.5 text-xs uppercase tracking-wider flex items-center justify-center gap-2"
-              >
-                <FileText size={16} />
-                <span>Log Yesterday's Debrief Now</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  soundFx.playPop();
-                  saveStoredData('tradepigeon_processed_mercy_date', mercyDateStr);
-                  setIsMercyModalOpen(false);
-                  setPresetToast('Honesty acknowledged! Streak reset, +50 DP awarded.');
-                  setTimeout(() => setPresetToast(''), 4000);
-                }}
-                className="w-full py-3 rounded-2xl bg-[#142127] hover:bg-[#182830] text-slate-400 font-black text-xs uppercase tracking-wider transition-all border-2 border-[#20323D] cursor-pointer flex items-center justify-center gap-2"
-              >
-                <XCircle size={16} className="text-rose-400" />
-                <span>I Tilted & Missed Day (Reset Streak)</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <MercyModal 
+        isOpen={isMercyModalOpen} 
+        onClose={() => setIsMercyModalOpen(false)} 
+        mercyDateStr={mercyDateStr}
+        onMarkRestDay={() => {
+          soundFx.playSuccess();
+          saveStoredData('tradepigeon_processed_mercy_date', mercyDateStr);
+          setIsMercyModalOpen(false);
+          setPresetToast('Yesterday marked as Rest Day! Your active streak is intact.');
+          setTimeout(() => setPresetToast(''), 4000);
+        }}
+        onLogDebrief={() => {
+          soundFx.playPop();
+          saveStoredData('tradepigeon_processed_mercy_date', mercyDateStr);
+          setIsMercyModalOpen(false);
+          setIsDebriefOpen(true);
+        }}
+        onResetStreak={() => {
+          soundFx.playPop();
+          saveStoredData('tradepigeon_processed_mercy_date', mercyDateStr);
+          const currentStats = loadStoredData(STORAGE_KEYS.USER_STATS, DEFAULT_USER_STATS);
+          const newDp = (currentStats.disciplinePoints || 0) + 50;
+          const updatedStats = {
+            ...currentStats,
+            streakDays: 0,
+            disciplinePoints: newDp
+          };
+          saveStoredData(STORAGE_KEYS.USER_STATS, updatedStats);
+          saveStoredData('tradepigeon_user_dp', newDp);
+          setUserStats(updatedStats);
+          setIsMercyModalOpen(false);
+          setPresetToast('Honesty acknowledged! Streak reset, +50 DP awarded.');
+          setTimeout(() => setPresetToast(''), 4000);
+        }}
+      />
 
       {/* GUIDEBOOK MODAL */}
       <GuidebookModal 
@@ -1795,15 +1789,23 @@ export default function CenterPath() {
       <BrokerConnectModal 
         isOpen={isBrokerModalOpen} 
         onClose={() => setIsBrokerModalOpen(false)} 
-        onAccountAdded={(newAcc) => {
-          const updated = [newAcc, ...accountsData];
-          setAccountsData(updated);
-          saveStoredData('tradepigeon_accounts_data', updated);
+        onAccountAdded={(param) => {
+          const newAcc = param?.account || (Array.isArray(param?.accounts) ? param.accounts[0] : (Array.isArray(param) ? param[0] : param));
+          const allAccs = loadStoredData('tradepigeon_accounts_data', []);
+          setAccountsData(allAccs);
           soundFx.playLevelUp();
           setIsBrokerModalOpen(false);
-          setPresetToast(`Connected ${newAcc.name || 'Broker'} successfully!`);
+          setPresetToast(`Connected ${newAcc?.name || 'Broker'} successfully!`);
           setTimeout(() => setPresetToast(''), 3000);
         }}
+      />
+
+      {/* BASKET & STRATEGY INTERACTIVE ACTION MODAL */}
+      <BasketActionModal 
+        modalState={basketActionModal}
+        onClose={() => setBasketActionModal(null)}
+        onConfirm={handleConfirmBasketAction}
+        onTextChange={(val) => setBasketActionModal(prev => prev ? { ...prev, text: val } : null)}
       />
     </main>
   );

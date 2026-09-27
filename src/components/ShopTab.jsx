@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Lock, Sparkles, ShieldCheck } from 'lucide-react';
-import { DuoIceIcon, DuoShopIcon, DuoTrophyIcon, DuoGemIcon, DuoStarIcon } from './DuoIcons';
-import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS } from '../utils/storage';
+import { Check, Sparkles, ShieldCheck } from 'lucide-react';
+import { DuoIceIcon, DuoShopIcon, DuoGemIcon, DuoStarIcon } from './DuoIcons';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS, spendDisciplinePoints } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 
 export default function ShopTab() {
@@ -29,70 +29,120 @@ export default function ShopTab() {
     return unsubscribe;
   }, []);
 
+  const [weekendShields, setWeekendShields] = useState(() => loadStoredData('tradepigeon_weekend_shields', 0));
+
   const shopItems = [
     {
       id: 'streak_freeze',
-      name: 'Vacation & Rest Day Shield',
+      name: 'Streak Freeze',
       price: 500,
       icon: <DuoIceIcon className="w-12 h-12 shrink-0 drop-shadow-md" />,
-      tag: 'UTILITY SHIELD',
+      tag: 'STREAK',
       tagStyle: 'bg-[#FF6B00] text-white',
-      desc: `Protects your multi-session streak when taking a planned vacation or mandatory cooling-off rest day. Currently owned: ${streakFreezes}`,
+      desc: streakFreezes > 0 ? `Protects your streak if you miss a trading day. (Owned: ${streakFreezes})` : 'Protects your streak if you miss a trading day.',
       isLocked: false,
       isConsumable: true
     },
     {
-      id: 'free_sub_month',
-      name: '1-Month Pro Subscription Pass ($9.99 Value)',
-      price: 5000,
-      icon: <DuoStarIcon className="w-12 h-12 shrink-0 drop-shadow-md" />,
-      tag: 'DISCIPLINE REWARD',
-      tagStyle: 'bg-[#1CB0F6] text-white',
-      desc: 'Redeem 5,000 Discipline Points (earned from consistent, compliant execution) for 1 Free Month of Pro.',
+      id: 'weekend_shield',
+      name: 'Weekend Rest Shield',
+      price: 300,
+      icon: <ShieldCheck className="w-10 h-10 text-[#58CC02] shrink-0 drop-shadow-md" />,
+      tag: 'REST',
+      tagStyle: 'bg-[#58CC02] text-white',
+      desc: weekendShields > 0 ? `Safeguards discipline score on holiday market breaks. (Owned: ${weekendShields})` : 'Safeguards discipline score on holiday market breaks.',
+      isLocked: false,
+      isConsumable: true
+    },
+    {
+      id: 'sound_pack_bell',
+      name: 'Floor Bell Sound Pack',
+      price: 1200,
+      icon: <Sparkles className="w-10 h-10 text-[#FFD700] shrink-0 drop-shadow-md" />,
+      tag: 'AUDIO',
+      tagStyle: 'bg-[#FFD700] text-slate-950 font-black',
+      desc: 'Unlocks vintage Wall Street opening bell and mechanical trading floor chimes.',
       isLocked: false,
       isConsumable: false
     },
     {
-      id: 'prop_pass',
-      name: 'Prop Account Challenge Voucher ($50K Account)',
-      price: 50000,
-      icon: <DuoTrophyIcon className="w-12 h-12 shrink-0 drop-shadow-md" />,
-      tag: 'INSTITUTIONAL UNDERWRITING',
-      tagStyle: 'bg-[#FFC800] text-slate-900',
-      desc: 'Earned through 180 consecutive sessions of verified discipline. Currently undergoing institutional underwriting.',
-      isLocked: true,
+      id: 'chart_theme_cyber',
+      name: 'Cyber Neon Chart Theme',
+      price: 1500,
+      icon: <DuoGemIcon className="w-10 h-10 text-cyan-400 shrink-0 drop-shadow-md" />,
+      tag: 'THEME',
+      tagStyle: 'bg-cyan-500 text-slate-950 font-black',
+      desc: 'High-contrast cyan & emerald glow styling for the interactive equity curve.',
+      isLocked: false,
+      isConsumable: false
+    },
+    {
+      id: 'hud_stealth',
+      name: 'Stealth Mode R-Multiple HUD',
+      price: 2000,
+      icon: <ShieldCheck className="w-10 h-10 text-[#1CB0F6] shrink-0 drop-shadow-md" />,
+      tag: 'UTILITY',
+      tagStyle: 'bg-[#1CB0F6] text-white',
+      desc: 'Displays all PnL figures strictly in R-multiples to eliminate dollar attachment.',
+      isLocked: false,
+      isConsumable: false
+    },
+    {
+      id: 'free_sub_month',
+      name: '1 Month Pro Pass Voucher',
+      price: 5000,
+      icon: <DuoStarIcon className="w-12 h-12 shrink-0 drop-shadow-md" />,
+      tag: 'PRO',
+      tagStyle: 'bg-[#1CB0F6] text-white',
+      desc: 'Unlock 1 full month of institutional Pro features with your discipline points.',
+      isLocked: false,
       isConsumable: false
     }
   ];
 
   const handleBuy = (item) => {
-    if (item.isLocked || userDp < item.price) return;
+    if (userDp < item.price) return;
     if (!item.isConsumable && purchasedItems.includes(item.id)) return;
 
     soundFx.playLevelUp();
+    const success = spendDisciplinePoints(item.price);
+    if (!success) return;
+
     const newDp = Math.max(0, userDp - item.price);
     setUserDp(newDp);
-    saveStoredData('tradepigeon_user_dp', newDp);
-
-    const updatedStats = {
-      ...userStats,
+    setUserStats(prev => ({
+      ...prev,
       disciplinePoints: newDp
-    };
-    setUserStats(updatedStats);
-    saveStoredData('tradepigeon_user_stats', updatedStats);
+    }));
 
     if (item.id === 'streak_freeze') {
       const nextFreezes = streakFreezes + 1;
       setStreakFreezes(nextFreezes);
       saveStoredData('tradepigeon_streak_freezes', nextFreezes);
-      setPurchaseToast(`Purchased Vacation Shield! You now have ${nextFreezes} shields available.`);
+      setPurchaseToast(`Streak Freeze acquired! (${nextFreezes} available)`);
+    } else if (item.id === 'weekend_shield') {
+      const nextShields = weekendShields + 1;
+      setWeekendShields(nextShields);
+      saveStoredData('tradepigeon_weekend_shields', nextShields);
+      setPurchaseToast(`Weekend Rest Shield acquired! (${nextShields} available)`);
     } else {
       const updatedPurchased = [...purchasedItems, item.id];
       setPurchasedItems(updatedPurchased);
       saveStoredData(STORAGE_KEYS.SHOP_ITEMS, updatedPurchased);
-      if (item.id === 'free_sub_month') {
+      
+      if (item.id === 'sound_pack_bell') {
+        saveStoredData('tradepigeon_sound_pack', 'bell');
+        setPurchaseToast('Floor Bell sound pack unlocked and activated!');
+      } else if (item.id === 'chart_theme_cyber') {
+        saveStoredData('tradepigeon_chart_theme', 'cyber_neon');
+        setPurchaseToast('Cyber Neon chart theme unlocked and activated!');
+      } else if (item.id === 'hud_stealth') {
+        saveStoredData('tradepigeon_stealth_mode', true);
+        setPurchaseToast('Stealth Mode R-Multiple HUD enabled!');
+      } else if (item.id === 'free_sub_month') {
         saveStoredData('tradepigeon_is_pro', true);
-        setPurchaseToast('Pro Pass unlocked! 1-Month Pro Subscription applied to your account.');
+        saveStoredData('tradepigeon_pro_voucher', { activatedAt: new Date().toISOString(), days: 30 });
+        setPurchaseToast('Pro Pass unlocked! 30 days applied.');
       }
     }
 
@@ -142,7 +192,6 @@ export default function ShopTab() {
           {shopItems.map((item) => {
             const isBought = !item.isConsumable && purchasedItems.includes(item.id);
             const canAfford = userDp >= item.price;
-            const isLocked = item.isLocked;
 
             return (
               <div 
@@ -168,12 +217,7 @@ export default function ShopTab() {
 
                 {/* Action Button */}
                 <div className="shrink-0 sm:self-center">
-                  {isLocked ? (
-                    <div className="px-4 py-2.5 rounded-2xl bg-[#131F24] border-2 border-[#20323D] text-[#77909D] font-black text-xs uppercase tracking-wider flex items-center gap-2 cursor-not-allowed">
-                      <Lock size={14} />
-                      <span>LOCKED</span>
-                    </div>
-                  ) : isBought ? (
+                  {isBought ? (
                     <div className="px-4 py-2.5 rounded-2xl bg-[#58CC02] border-2 border-[#46A302] border-b-4 border-b-[#388202] text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-md">
                       <Check size={16} strokeWidth={3} />
                       <span>ACTIVE</span>

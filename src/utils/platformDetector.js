@@ -44,13 +44,6 @@ export const SUPPORTED_PLATFORMS = [
     color: '#58CC02'
   },
   { 
-    id: 'tradelocker', 
-    name: 'TradeLocker', 
-    subtitle: 'Official Live Terminal & Socket Feed',
-    badge: 'OFFICIAL LIVE WEB',
-    color: '#CE82FF'
-  },
-  { 
     id: 'dxtrade', 
     name: 'DXTrade / Match-Trader', 
     subtitle: 'Prop Firm Direct Web Gateway',
@@ -81,9 +74,6 @@ export const detectPlatformFromAccountId = (accId = '') => {
   }
   if (clean.startsWith('NT') || clean.includes('NINJA')) {
     return { id: 'ninjatrader', name: 'NinjaTrader Direct', badge: 'NINJAPORTAL', type: 'Futures Broker' };
-  }
-  if (clean.includes('@') || clean.startsWith('TL-') || clean.includes('TRADELOCKER')) {
-    return { id: 'tradelocker', name: 'TradeLocker Live', badge: 'TRADELOCKER', type: 'Crypto / Forex' };
   }
   if (clean.startsWith('DX') || clean.includes('DXTRADE') || clean.includes('MATCH')) {
     return { id: 'dxtrade', name: 'DXTrade / Match-Trader', badge: 'DXTRADE GATEWAY', type: 'Prop Firm' };

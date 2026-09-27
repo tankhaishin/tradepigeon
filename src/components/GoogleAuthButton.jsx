@@ -37,7 +37,7 @@ export default function GoogleAuthButton({ onAuthSuccess, onOpenAuthModal, class
           src={user.picture || '/parrot_logo.png'} 
           alt={user.name || 'Trader'} 
           className="w-7 h-7 rounded-xl object-cover border border-[#58CC02] shrink-0" 
-          onError={(e) => { e.target.src = '/parrot_logo.png'; }} 
+          onError={(e) => { e.currentTarget.src = '/parrot_logo.png'; }} 
         />
         <div className="text-left leading-tight hidden sm:block min-w-0">
           <div className="text-xs font-black text-white truncate max-w-[140px]">{user.name || 'Trader'}</div>

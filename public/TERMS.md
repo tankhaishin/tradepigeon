@@ -19,7 +19,7 @@ HIGH RISK INVESTMENT WARNING: Trading futures, foreign exchange (forex), equitie
 ---
 
 ## 3. Broker Integrations & Read-Only Data Security
-TradePigeon connects to supported third-party brokers (including Tradovate, NinjaTrader, MetaTrader 5, and TradeLocker) strictly using read-only API telemetry tokens, official OAuth authorization redirects, or user-provided CSV/HTML statement files. 
+TradePigeon connects to supported third-party brokers (including Tradovate, NinjaTrader, and MetaTrader 5) strictly using read-only API telemetry tokens, official OAuth authorization redirects, or user-provided CSV/HTML statement files. 
 
 TradePigeon:
 - Never requests, receives, or stores master trading account passwords or withdrawal credentials.
@@ -30,8 +30,8 @@ TradePigeon:
 
 ## 4. Subscriptions, Billing & Cancellation Policy
 - **Billing:** Subscriptions to TradePigeon Pro are billed on a recurring monthly ($9.99/mo) or annual ($79.00/yr) basis via Stripe.
-- **Cancellation:** You may cancel your subscription at any time with a single click inside your Profile Settings or via the Stripe Customer Portal. Upon cancellation, your Pro access will remain active until the end of your current paid billing period.
-- **Money-Back Guarantee:** If you are not completely satisfied with TradePigeon Pro within the first 7 days of initial subscription, contact support@tradepigeon.com for a full refund.
+- **Self-Serve Cancellation:** You may cancel your subscription at any time with a single click inside your Profile Settings via the Stripe Customer Portal. Upon cancellation, your Pro access will remain active until the end of your current paid billing period with zero cancellation penalties.
+- **Hassle-Free 14-Day Refund Guarantee:** If you are not completely satisfied with TradePigeon Pro within the first 14 days of your initial subscription, contact support@tradepigeon.com for an immediate, full refund. Refunds are issued within 24 hours.
 
 ---
 

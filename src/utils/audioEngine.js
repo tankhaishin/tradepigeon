@@ -3,13 +3,31 @@
 class AudioEngine {
   constructor() {
     this.ctx = null;
-    this.isMuted = typeof window !== 'undefined' ? localStorage.getItem('tradepigeon_sound_muted') === 'true' : false;
+    let muted = false;
+    try {
+      muted = typeof window !== 'undefined' ? localStorage.getItem('tradepigeon_sound_muted') === 'true' : false;
+    } catch (_) {}
+    this.isMuted = muted;
   }
 
   toggleMute() {
     this.isMuted = !this.isMuted;
     if (typeof window !== 'undefined') {
-      localStorage.setItem('tradepigeon_sound_muted', String(this.isMuted));
+      try {
+        localStorage.setItem('tradepigeon_sound_muted', String(this.isMuted));
+      } catch (_) {}
+      window.dispatchEvent(new CustomEvent('tradepigeon_sound_toggled', { detail: { isMuted: this.isMuted } }));
+    }
+    return this.isMuted;
+  }
+
+  setMuted(muted) {
+    this.isMuted = Boolean(muted);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('tradepigeon_sound_muted', String(this.isMuted));
+      } catch (_) {}
+      window.dispatchEvent(new CustomEvent('tradepigeon_sound_toggled', { detail: { isMuted: this.isMuted } }));
     }
     return this.isMuted;
   }
@@ -125,6 +143,62 @@ class AudioEngine {
       osc.stop(now + 0.08);
     } catch (e) {
       console.warn('[AudioEngine] Pop Audio Error:', e);
+    }
+  }
+
+  // Play Celebratory Milestone & Trophy Fanfare + Extended Haptic Pulse
+  playTrophy() {
+    if (this.isMuted) return;
+    this.triggerHaptic([30, 50, 30, 50, 60, 80]);
+    try {
+      this.init();
+      if (!this.ctx) return;
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+
+      const chords = [523.25, 659.25, 783.99, 1046.50, 1318.51]; // C5, E5, G5, C6, E6
+      chords.forEach((freq, idx) => {
+        const now = this.ctx.currentTime + (idx * 0.09);
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      });
+    } catch (e) {
+      console.warn('[AudioEngine] Trophy Audio Error:', e);
+    }
+  }
+
+  // Play Low-Frequency Risk Boundary Warning Chime
+  playWarning() {
+    if (this.isMuted) return;
+    this.triggerHaptic([60, 40, 60]);
+    try {
+      this.init();
+      if (!this.ctx) return;
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+
+      const tones = [240, 190]; // Dual low warning buzzer
+      tones.forEach((freq, idx) => {
+        const now = this.ctx.currentTime + (idx * 0.12);
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      });
+    } catch (e) {
+      console.warn('[AudioEngine] Warning Audio Error:', e);
     }
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, BookOpen, Shield, ShieldCheck, AlertTriangle, AlertCircle, Clock, Zap, CheckCircle2, Flame, Award, ChevronRight } from 'lucide-react';
 import { DuoBookIcon, DuoDisciplinedWinIcon, DuoDisciplinedLossIcon, DuoDisciplinedBeIcon, DuoToxicWinIcon, DuoToxicBeIcon, DuoDoubleFailureIcon, DuoMissedTradeIcon } from './DuoIcons';
 import { soundFx } from '../utils/audioEngine';
@@ -6,18 +6,35 @@ import { soundFx } from '../utils/audioEngine';
 export default function GuidebookModal({ isOpen, onClose }) {
   const [activeTab, setActiveTab] = useState('matrix');
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && typeof onClose === 'function') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-      <div className="duo-card max-w-2xl w-full p-6 sm:p-8 space-y-6 border-2 border-[#1CB0F6] relative max-h-[92vh] overflow-y-auto">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget && typeof onClose === 'function') onClose();
+      }}
+      className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in"
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="duo-card max-w-2xl w-full p-6 sm:p-8 space-y-6 border-2 border-[#1CB0F6] relative max-h-[92vh] overflow-y-auto"
+      >
         {/* Top Header */}
         <div className="flex items-start justify-between border-b border-[#20323D] pb-4">
           <div className="flex items-center gap-3">
             <DuoBookIcon className="w-10 h-10 shrink-0 drop-shadow-md" />
             <div>
-              <span className="text-[10px] font-black uppercase text-[#1CB0F6] tracking-wider block">OFFICIAL PROTOCOL HANDBOOK</span>
-              <h2 className="text-2xl font-black text-white leading-tight">TradePigeon Guidebook</h2>
+              <span className="text-[10px] font-black uppercase text-[#1CB0F6] tracking-wider block">HANDBOOK</span>
+              <h2 className="text-2xl font-black text-white leading-tight">Guidebook</h2>
             </div>
           </div>
 
@@ -225,7 +242,7 @@ export default function GuidebookModal({ isOpen, onClose }) {
                 At the end of every trading session, click <strong className="text-white">DONE TODAY</strong> to trigger your 60-second guided debrief.
               </p>
               <p>
-                This protocol resets your prefrontal cortex, logs your daily key session takeaway, awards +350 DP experience points, and protects your streak!
+                This protocol enforces an intentional cool-down, logs your key session takeaway, awards +150 DP, and protects your streak!
               </p>
             </div>
           </div>

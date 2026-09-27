@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CheckCircle2, ShieldAlert, ShieldCheck, Lock, Key, RefreshCw, X, Zap, 
   Activity, ArrowLeft, Sparkles, ChevronRight, Eye, EyeOff, Layers, CheckSquare, Square
 } from 'lucide-react';
-import { TradovateLogo, NinjaTraderLogo, TradeLockerLogo, CsvLogo } from './BrokerLogos';
+import { TradovateLogo, NinjaTraderLogo, CsvLogo } from './BrokerLogos';
 import { loadStoredData, saveStoredData } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 import { detectPlatformFromAccountId } from '../utils/platformDetector';
@@ -29,13 +29,21 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
   const [accountNicknames, setAccountNicknames] = useState({});
   const [sessionToken, setSessionToken] = useState(null);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const platforms = [
     { 
       id: 'tradovate', 
       name: 'Tradovate', 
-      subtitle: 'Official Direct REST & Telemetry Socket',
       icon: TradovateLogo, 
       badge: 'DIRECT API',
       color: '#FF6B00'
@@ -43,7 +51,6 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
     { 
       id: 'ninjatrader', 
       name: 'NinjaTrader', 
-      subtitle: 'Tradovate Cloud API Architecture',
       icon: NinjaTraderLogo, 
       badge: 'DIRECT API',
       color: '#58CC02'
@@ -51,25 +58,15 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
     { 
       id: 'propfirms', 
       name: 'Apex / TopStep / Prop Firms', 
-      subtitle: 'Tradovate Gateway Multi-Account',
       icon: TradovateLogo, 
-      badge: 'PROP MULTI-ACCOUNT',
+      badge: 'PROP FIRMS',
       color: '#00E5FF'
-    },
-    { 
-      id: 'tradelocker', 
-      name: 'TradeLocker', 
-      subtitle: 'Live Cloud Terminal & Stream',
-      icon: TradeLockerLogo, 
-      badge: 'CLOUD API',
-      color: '#CE82FF'
     },
     { 
       id: 'csv', 
       name: 'Universal CSV / Statement', 
-      subtitle: 'Upload Tradovate, NT, MT5, or Rithmic file',
       icon: CsvLogo, 
-      badge: 'OFFLINE STATEMENT',
+      badge: 'STATEMENT',
       color: '#1CB0F6'
     }
   ];
@@ -93,6 +90,12 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
     e.preventDefault();
     if (!username.trim()) {
       setFormError('Please enter your broker username or account ID.');
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setFormError('You appear to be offline. Please check your internet connection.');
+      soundFx.playWarning();
       return;
     }
 
@@ -122,22 +125,37 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
             accountsToOffer = data.accounts;
             token = data.accessToken;
             setSessionToken(data.accessToken);
+          } else if (data.error) {
+            setFormError(data.error);
+            setIsSubmitting(false);
+            soundFx.playWarning();
+            return;
           }
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          setFormError(errData.error || 'Authentication failed. Please verify your credentials.');
+          setIsSubmitting(false);
+          soundFx.playWarning();
+          return;
         }
       } catch (apiErr) {
-        console.warn('API proxy unavailable, falling back to client-side discovery flow:', apiErr);
+        console.warn('API proxy unavailable:', apiErr);
+        setIsSubmitting(false);
+        soundFx.playWarning();
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+          setFormError('Network unavailable. You appear to be offline.');
+        } else {
+          setFormError('Broker authentication server is currently unreachable. Please check your connection or import via Universal CSV.');
+        }
+        return;
       }
 
-      // Fallback to user-entered accounts when direct proxy is not active
+      // If no sub-accounts returned from broker API, fail gracefully
       if (accountsToOffer.length === 0) {
-        const rawList = username.split(',').map(s => s.trim()).filter(Boolean);
-        const count = rawList.length > 0 ? rawList : [username.trim()];
-        accountsToOffer = count.map((accNum) => ({
-          id: accNum,
-          name: `${selectedPlatform.name} (${accNum})`,
-          accountType: env === 'LIVE' ? 'Live Funded' : 'Evaluation',
-          active: true
-        }));
+        setIsSubmitting(false);
+        soundFx.playWarning();
+        setFormError('Unable to authenticate with broker. Please check your credentials or import your execution history via Universal CSV.');
+        return;
       }
 
       setDiscoveredAccounts(accountsToOffer);
@@ -186,7 +204,8 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
         accessToken: sessionToken || null,
         status: 'SYNCED (LIVE)',
         balance: formattedBalance,
-        pnl: '+$0.00',
+        pnl: '$0.00',
+        pnlNum: 0,
         environment: env,
         connectedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       }));
@@ -247,14 +266,14 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
           )}
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-[#1CB0F6]">
-              {step === 'select_accounts' ? 'STEP 2: MULTI-ACCOUNT DISCOVERY' : 'DIRECT BROKER TELEMETRY SYNC'}
+              {step === 'select_accounts' ? 'STEP 2: SELECT ACCOUNTS' : 'CONNECT BROKER'}
             </span>
             <h3 className="text-xl font-black text-white">
               {step === 'select_accounts' 
                 ? 'Select Accounts to Track' 
                 : selectedPlatform 
                   ? `Connect ${selectedPlatform.name}` 
-                  : 'Connect Trading Account'}
+                  : 'Connect Broker'}
             </h3>
           </div>
         </div>
@@ -264,9 +283,9 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
             <div className="w-20 h-20 mx-auto rounded-full bg-[#58CC02]/20 border-2 border-[#58CC02] text-[#58CC02] flex items-center justify-center animate-bounce">
               <CheckCircle2 size={42} />
             </div>
-            <h4 className="text-xl font-black text-white">Accounts Successfully Linked!</h4>
+            <h4 className="text-xl font-black text-white">Accounts Linked!</h4>
             <p className="text-xs font-bold text-slate-400 max-w-sm mx-auto">
-              Live telemetry is now active. Fills and execution audits will sync automatically into your session hub.
+              Live sync active. Fills will sync into your session.
             </p>
           </div>
         ) : step === 'select_accounts' ? (
@@ -484,13 +503,8 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
           </form>
         ) : (
           /* PLATFORM SELECTION GRID */
-          <div className="space-y-5 animate-fade-in">
-            <div className="space-y-1">
-              <h4 className="text-sm font-black text-white">Select Your Trading Broker or Platform</h4>
-              <p className="text-xs font-bold text-slate-400">
-                Direct in-app connection. Real fills and telemetry sync automatically without external popups.
-              </p>
-            </div>
+          <div className="space-y-4 animate-fade-in">
+            <h4 className="text-sm font-black text-white">Select Broker</h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {platforms.map((p) => {
@@ -509,12 +523,9 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
                       </span>
                     </div>
 
-                    <div>
-                      <div className="text-sm font-black text-white group-hover:text-[#1CB0F6] transition-colors flex items-center justify-between">
-                        <span>{p.name}</span>
-                        <ChevronRight size={14} className="text-slate-500 group-hover:text-[#1CB0F6] transition-colors" />
-                      </div>
-                      <div className="text-[10px] font-bold text-slate-400">{p.subtitle}</div>
+                    <div className="text-sm font-black text-white group-hover:text-[#1CB0F6] transition-colors flex items-center justify-between">
+                      <span>{p.name}</span>
+                      <ChevronRight size={14} className="text-slate-500 group-hover:text-[#1CB0F6] transition-colors" />
                     </div>
                   </button>
                 );

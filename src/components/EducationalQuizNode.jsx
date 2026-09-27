@@ -3,9 +3,11 @@ import { CheckCircle2, XCircle, Award, HelpCircle } from 'lucide-react';
 import { DuoBookIcon, DuoBrainIcon, DuoShieldIcon, DuoChartIcon } from './DuoIcons';
 import { getDailyQuizForDayOfYear } from '../data/educationBank';
 import { soundFx } from '../utils/audioEngine';
+import { loadStoredData, saveStoredData } from '../utils/storage';
 
 export default function EducationalQuizNode({ onQuizComplete }) {
-  const [selectedLesson, setSelectedLesson] = useState(() => {
+  const todayDateStr = new Date().toISOString().split('T')[0];
+  const [selectedLesson] = useState(() => {
     const now = new Date();
     const start = new Date(now.getFullYear(), 0, 0);
     const diff = now - start;
@@ -13,15 +15,18 @@ export default function EducationalQuizNode({ onQuizComplete }) {
     const dayOfYear = Math.floor(diff / oneDay);
     return getDailyQuizForDayOfYear(dayOfYear);
   });
-  const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const [isAnswered, setIsAnswered] = useState(false);
+
+  const isAlreadyCompletedToday = loadStoredData('tradepigeon_quiz_completed_date', null) === todayDateStr;
+  const [selectedAnswer, setSelectedAnswer] = useState(() => isAlreadyCompletedToday ? selectedLesson.quiz.correctIndex : null);
+  const [isAnswered, setIsAnswered] = useState(() => isAlreadyCompletedToday);
 
   const handleOptionClick = (index) => {
-    if (isAnswered) return;
+    if (isAnswered && selectedAnswer === selectedLesson.quiz.correctIndex) return;
     setSelectedAnswer(index);
     setIsAnswered(true);
     if (index === selectedLesson.quiz.correctIndex) {
       soundFx.playSuccess();
+      saveStoredData('tradepigeon_quiz_completed_date', todayDateStr);
       if (onQuizComplete) onQuizComplete();
     } else {
       soundFx.playPop();
@@ -50,8 +55,12 @@ export default function EducationalQuizNode({ onQuizComplete }) {
             <h3 className="text-lg font-black text-white">{selectedLesson.title}</h3>
           </div>
         </div>
-        <span className="px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-black">
-          +50 DP Quiz
+        <span className={`px-3 py-1 rounded-xl text-xs font-black border ${
+          (isAnswered && selectedAnswer === selectedLesson.quiz.correctIndex)
+            ? 'bg-[#58CC02]/20 border-[#58CC02]/40 text-[#58CC02]'
+            : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+        }`}>
+          {(isAnswered && selectedAnswer === selectedLesson.quiz.correctIndex) ? '✓ Completed (+50 DP)' : '+50 DP Quiz'}
         </span>
       </div>
 
@@ -91,7 +100,7 @@ export default function EducationalQuizNode({ onQuizComplete }) {
               <button
                 key={option}
                 onClick={() => handleOptionClick(idx)}
-                disabled={isAnswered}
+                disabled={isAnswered && selectedAnswer === selectedLesson.quiz.correctIndex}
                 className={`p-3.5 rounded-2xl border-2 border-b-4 text-left text-xs font-black transition-all flex items-center justify-between cursor-pointer ${btnStyle}`}
               >
                 <span>{option}</span>
@@ -117,6 +126,19 @@ export default function EducationalQuizNode({ onQuizComplete }) {
               <p className="text-xs font-bold text-slate-300 mt-0.5">
                 {selectedLesson.quiz.explanation}
               </p>
+              {selectedAnswer !== selectedLesson.quiz.correctIndex && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundFx.playPop();
+                    setIsAnswered(false);
+                    setSelectedAnswer(null);
+                  }}
+                  className="mt-2 text-xs font-black text-[#1CB0F6] hover:text-white hover:underline cursor-pointer inline-flex items-center gap-1 bg-[#1CB0F6]/10 px-2.5 py-1 rounded-lg border border-[#1CB0F6]/30 transition-colors"
+                >
+                  <span>↺ Try Again</span>
+                </button>
+              )}
             </div>
           </div>
         )}

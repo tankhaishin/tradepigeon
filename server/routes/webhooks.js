@@ -43,23 +43,23 @@ router.post('/new-signup', async (req, res) => {
   const { traderName, email, tradingStyle, strategyName, maxDailyLoss, brokerPlatform, webhookUrl } = req.body;
 
   const embedPayload = {
-    username: "GoodTrader 2.0 Telemetry Bot",
-    avatar_url: "https://raw.githubusercontent.com/goodtrader/assets/main/parrot_logo.png",
+    username: "TradePigeon 2.0 Telemetry Bot",
+    avatar_url: "https://raw.githubusercontent.com/tradepigeon/assets/main/parrot_logo.png",
     embeds: [
       {
         title: "🎉 NEW TRADER SIGNED UP!",
-        description: `A new trader just completed their **GoodTrader 2.0** edge calibration protocol!`,
-        color: 0xFF6B00, // GoodTrader Orange
+        description: `A new trader just completed their **TradePigeon 2.0** edge calibration protocol!`,
+        color: 0x58CC02, // TradePigeon Brand Green
         fields: [
           { name: "👤 Trader Name", value: traderName || "New Operator", inline: true },
-          { name: "📧 Email", value: email || "operator@goodtrader.io", inline: true },
+          { name: "📧 Email", value: email || "operator@tradepigeon.com", inline: true },
           { name: "⚙️ Methodology", value: tradingStyle || "Custom Strategy", inline: true },
           { name: "🛡️ Strategy Name", value: strategyName || "Strategy 1", inline: true },
           { name: "📉 Max Daily Risk Limit", value: maxDailyLoss || "$1,000", inline: true },
           { name: "🔌 Broker Platform", value: (brokerPlatform || "Tradovate").toUpperCase(), inline: true },
         ],
         footer: {
-          text: "GoodTrader 2.0 Business Intelligence Engine • Real-time Webhook",
+          text: "TradePigeon 2.0 Business Intelligence Engine • Real-time Webhook",
         },
         timestamp: new Date().toISOString()
       }
@@ -78,20 +78,52 @@ router.post('/subscription-success', async (req, res) => {
   const { traderName, planName, amount, currency, webhookUrl } = req.body;
 
   const embedPayload = {
-    username: "GoodTrader VIP Sales Bot",
-    avatar_url: "https://raw.githubusercontent.com/goodtrader/assets/main/parrot_logo.png",
+    username: "TradePigeon VIP Sales Bot",
+    avatar_url: "https://raw.githubusercontent.com/tradepigeon/assets/main/parrot_logo.png",
     embeds: [
       {
         title: "⚡ NEW PRO SUBSCRIPTION PURCHASED!",
-        description: `**${traderName || 'Disciplined Trader'}** just upgraded to **${planName || 'GoodTrader Pro'}**!`,
-        color: 0x58CC02, // Duolingo Green
+        description: `**${traderName || 'Disciplined Trader'}** just upgraded to **${planName || 'TradePigeon Pro'}**!`,
+        color: 0x58CC02, // TradePigeon Green
         fields: [
-          { name: "💳 Plan", value: planName || "GoodTrader Pro ($29/mo)", inline: true },
+          { name: "💳 Plan", value: planName || "TradePigeon Pro ($29/mo)", inline: true },
           { name: "💰 Revenue", value: `$${amount || '29.00'} ${currency || 'USD'}`, inline: true },
           { name: "🔥 Status", value: "ACTIVE (Recurring)", inline: true },
         ],
         footer: {
           text: "Stripe Payment Gateway • Live Telemetry",
+        },
+        timestamp: new Date().toISOString()
+      }
+    ]
+  };
+
+  const result = await sendDiscordWebhook(webhookUrl, embedPayload);
+  return res.json({ status: 'OK', sent: result.success });
+});
+
+/**
+ * 3. GENERAL TELEMETRY DISPATCH PROXY
+ * Route: POST /api/webhooks/discord/dispatch
+ * Securely proxies client feedback, error telemetry, or signup alerts without exposing Discord webhook URL to frontend.
+ */
+router.post('/dispatch', async (req, res) => {
+  const { title, description, color, fields, footerText, webhookUrl } = req.body;
+  if (!title) {
+    return res.status(400).json({ error: 'Title is required' });
+  }
+
+  const embedPayload = {
+    username: 'TradePigeon Bot',
+    avatar_url: 'https://tradepigeon.com/favicon.svg',
+    embeds: [
+      {
+        title,
+        description: description || '',
+        color: color || 0x1CB0F6,
+        fields: Array.isArray(fields) ? fields : [],
+        footer: {
+          text: footerText || 'TradePigeon 2.0 Real-Time Telemetry'
         },
         timestamp: new Date().toISOString()
       }

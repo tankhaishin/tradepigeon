@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Flame, Gem, Heart, Trophy, ChevronRight, ChevronLeft, ChevronDown, Lock, Calendar, CheckCircle2, ShieldAlert, CheckSquare, Plus, X, ShieldCheck, Check, Sparkles, Coffee, Activity, Moon, Trash2, AlertCircle, Zap, RotateCcw, Layers, RefreshCw, Snowflake, Search, Wind, Clock, HelpCircle } from 'lucide-react';
-import { DuoLightningIcon, DuoIceIcon, DuoLockIcon, DuoChestIcon, DuoPlaneIcon, DuoPalmtreeIcon, DuoUndoIcon, DuoShieldIcon, DuoGemIcon, DuoStarIcon, DuoTrophyIcon } from './DuoIcons';
-import InteractiveParrotMascot from './InteractiveParrotMascot';
+import { Flame, Gem, Heart, Trophy, ChevronRight, ChevronLeft, ChevronDown, Lock, Calendar, CheckCircle2, CheckSquare, Plus, X, ShieldCheck, Check, Sparkles, Coffee, Activity, Moon, Trash2, AlertCircle, AlertTriangle, Zap, RotateCcw, Layers, RefreshCw, Snowflake, Search, Wind, Clock, HelpCircle } from 'lucide-react';
+import { DuoLightningIcon, DuoPalmtreeIcon, DuoShieldIcon, DuoGemIcon, DuoStarIcon, DuoTrophyIcon } from './DuoIcons';
 import AiDebriefModal from './AiDebriefModal';
 import ManualTradeModal from './ManualTradeModal';
-import PendingOrdersRadar from './PendingOrdersRadar';
 import BrokerConnectModal from './BrokerConnectModal';
-import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS } from '../utils/storage';
-import { auditAndSanitizeCalendarState } from '../utils/calendarEngine';
+import PropFirmDrawdownGauge from './cockpit/PropFirmDrawdownGauge';
+import LivePositionsCard from './cockpit/LivePositionsCard';
+import ConfirmModal from './ConfirmModal';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS, deleteStoredTrade, deleteMultipleStoredTrades, restoreStoredTrade, saveSessionTrades, loadSessionTrades, addDisciplinePoints } from '../utils/storage';
+import { auditAndSanitizeCalendarState, buildDynamicMonthData } from '../utils/calendarEngine';
 import { soundFx } from '../utils/audioEngine';
-import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl } from '../utils/financialMath';
+import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl, calculateTrailingDrawdown } from '../utils/financialMath';
+import { classifyTradeExecution } from '../utils/tradeParser';
 
 export const HESITATION_REASONS = [
   { id: 'fear', label: 'Post-Loss Fear', advice: 'A previous loss has zero mathematical bearing on this trade. Focus on process, not outcome!' },
@@ -41,25 +43,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const [internalExpanded, setInternalExpanded] = useState(isExpanded);
   const [tradingStatus, setTradingStatusState] = useState(() => loadStoredData('tradepigeon_trading_status', 'TRADING'));
 
-  const defaultTasks = [
-    { id: 1, text: 'Pre-Market Mindset Check', completed: true, reward: '+50 DP' },
-    { id: 2, text: 'Review Live Equity Cockpit', completed: true, reward: '+50 DP' },
-    { id: 3, text: 'Tag 3 Fills with Setup Proof', completed: false, reward: '+100 DP' },
-    { id: 4, text: 'Complete Post-Session Audit @ Close', completed: false, reward: '+150 DP' },
-  ];
-
-  const [tasks, setTasks] = useState(() => {
-    try {
-      const loaded = loadStoredData(STORAGE_KEYS.QUESTS, defaultTasks);
-      if (Array.isArray(loaded) && loaded.length > 0 && loaded[0] && typeof loaded[0] === 'object') {
-        return loaded;
-      }
-    } catch (e) {
-      console.warn('Resetting corrupted tasks storage:', e);
-    }
-    return defaultTasks;
-  });
-
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(() => {
       const updatedStatus = loadStoredData('tradepigeon_trading_status', 'TRADING');
@@ -82,61 +65,102 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const nowObj = new Date();
   const todayDateVal = nowObj.getDate(); // 10th
   const [selectedDay, setSelectedDay] = useState(todayDateVal - 1); // Sept 10th (0-indexed day 9)
-  const [currentMonthIndex, setCurrentMonthIndex] = useState(2); // September 2026 (Index 2)
-  const [newTaskText, setNewTaskText] = useState('');
-  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [currentMonthIndex, setCurrentMonthIndex] = useState(1); // Active Current Month (Index 1 of [Prev, Current, Next])
   const [isDebriefModalOpen, setIsDebriefModalOpen] = useState(false);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
-  const [showAuditPrompt, setShowAuditPrompt] = useState(false);
 
-  const currentDay = loadStoredData('tradepigeon_current-day', 1);
+  const currentDay = loadStoredData('tradepigeon_current_day', 1);
   const [activeAuditDay, setActiveAuditDay] = useState(currentDay);
   const [selectedBasketFilter, setSelectedBasketFilter] = useState('ALL');
   const [selectedTradeIds, setSelectedTradeIds] = useState([]);
   const [userStats, setUserStats] = useState(() => loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS));
   const [connectedAccounts, setConnectedAccounts] = useState(() => loadStoredData('tradepigeon_accounts_data', []));
   const [streakFreezes, setStreakFreezes] = useState(() => loadStoredData('tradepigeon_streak_freezes', 1));
-  const [activeHubTab, setActiveHubTab] = useState('trades');
-  const [isHeatmapExpanded, setIsHeatmapExpanded] = useState(true);
+  const [completedSteps, setCompletedSteps] = useState(() => loadStoredData('tradepigeon_completed_steps', []));
+  const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('tradepigeon_stealth_mode', false));
+  const [trailingMaxDrawdown, setTrailingMaxDrawdown] = useState(() => {
+    const raw = loadStoredData('tradepigeon_trailing_max_drawdown', '$2,500');
+    return Math.abs(parseFinancialNumber(raw, 2500));
+  });
+  const [isDrawdownPopoverOpen, setIsDrawdownPopoverOpen] = useState(false);
+  const [customDrawdownInput, setCustomDrawdownInput] = useState('');
 
-  const [sessionTrades, setSessionTrades] = useState(() => {
-    return loadStoredData(`tradepigeon_session_trades_day_${currentDay}`, []);
+  const isDebriefDoneToday = useMemo(() => {
+    const todayIsoStr = new Date().toISOString().split('T')[0];
+    const debriefHistory = loadStoredData('tradepigeon_debrief_history', []);
+    const hasDebrief = Array.isArray(debriefHistory) && debriefHistory.some(h => h.isoDate === todayIsoStr || h.timestamp?.startsWith(todayIsoStr));
+    return completedSteps.includes(4) || hasDebrief;
+  }, [completedSteps]);
+
+  const [sessionTrades, setSessionTrades] = useState(() => loadSessionTrades(currentDay));
+  const [openPositions, setOpenPositions] = useState(() => loadStoredData('tradepigeon_open_positions', []));
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    variant: 'danger',
+    onConfirm: () => {}
   });
 
   const [lastAutoSyncedTime, setLastAutoSyncedTime] = useState(null);
+  const [hubToast, setHubToast] = useState('');
+  const triggerHubToast = (msg) => {
+    soundFx.playPop();
+    setHubToast(msg);
+    setTimeout(() => setHubToast(''), 3500);
+  };
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === `tradepigeon_session_trades_day_${activeAuditDay}`) {
+      const now = new Date();
+      const todayIso = now.toISOString().slice(0, 10);
+      const todayDom = now.getDate();
+      const isTodayActive = activeAuditDay === currentDay || activeAuditDay === todayDom || String(activeAuditDay) === todayIso;
+
+      if (key === 'tradepigeon_stealth_mode') {
+        setIsStealthMode(Boolean(value));
+      }
+      if (key === 'tradepigeon_trailing_max_drawdown') {
+        setTrailingMaxDrawdown(Math.abs(parseFinancialNumber(value, 2500)));
+      }
+      if (key === 'trades_cleared') {
+        setSessionTrades([]);
+        setOpenPositions([]);
+      } else if (key === `tradepigeon_session_trades_day_${activeAuditDay}`) {
         setSessionTrades(value || []);
+      } else if (isTodayActive && (key === `tradepigeon_session_trades_day_${todayIso}` || key === `tradepigeon_session_trades_day_${todayDom}` || key === 'tradepigeon_session_trades' || key === 'goodtrader_session_trades')) {
+        setSessionTrades(value || []);
+      }
+
+      if (key === 'tradepigeon_open_positions') {
+        setOpenPositions(value || []);
       }
       if (key === 'tradepigeon_accounts_data') {
         setConnectedAccounts(value || []);
       }
+      if (key === 'tradepigeon_user_stats') {
+        setUserStats(value || DEFAULT_USER_STATS);
+      }
+      if (key === 'tradepigeon_streak_freezes') {
+        setStreakFreezes(value || 0);
+      }
+      if (key === 'tradepigeon_completed_steps') {
+        setCompletedSteps(value || []);
+      }
     });
     return unsubscribe;
-  }, [activeAuditDay]);
+  }, [activeAuditDay, currentDay]);
 
   useEffect(() => {
-    const loaded = loadStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, []);
+    const loaded = loadSessionTrades(activeAuditDay);
     setSessionTrades(loaded);
     setSelectedTradeIds([]);
   }, [activeAuditDay]);
 
   const primaryAccountName = connectedAccounts[0]?.name || connectedAccounts[0]?.id || 'Primary Account';
-  const dummyKeywords = ['ninjatrader live account', 'tradovate live account', 'dummy account', 'placeholder account'];
-  const availableBaskets = ['ALL', ...new Set([
-    ...connectedAccounts.map(a => a.name || a.id),
-    ...sessionTrades.map(t => t.account).filter(accName => accName && !dummyKeywords.some(kw => String(accName).toLowerCase().includes(kw)))
-  ])];
 
-  const [isAddTradeModalOpen, setIsAddTradeModalOpen] = useState(false);
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
-  const [newTradeSymbol, setNewTradeSymbol] = useState('NQ1!');
-  const [newTradeSide, setNewTradeSide] = useState('LONG');
-  const [newTradePnl, setNewTradePnl] = useState('+$500.00');
-  const [newTradeType, setNewTradeType] = useState('win');
-  const [newTradeAccount, setNewTradeAccount] = useState(primaryAccountName);
 
   const handleDisconnectAccount = (accId) => {
     soundFx.playPop();
@@ -149,11 +173,15 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     }
   };
 
+  const persistSessionTrades = (tradesList) => {
+    saveSessionTrades(tradesList, activeAuditDay);
+  };
+
   const handleVerifyTrade = (tradeId, newType) => {
     soundFx.playPop();
     const updated = sessionTrades.map(t => t.id === tradeId ? { ...t, type: newType } : t);
     setSessionTrades(updated);
-    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
+    persistSessionTrades(updated);
   };
 
   const handleConfirmTrade = (tradeId) => {
@@ -165,13 +193,14 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       return t;
     });
     setSessionTrades(updated);
-    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
+    persistSessionTrades(updated);
 
     // Award +50 DP for confirming trade audit!
+    const newDp = addDisciplinePoints(50);
     const stats = loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS);
     const updatedStats = {
       ...stats,
-      disciplinePoints: (stats.disciplinePoints || 0) + 50,
+      disciplinePoints: newDp,
       tradesLogged: (stats.tradesLogged || 0) + 1
     };
     saveStoredData('tradepigeon_user_stats', updatedStats);
@@ -187,7 +216,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       return t;
     });
     setSessionTrades(updated);
-    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
+    persistSessionTrades(updated);
   };
 
   const [deletedTradesBackup, setDeletedTradesBackup] = useState(null);
@@ -201,6 +230,20 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     }
   }, [deletedTradesBackup]);
 
+  useEffect(() => {
+    const handleTradeDeleted = (e) => {
+      const { tradeId, tradeIds } = e.detail || {};
+      if (tradeId) {
+        setSessionTrades(prev => prev.filter(t => t && t.id !== tradeId));
+      } else if (Array.isArray(tradeIds)) {
+        const idSet = new Set(tradeIds);
+        setSessionTrades(prev => prev.filter(t => t && !idSet.has(t.id)));
+      }
+    };
+    window.addEventListener('tradepigeon_trade_deleted', handleTradeDeleted);
+    return () => window.removeEventListener('tradepigeon_trade_deleted', handleTradeDeleted);
+  }, []);
+
   const handleDeleteTrade = (tradeId) => {
     soundFx.playPop();
     const tradeToDelete = sessionTrades.find(t => t.id === tradeId);
@@ -210,7 +253,8 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     const updated = sessionTrades.filter(t => t.id !== tradeId);
     setSessionTrades(updated);
     setSelectedTradeIds(selectedTradeIds.filter(id => id !== tradeId));
-    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
+    persistSessionTrades(updated);
+    deleteStoredTrade(tradeId);
   };
 
   const handleDeleteSelectedTrades = () => {
@@ -220,8 +264,9 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     setDeletedTradesBackup({ trades: tradesToDelete, timestamp: Date.now() });
     const remaining = sessionTrades.filter(t => !selectedTradeIds.includes(t.id));
     setSessionTrades(remaining);
+    deleteMultipleStoredTrades(selectedTradeIds);
     setSelectedTradeIds([]);
-    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, remaining);
+    persistSessionTrades(remaining);
   };
 
   const handleUndoDeleteTrades = () => {
@@ -229,7 +274,8 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     soundFx.playSuccess();
     const restored = [...deletedTradesBackup.trades, ...sessionTrades];
     setSessionTrades(restored);
-    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, restored);
+    persistSessionTrades(restored);
+    deletedTradesBackup.trades.forEach(t => restoreStoredTrade(t));
     setDeletedTradesBackup(null);
   };
 
@@ -268,7 +314,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     const updated = [mergedTrade, ...remaining];
     setSessionTrades(updated);
     setSelectedTradeIds([]);
-    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
+    persistSessionTrades(updated);
   };
 
   const playbooksList = ['Breakout & Retest', 'Trend Continuation', 'Liquidity Sweep', 'Custom Setup'];
@@ -279,7 +325,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     const nextPlaybook = playbooksList[(currentIdx + 1) % playbooksList.length];
     const updated = sessionTrades.map(t => t.id === tradeId ? { ...t, playbook: nextPlaybook } : t);
     setSessionTrades(updated);
-    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
+    persistSessionTrades(updated);
   };
 
   const handleUpdateTradeReason = (tradeId, reason) => {
@@ -291,17 +337,12 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       return t;
     });
     setSessionTrades(updated);
-    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
+    persistSessionTrades(updated);
 
     if (reason) {
       soundFx.playSuccess();
-      const currentStats = loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS);
-      const updatedStats = {
-        ...currentStats,
-        disciplinePoints: (currentStats.disciplinePoints || 0) + 25
-      };
-      saveStoredData('tradepigeon_user_stats', updatedStats);
-      setUserStats(updatedStats);
+      const newDp = addDisciplinePoints(25);
+      setUserStats(prev => ({ ...prev, disciplinePoints: newDp }));
     }
   };
 
@@ -313,32 +354,14 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       saveStoredData('tradepigeon_streak_freezes', nextTokens);
 
       const stats = loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS);
-      const updatedStats = { ...stats, streakDays: (stats.streakDays || 14) + 1 };
+      const currentStreak = typeof stats.streakDays === 'number' ? stats.streakDays : 0;
+      const updatedStats = { ...stats, streakDays: currentStreak + 1 };
       saveStoredData('tradepigeon_user_stats', updatedStats);
-      alert('Streak Repaired! 1 Streak Repair Token applied.');
+      setUserStats(updatedStats);
+      triggerHubToast('Streak Repaired! 1 Streak Repair Token applied.');
     } else {
-      alert('You need 1 Streak Repair Token from the Shop (500 DP) to repair a streak!');
+      triggerHubToast('You need 1 Streak Repair Token from the Shop (500 DP) to repair a streak!');
     }
-  };
-
-  const handleAddManualTrade = () => {
-    soundFx.playSuccess();
-    const newTrade = {
-      id: `t_${Date.now()}`,
-      symbol: newTradeSymbol,
-      side: newTradeSide,
-      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      pnl: newTradePnl,
-      rMultiple: '+1.0R',
-      type: newTradeType,
-      playbook: 'PLAYBOOK A',
-      account: newTradeAccount,
-      verified: true
-    };
-    const updated = [...sessionTrades, newTrade];
-    setSessionTrades(updated);
-    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
-    setIsAddTradeModalOpen(false);
   };
 
   const matchesAccountFilter = (tradeAccount, filterKey) => {
@@ -376,6 +399,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
     const accountsToProcess = targetAccounts.length > 0 ? targetAccounts : storedAccounts;
     let newTradesAdded = [];
+    let discoveredOpenPositions = [];
 
     // 1. Check for real live fills if account has accessToken
     for (const acc of accountsToProcess) {
@@ -388,17 +412,32 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
               'Content-Type': 'application/json'
             }
           });
-          if (res.ok) {
+          if (res.status === 401) {
+            acc.status = 'EXPIRED';
+            acc.tokenExpired = true;
+          } else if (res.ok) {
             const data = await res.json();
+            const targetAccount = acc.name || acc.accountNumber || 'Tradovate Live';
             if (data.success && Array.isArray(data.fills) && data.fills.length > 0) {
               for (const realFill of data.fills) {
-                const fillExists = sessionTrades.some(t => t.id === realFill.id || (t.time === realFill.time && t.pnl === realFill.pnl));
+                const fillExists = sessionTrades.some(t => 
+                  t.id === realFill.id || 
+                  (t.time === realFill.time && t.pnl === realFill.pnl && t.account === targetAccount)
+                );
                 if (!fillExists) {
                   newTradesAdded.push({
                     ...realFill,
-                    account: acc.name || acc.accountNumber || 'Tradovate Live'
+                    account: targetAccount
                   });
                 }
+              }
+            }
+            if (data.success && Array.isArray(data.openPositions)) {
+              for (const openPos of data.openPositions) {
+                discoveredOpenPositions.push({
+                  ...openPos,
+                  account: targetAccount
+                });
               }
             }
           }
@@ -411,43 +450,123 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     const updatedAccounts = storedAccounts.map(acc => {
       const isTarget = accountsToProcess.some(t => t.id === acc.id || t.accountNumber === acc.accountNumber || t.name === acc.name);
       if (!isTarget) return acc;
+      if (acc.tokenExpired || acc.status === 'EXPIRED') {
+        return { ...acc, status: 'EXPIRED', lastSync: 'Auth Required', tokenExpired: true };
+      }
       return { ...acc, status: 'SYNCED (LIVE)' };
     });
 
     saveStoredData('tradepigeon_accounts_data', updatedAccounts);
     setConnectedAccounts(updatedAccounts);
 
+    saveStoredData('tradepigeon_open_positions', discoveredOpenPositions);
+    setOpenPositions(discoveredOpenPositions);
+
     if (newTradesAdded.length > 0) {
+      const now = new Date();
+      const todayIso = now.toISOString().slice(0, 10);
+      const todayDom = now.getDate();
       const updatedTrades = [...newTradesAdded, ...sessionTrades];
       setSessionTrades(updatedTrades);
       saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updatedTrades);
+      if (activeAuditDay === currentDay) {
+        saveStoredData(`tradepigeon_session_trades_day_${todayIso}`, updatedTrades);
+        saveStoredData(`tradepigeon_session_trades_day_${todayDom}`, updatedTrades);
+        saveStoredData('tradepigeon_session_trades', updatedTrades);
+      }
+      try {
+        const existingLogs = loadStoredData('tradepigeon_tradelogs', []);
+        saveStoredData('tradepigeon_tradelogs', [...newTradesAdded, ...existingLogs]);
+      } catch {}
     }
     setLastAutoSyncedTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
   };
 
   const getDynamicSyncButtonLabel = () => {
     if (selectedBasketFilter === 'ALL') {
-      return 'Sync Live Telemetry';
+      return 'Sync Fills';
     }
-    return `Sync ${selectedBasketFilter} Telemetry`;
+    return `Sync ${selectedBasketFilter}`;
   };
 
   const filteredTrades = sessionTrades.filter(t => matchesAccountFilter(t.account, selectedBasketFilter));
+  const filteredOpenPositions = openPositions.filter(p => matchesAccountFilter(p.account, selectedBasketFilter));
   const totalFilteredPnL = sumTradesPnl(filteredTrades);
-  const formattedTotalPnL = formatFinancialCurrency(totalFilteredPnL, { showPlus: true });
+  const formattedTotalPnL = isStealthMode
+    ? formatRMultiple(totalFilteredPnL, 350, 1)
+    : formatFinancialCurrency(totalFilteredPnL, { showPlus: true });
+
+  const storedMaxLoss = loadStoredData('tradepigeon_max_daily_loss', '$1,000');
+  const hubLossLimitNum = Math.abs(parseFinancialNumber(storedMaxLoss, 1000));
+
+  const trailingMetrics = useMemo(() => {
+    return calculateTrailingDrawdown(filteredTrades, trailingMaxDrawdown);
+  }, [filteredTrades, trailingMaxDrawdown]);
+
+  const handleSelectTrailingDrawdown = (val) => {
+    soundFx.playPop();
+    const num = Math.abs(parseFinancialNumber(val, 2500));
+    setTrailingMaxDrawdown(num);
+    saveStoredData('tradepigeon_trailing_max_drawdown', `$${num.toLocaleString()}`);
+    setIsDrawdownPopoverOpen(false);
+  };
+
+  const formatHubTradePnl = (trade) => {
+    if (!isStealthMode) return trade.pnl;
+    if (trade.rMultiple || trade.r) return trade.rMultiple || trade.r;
+    const num = parseFinancialNumber(trade.pnlNum !== undefined ? trade.pnlNum : trade.pnl, 0);
+    return formatRMultiple(num, 350, 1);
+  };
+
+  const getAuditedPillInfo = (tradeType) => {
+    const t = String(tradeType || '').toLowerCase();
+    if (t === 'toxic_win') {
+      return {
+        cardCls: 'bg-[#FFC800]/15 border-[#FFC800]/40 text-[#FFC800]',
+        icon: <AlertTriangle size={13} className="text-[#FFC800] shrink-0" />,
+        label: 'AUDITED: TOXIC WIN (RULE BREACH)'
+      };
+    }
+    if (t === 'double_failure') {
+      return {
+        cardCls: 'bg-rose-500/15 border-rose-500/40 text-rose-400',
+        icon: <AlertCircle size={13} className="text-rose-400 shrink-0" />,
+        label: 'AUDITED: DOUBLE FAILURE'
+      };
+    }
+    if (t === 'good_loss') {
+      return {
+        cardCls: 'bg-[#1CB0F6]/15 border-[#1CB0F6]/40 text-[#1CB0F6]',
+        icon: <CheckCircle2 size={13} className="text-[#1CB0F6] shrink-0" />,
+        label: 'AUDITED: DISCIPLINED LOSS'
+      };
+    }
+    if (t === 'toxic_be') {
+      return {
+        cardCls: 'bg-[#00F0FF]/15 border-[#00F0FF]/40 text-[#00F0FF]',
+        icon: <AlertTriangle size={13} className="text-[#00F0FF] shrink-0" />,
+        label: 'AUDITED: TOXIC BE'
+      };
+    }
+    if (t === 'breakeven') {
+      return {
+        cardCls: 'bg-[#CE82FF]/15 border-[#CE82FF]/40 text-[#CE82FF]',
+        icon: <CheckCircle2 size={13} className="text-[#CE82FF] shrink-0" />,
+        label: 'AUDITED: DISCIPLINED BE'
+      };
+    }
+    return {
+      cardCls: 'bg-[#58CC02]/15 border-[#58CC02]/40 text-[#58CC02]',
+      icon: <CheckCircle2 size={13} className="text-[#58CC02] shrink-0" />,
+      label: 'AUDITED: DISCIPLINED WIN'
+    };
+  };
 
   const handleVerifyAllTradesAndLockAudit = () => {
-    // Check if Pre-Session steps 1 & 2 are completed
-    const completedSteps = loadStoredData('tradepigeon_completed_steps', []);
-    if (!completedSteps.includes(1) || !completedSteps.includes(2)) {
-      alert('Behavioral Protocol Requirement: Please complete Pre-Session Mindset Check (Step 1) & Playbook Sizing (Step 2) before verifying post-session trades!');
-      return;
-    }
-
     soundFx.playLevelUp();
     const verified = sessionTrades.map(t => ({ ...t, verified: true }));
     setSessionTrades(verified);
-    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, verified);
+    saveSessionTrades(verified, activeAuditDay);
 
     const winCount = verified.filter(t => t.type === 'win').length;
     const goodLossCount = verified.filter(t => t.type === 'good_loss' || t.type === 'breakeven').length;
@@ -461,10 +580,9 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       doubleFailureCount
     });
 
-    if (!completedSteps.includes(4)) {
-      const updatedSteps = [...completedSteps, 4];
-      saveStoredData('tradepigeon_completed_steps', updatedSteps);
-    }
+    const completedSteps = loadStoredData('tradepigeon_completed_steps', []);
+    const updatedSteps = Array.from(new Set([...completedSteps, 1, 2, 3, 4]));
+    saveStoredData('tradepigeon_completed_steps', updatedSteps);
 
     setTradingStatusState('DONE');
     saveStoredData('tradepigeon_trading_status', 'DONE');
@@ -478,19 +596,12 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const setTradingStatus = (newStatus) => {
     soundFx.playPop();
     if (newStatus === 'DONE') {
-      const isAuditCompleted = Array.isArray(tasks) && tasks.find(t => t.id === 4)?.completed;
-      if (!isAuditCompleted) {
+      if (!isDebriefDoneToday) {
         setTradingStatusState('DONE_PENDING');
-        setShowAuditPrompt(true);
         setIsDebriefModalOpen(true);
         return;
       }
-    } else if (newStatus === 'VACATION') {
-      setActiveHubTab('heatmap');
-    } else if (newStatus === 'TRADING') {
-      setActiveHubTab('trades');
     }
-    setShowAuditPrompt(false);
     setTradingStatusState(newStatus);
     saveStoredData('tradepigeon_trading_status', newStatus);
     const isVac = newStatus === 'VACATION';
@@ -504,64 +615,17 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
   const [vacationDurationDays, setVacationDurationDays] = useState(7);
 
-  const [calendarViewMode, setCalendarViewMode] = useState(() => loadStoredData('tradepigeon_calendar_view_mode', 'discipline'));
-
-  useEffect(() => {
-    saveStoredData('tradepigeon_calendar_view_mode', calendarViewMode);
-  }, [calendarViewMode]);
-
-  // Initial Default Months Data (Clean 100% Zero-State)
-  const defaultMonths = [
-    {
-      monthName: 'JULY 2026',
-      startOffset: 2,
-      days: [
-        { date: 1, dayOfWeek: 'W', status: 'upcoming', pnl: '-' }, { date: 2, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
-        { date: 3, dayOfWeek: 'F', status: 'upcoming', pnl: '-' }, { date: 4, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
-        { date: 5, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 6, dayOfWeek: 'M', status: 'upcoming', pnl: '-' },
-        { date: 7, dayOfWeek: 'T', status: 'upcoming', pnl: '-' }, { date: 8, dayOfWeek: 'W', status: 'upcoming', pnl: '-' },
-        { date: 9, dayOfWeek: 'T', status: 'upcoming', pnl: '-' }, { date: 10, dayOfWeek: 'F', status: 'upcoming', pnl: '-' },
-        { date: 11, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 12, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
-        { date: 13, dayOfWeek: 'M', status: 'upcoming', pnl: '-' }, { date: 14, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
-        { date: 15, dayOfWeek: 'W', status: 'upcoming', pnl: '-' }, { date: 16, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
-        { date: 17, dayOfWeek: 'F', status: 'upcoming', pnl: '-' }, { date: 18, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
-        { date: 19, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 20, dayOfWeek: 'M', status: 'upcoming', pnl: '-' },
-        { date: 21, dayOfWeek: 'T', status: 'upcoming', pnl: '-' }, { date: 22, dayOfWeek: 'W', status: 'upcoming', pnl: '-' },
-        { date: 23, dayOfWeek: 'T', status: 'upcoming', pnl: '-' }, { date: 24, dayOfWeek: 'F', status: 'upcoming', pnl: '-' },
-        { date: 25, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 26, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
-        { date: 27, dayOfWeek: 'M', status: 'upcoming', pnl: '-' }, { date: 28, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
-        { date: 29, dayOfWeek: 'W', status: 'upcoming', pnl: '-' }, { date: 30, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
-        { date: 31, dayOfWeek: 'F', status: 'upcoming', pnl: '-' }
-      ]
-    },
-    {
-      monthName: 'AUGUST 2026',
-      startOffset: 5,
-      days: [
-        { date: 1, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 2, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
-        { date: 3, dayOfWeek: 'M', status: 'upcoming', pnl: '-' }, { date: 4, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
-        { date: 5, dayOfWeek: 'W', status: 'upcoming', pnl: '-' }, { date: 6, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
-        { date: 7, dayOfWeek: 'F', status: 'upcoming', pnl: '-' }, { date: 8, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
-        { date: 9, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 10, dayOfWeek: 'M', status: 'today', pnl: '$0.00' },
-        { date: 11, dayOfWeek: 'T', status: 'upcoming', pnl: '-' }, { date: 12, dayOfWeek: 'W', status: 'upcoming', pnl: '-' },
-        { date: 13, dayOfWeek: 'T', status: 'upcoming', pnl: '-' }, { date: 14, dayOfWeek: 'F', status: 'upcoming', pnl: '-' },
-        { date: 15, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 16, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
-        { date: 17, dayOfWeek: 'M', status: 'upcoming', pnl: '-' }, { date: 18, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
-        { date: 19, dayOfWeek: 'W', status: 'upcoming', pnl: '-' }, { date: 20, dayOfWeek: 'T', status: 'upcoming', pnl: '-' },
-        { date: 21, dayOfWeek: 'F', status: 'upcoming', pnl: '-' }, { date: 22, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
-        { date: 23, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 24, dayOfWeek: 'M', status: 'upcoming', pnl: '-' },
-        { date: 25, dayOfWeek: 'T', status: 'upcoming', pnl: '-' }, { date: 26, dayOfWeek: 'W', status: 'upcoming', pnl: '-' },
-        { date: 27, dayOfWeek: 'T', status: 'upcoming', pnl: '-' }, { date: 28, dayOfWeek: 'F', status: 'upcoming', pnl: '-' },
-        { date: 29, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' }, { date: 30, dayOfWeek: 'S', status: 'weekend_rest', pnl: 'MARKET CLOSED' },
-        { date: 31, dayOfWeek: 'M', status: 'upcoming', pnl: '-' }
-      ]
-    },
-    {
-      monthName: 'SEPTEMBER 2026',
-      startOffset: 1,
-      days: Array.from({ length: 30 }, (_, i) => ({ date: i + 1, status: 'upcoming', pnl: '-' }))
-    }
-  ];
+  // Initial Default Months Data (Dynamically computed based on current year & month)
+  const defaultMonths = (() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    return [
+      buildDynamicMonthData(m === 0 ? y - 1 : y, (m + 11) % 12),
+      buildDynamicMonthData(y, m),
+      buildDynamicMonthData(m === 11 ? y + 1 : y, (m + 1) % 12)
+    ];
+  })();
 
   // Month Historical Data State with localStorage (Dynamically audited via native JS Date engine)
   const [monthsData, setMonthsData] = useState(() => {
@@ -578,6 +642,22 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     saveStoredData(STORAGE_KEYS.CALENDAR_DATA, monthsData);
   }, [monthsData]);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (isDrawdownPopoverOpen) setIsDrawdownPopoverOpen(false);
+        if (isRulesModalOpen) setIsRulesModalOpen(false);
+        if (isVacationModalOpen) setIsVacationModalOpen(false);
+        if (isManualModalOpen) setIsManualModalOpen(false);
+        if (isDebriefModalOpen) setIsDebriefModalOpen(false);
+        if (isBrokerModalOpen) setIsBrokerModalOpen(false);
+        if (typeof onCloseMobile === 'function') onCloseMobile();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isDrawdownPopoverOpen, isRulesModalOpen, isVacationModalOpen, isManualModalOpen, isDebriefModalOpen, isBrokerModalOpen, onCloseMobile]);
+
   // Real-Time Synchronization between Session Trades & Calendar Day State
   useEffect(() => {
     if (!Array.isArray(monthsData) || monthsData.length === 0) return;
@@ -585,7 +665,9 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     const targetMonth = monthsData[safeMIndex];
     if (!targetMonth || !Array.isArray(targetMonth.days)) return;
 
-    const dayIdx = targetMonth.days.findIndex(d => d.date === activeAuditDay);
+    const todayDom = new Date().getDate();
+    const targetDateNum = activeAuditDay === currentDay ? todayDom : activeAuditDay;
+    const dayIdx = targetMonth.days.findIndex(d => d.date === targetDateNum);
     if (dayIdx === -1) return;
 
     const currentDayObj = targetMonth.days[dayIdx];
@@ -593,9 +675,23 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
     if (Array.isArray(sessionTrades) && sessionTrades.length > 0) {
       const totalPnl = sumTradesPnl(sessionTrades);
-      const hasViolations = sessionTrades.some(t => t.type === 'toxic_win' || t.type === 'double_failure' || t.type === 'violate_win');
+      const storedMaxLoss = loadStoredData('tradepigeon_max_daily_loss', '$1,000');
+      const lossLimitNum = Math.abs(parseFinancialNumber(storedMaxLoss, 1000));
+      const isLossLimitBreached = totalPnl < -lossLimitNum;
+
+      const hasViolations = isLossLimitBreached || sessionTrades.some(t => {
+        if (t.followedRules === false || t.violated === true || t.violatedRules === true) return true;
+        const rawType = String(t.type || '').toLowerCase();
+        const execType = String(t.executionType || '').toLowerCase();
+        return rawType.includes('toxic') || rawType.includes('violate') || rawType.includes('double_failure') || rawType.includes('double failure') ||
+               execType.includes('toxic') || execType.includes('double failure');
+      });
       const formattedPnl = formatFinancialCurrency(totalPnl, { showPlus: true, decimals: 0 });
-      const derivedStatus = totalPnl > 0 ? (hasViolations ? 'toxic_win' : 'win') : totalPnl < 0 ? (hasViolations ? 'double_failure' : 'good_loss') : 'breakeven';
+      const derivedStatus = totalPnl > 5
+        ? (hasViolations ? 'toxic_win' : 'win')
+        : totalPnl < -5
+        ? (hasViolations ? 'double_failure' : 'good_loss')
+        : (hasViolations ? 'toxic_be' : 'breakeven');
 
       if (currentDayObj.pnl !== formattedPnl || currentDayObj.status !== derivedStatus) {
         const updatedMonths = JSON.parse(JSON.stringify(monthsData));
@@ -604,48 +700,11 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
         setMonthsData(updatedMonths);
       }
     }
-  }, [sessionTrades, activeAuditDay, currentMonthIndex]);
+  }, [sessionTrades, activeAuditDay, currentMonthIndex, currentDay, monthsData]);
 
   const safeMonths = Array.isArray(monthsData) && monthsData.length > 0 ? monthsData : defaultMonths;
   const safeMonthIndex = currentMonthIndex < safeMonths.length ? currentMonthIndex : 1;
   const currentMonthData = safeMonths[safeMonthIndex] || defaultMonths[1];
-  const [dailyNotes, setDailyNotes] = useState(() => loadStoredData('tradepigeon_daily_notes', {}));
-
-  const [isIntegrityModalOpen, setIsIntegrityModalOpen] = useState(false);
-  const [integrityMessage, setIntegrityMessage] = useState('');
-
-  // TOGGLE NO TRADE (DISCIPLINE REST DAY) WITH DATA INTEGRITY SAFEGUARD
-  const handleToggleNoTrade = () => {
-    const baseMonths = Array.isArray(monthsData) && monthsData.length > 0 ? monthsData : defaultMonths;
-    const updatedMonths = JSON.parse(JSON.stringify(baseMonths));
-    const targetMonth = updatedMonths[safeMonthIndex] || updatedMonths[0];
-    if (!targetMonth || !Array.isArray(targetMonth.days)) return;
-    const targetDay = targetMonth.days[selectedDay] || targetMonth.days[0];
-    if (!targetDay) return;
-
-    // DATA INTEGRITY SAFEGUARD:
-    // If a day has active verified broker fills (PnL != $0), prevent marking it as "No Trade"
-    const hasActiveTrades = targetDay.pnl && targetDay.pnl !== '-' && targetDay.pnl !== 'MARKET CLOSED' && targetDay.pnl !== '$0.00 (No Setup)';
-    
-    if (targetDay.status !== 'no_trade' && hasActiveTrades) {
-      soundFx.playPop();
-      setIntegrityMessage(`Day ${targetDay.date} has active executed trade fills (${targetDay.pnl}). You cannot mark a day with executed fills as "No Trade". Delete or archive fills first if logged in error.`);
-      setIsIntegrityModalOpen(true);
-      return;
-    }
-
-    soundFx.playSuccess();
-    if (targetDay.status === 'no_trade') {
-      targetDay.status = targetDay.previousStatus || 'today';
-      targetDay.pnl = targetDay.previousPnl || '+$4,250';
-    } else {
-      targetDay.previousStatus = targetDay.status;
-      targetDay.previousPnl = targetDay.pnl;
-      targetDay.status = 'no_trade';
-      targetDay.pnl = '$0.00 (No Setup)';
-    }
-    setMonthsData(updatedMonths);
-  };
 
   // MULTI-DAY VACATION RANGE SETTER (e.g., Set 3, 7, 14, or 30 Days Vacation at Once!)
   const handleApplyVacationRange = (numDays) => {
@@ -681,7 +740,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     }
     setMonthsData(updatedMonths);
     saveStoredData('tradepigeon_months_data', updatedMonths);
-    setIsVacationActive(true);
     saveStoredData('tradepigeon_vacation_active', true);
     setIsVacationModalOpen(false);
   };
@@ -703,45 +761,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       setMonthsData(updatedMonths);
       saveStoredData('tradepigeon_months_data', updatedMonths);
     }
-  };
-
-  useEffect(() => {
-    saveStoredData(STORAGE_KEYS.QUESTS, tasks);
-  }, [tasks]);
-
-  const toggleTask = (id) => {
-    const current = Array.isArray(tasks) ? tasks : defaultTasks;
-    const updated = current.map(t => {
-      if (t && t.id === id) {
-        const nextState = !t.completed;
-        if (nextState) soundFx.playSuccess();
-        return { ...t, completed: nextState };
-      }
-      return t;
-    });
-    setTasks(updated);
-  };
-
-  const handleAddTask = (e) => {
-    e.preventDefault();
-    if (!newTaskText.trim()) return;
-    const newTask = {
-      id: Date.now(),
-      text: newTaskText.trim(),
-      completed: false,
-      isCustom: true,
-      reward: null
-    };
-    const current = Array.isArray(tasks) ? tasks : defaultTasks;
-    setTasks([...current, newTask]);
-    setNewTaskText('');
-    setIsAddingTask(false);
-  };
-
-  const deleteTask = (e, id) => {
-    e.stopPropagation();
-    const current = Array.isArray(tasks) ? tasks : defaultTasks;
-    setTasks(current.filter(t => t && t.id !== id));
   };
 
   return (
@@ -820,7 +839,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
           </div>
 
           {/* Item 2: Streak Flame */}
-          <div className="flex items-center justify-center gap-1.5 p-2.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] shadow-sm" title={`Discipline Streak: ${userStats.streakDays || 0} Consecutive Days`}>
+          <div className="flex items-center justify-center gap-1.5 p-2.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] shadow-sm" title={`Discipline Streak: ${userStats.streakDays || 0} Consecutive Sessions`}>
             <DuoLightningIcon className="w-5 h-5 shrink-0" />
             <span className="text-xs sm:text-sm font-black text-[#FF6B00]">{userStats.streakDays || 0}</span>
           </div>
@@ -846,9 +865,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
             <span className="text-xs sm:text-sm font-black text-[#58CC02]">{userStats.tradesLogged || 0}</span>
           </div>
         </div>
-
-        {/* ORPHAN PENDING ORDER RADAR */}
-        <PendingOrdersRadar />
 
         {/* 2. REDESIGNED SESSION ACTION CONTROL BAR (CONCEPT A - 100% Responsive & Zero Emojis) */}
         <div className="p-3.5 sm:p-4 rounded-2xl bg-[#142127] border-2 border-[#20323D] space-y-3 shadow-lg text-left">
@@ -883,22 +899,15 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
             <button
               type="button"
               onClick={() => setTradingStatus(tradingStatus === 'DONE' ? 'TRADING' : 'DONE')}
-              className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col items-start gap-1 text-left active:translate-y-0.5 ${
+              className={`py-3 px-2.5 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-center gap-2 text-center active:translate-y-0.5 border-b-4 ${
                 tradingStatus === 'DONE' || tradingStatus === 'DONE_PENDING'
-                  ? 'bg-amber-500/20 border-amber-500 text-amber-300 border-b-4 border-b-amber-700 shadow-md'
-                  : 'bg-[#182830] border-[#20323D] border-b-4 border-b-[#142127] text-white hover:border-[#1CB0F6]'
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-300 border-b-amber-700 shadow-md'
+                  : 'bg-[#182830] border-[#20323D] border-b-[#142127] text-white hover:border-[#1CB0F6]'
               }`}
             >
-              <div className="flex items-center gap-1.5 w-full justify-between">
-                <div className="flex items-center gap-1.5">
-                  <DuoTrophyIcon className="w-4 h-4 shrink-0 text-amber-400" />
-                  <span className="text-xs font-black uppercase tracking-wider">
-                    {tradingStatus === 'DONE' ? 'Resume' : 'Finish Session'}
-                  </span>
-                </div>
-              </div>
-              <span className="text-[9.5px] font-bold text-slate-400 leading-tight">
-                {tradingStatus === 'DONE' ? 'Re-open trading session' : 'Audit PnL & lock streak'}
+              <DuoTrophyIcon className="w-4 h-4 shrink-0 text-amber-400" />
+              <span className="text-xs font-black uppercase tracking-wider truncate">
+                {tradingStatus === 'DONE' ? 'Resume' : 'Finish Session'}
               </span>
             </button>
 
@@ -913,22 +922,15 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                   setIsVacationModalOpen(true);
                 }
               }}
-              className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col items-start gap-1 text-left active:translate-y-0.5 ${
+              className={`py-3 px-2.5 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-center gap-2 text-center active:translate-y-0.5 border-b-4 ${
                 tradingStatus === 'VACATION'
-                  ? 'bg-[#00F0FF]/20 border-[#00F0FF] text-[#00F0FF] border-b-4 border-b-[#00B3BF] shadow-md'
-                  : 'bg-[#182830] border-[#20323D] border-b-4 border-b-[#142127] text-white hover:border-[#00F0FF]'
+                  ? 'bg-[#00F0FF]/20 border-[#00F0FF] text-[#00F0FF] border-b-[#00B3BF] shadow-md'
+                  : 'bg-[#182830] border-[#20323D] border-b-[#142127] text-white hover:border-[#00F0FF]'
               }`}
             >
-              <div className="flex items-center gap-1.5 w-full justify-between">
-                <div className="flex items-center gap-1.5">
-                  <DuoPalmtreeIcon className="w-4 h-4 shrink-0 text-[#00F0FF]" />
-                  <span className="text-xs font-black uppercase tracking-wider">
-                    {tradingStatus === 'VACATION' ? 'Cancel Rest' : 'Take Rest Day'}
-                  </span>
-                </div>
-              </div>
-              <span className="text-[9.5px] font-bold text-slate-400 leading-tight">
-                {tradingStatus === 'VACATION' ? 'Return to active market' : 'Protect streak today'}
+              <DuoPalmtreeIcon className="w-4 h-4 shrink-0 text-[#00F0FF]" />
+              <span className="text-xs font-black uppercase tracking-wider truncate">
+                {tradingStatus === 'VACATION' ? 'Cancel Rest' : 'Take Rest Day'}
               </span>
             </button>
           </div>
@@ -960,15 +962,12 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
             {/* STREAK REPAIR PROMPT FOR MISSED SESSION */}
             <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-between text-xs">
-              <div className="space-y-0.5">
-                <span className="font-bold text-amber-300 text-[10px] block">Unaudited Missed Session (Day {activeAuditDay})</span>
-                <span className="text-[9px] text-slate-400 block">Use 1 Freeze Token to repair streak</span>
-              </div>
+              <span className="font-black text-amber-300 text-[10px]">Missed Session (Day {activeAuditDay})</span>
               <button
                 onClick={handleRepairStreak}
                 className="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] uppercase border border-amber-400 cursor-pointer shadow-sm active:scale-95 transition-all"
               >
-                Repair Streak ({streakFreezes} Available)
+                Repair Streak ({streakFreezes} Tokens)
               </button>
             </div>
 
@@ -979,17 +978,35 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                   No trades recorded for Day {activeAuditDay}.
                 </div>
               ) : (
-                sessionTrades.map((trade) => (
-                  <div key={trade.id} className="p-2 rounded-xl bg-[#142127] border border-[#20323D] flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`text-[9px] font-black px-1 py-0.5 rounded ${trade.side === 'LONG' ? 'bg-[#58CC02]/20 text-[#58CC02]' : 'bg-rose-500/20 text-rose-400'}`}>
-                        {trade.side}
+                sessionTrades.map((trade) => {
+                  const classification = classifyTradeExecution(trade, hubLossLimitNum);
+                  const pnlNum = parseFinancialNumber(trade.pnlNum !== undefined ? trade.pnlNum : trade.pnl, 0);
+                  return (
+                    <div key={trade.id} className="p-2 rounded-xl bg-[#142127] border border-[#20323D] flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`text-[9px] font-black px-1 py-0.5 rounded shrink-0 ${trade.side === 'LONG' ? 'bg-[#58CC02]/20 text-[#58CC02]' : 'bg-rose-500/20 text-rose-400'}`}>
+                          {trade.side}
+                        </span>
+                        <span className="font-black text-white text-[11px] truncate">{trade.symbol}</span>
+                        <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-wider shrink-0 ${classification.badgeBg}`}>
+                          {classification.shortLabel}
+                        </span>
+                      </div>
+                      <span className={`font-black text-[11px] font-mono shrink-0 ${
+                        classification.isToxicWin
+                          ? 'text-amber-400'
+                          : pnlNum > 0.001
+                          ? 'text-[#58CC02]'
+                          : pnlNum < -0.001
+                          ? 'text-rose-400'
+                          : 'text-slate-300'
+                      }`}>
+                        {classification.isToxicWin && <span className="text-[8px] mr-1 px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">TOXIC</span>}
+                        {formatHubTradePnl(trade)}
                       </span>
-                      <span className="font-black text-white text-[11px]">{trade.symbol}</span>
                     </div>
-                    <span className="font-black text-white text-[11px]">{trade.pnl}</span>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -1007,7 +1024,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-[#58CC02]"></span>
                   </span>
                   <span className="text-[9px] font-black uppercase text-[#58CC02] tracking-wider">
-                    LIVE BROKER SYNC ACTIVE ({connectedAccounts.length} {connectedAccounts.length === 1 ? 'BROKER' : 'BROKERS'})
+                    LIVE SYNC ACTIVE ({connectedAccounts.length})
                   </span>
                 </div>
                 <span className="text-[9px] font-mono text-slate-400">
@@ -1059,7 +1076,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                     };
                     const updated = [...sessionTrades, newMissed];
                     setSessionTrades(updated);
-                    saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updated);
+                    persistSessionTrades(updated);
                   }}
                   className="text-[9px] font-black px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-400 cursor-pointer transition-all flex items-center gap-1"
                   title="Log a setup that presented but you hesitated or missed"
@@ -1071,7 +1088,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 <button
                   onClick={() => {
                     soundFx.playPop();
-                    setIsAddTradeModalOpen(true);
+                    setIsManualModalOpen(true);
                   }}
                   className="text-[9px] font-black px-2.5 py-1 rounded-lg bg-[#142127] hover:bg-[#20323D] border border-[#20323D] text-slate-300 hover:text-white cursor-pointer transition-all flex items-center gap-1"
                 >
@@ -1083,11 +1100,19 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                   <button
                     type="button"
                     onClick={() => {
-                      if (window.confirm("Clear all of today's trades?")) {
-                        soundFx.playPop();
-                        setSessionTrades([]);
-                        saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, []);
-                      }
+                      soundFx.playPop();
+                      setConfirmConfig({
+                        isOpen: true,
+                        title: "Clear Today's Trades?",
+                        message: "This will remove all trades logged in today's active session. This cannot be undone.",
+                        confirmText: "Clear All",
+                        variant: 'danger',
+                        onConfirm: () => {
+                          setSessionTrades([]);
+                          persistSessionTrades([]);
+                          setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+                        }
+                      });
                     }}
                     className="text-[9px] font-black px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 cursor-pointer transition-all flex items-center gap-1"
                     title="Clear today's logged trades"
@@ -1209,9 +1234,18 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (window.confirm(`Disconnect account "${acc.name || acc.accountNumber}"? Historical trades will remain in your journal.`)) {
-                              handleDisconnectAccount(acc.id);
-                            }
+                            soundFx.playPop();
+                            setConfirmConfig({
+                              isOpen: true,
+                              title: "Disconnect Account?",
+                              message: `Disconnect account "${acc.name || acc.accountNumber}"? Historical trades will remain safely preserved in your journal.`,
+                              confirmText: "Disconnect",
+                              variant: 'danger',
+                              onConfirm: () => {
+                                handleDisconnectAccount(acc.id);
+                                setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+                              }
+                            });
                           }}
                           className="text-slate-600 hover:text-rose-400 p-0.5 rounded cursor-pointer transition-colors ml-1 opacity-0 group-hover:opacity-100"
                           title="Disconnect Account"
@@ -1224,24 +1258,21 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 </div>
               ) : (
                 /* Empty State: No Accounts Connected */
-                <div className="p-3 rounded-xl bg-[#142127] border border-[#20323D] text-center space-y-2 animate-fade-in">
-                  <div className="text-xs font-black text-white flex items-center justify-center gap-1.5">
+                <div className="p-2.5 rounded-xl bg-[#142127] border border-[#20323D] flex items-center justify-between gap-2 animate-fade-in">
+                  <div className="text-xs font-black text-white flex items-center gap-1.5">
                     <Activity size={13} className="text-[#1CB0F6]" />
-                    <span>No Live Broker Connected</span>
+                    <span>No Broker Connected</span>
                   </div>
-                  <p className="text-[10px] font-bold text-slate-400">
-                    Connect your Tradovate or prop firm account to stream real fills without leaving TradePigeon.
-                  </p>
                   <button
                     type="button"
                     onClick={() => {
                       soundFx.playPop();
                       setIsBrokerModalOpen(true);
                     }}
-                    className="duo-btn-blue px-3 py-1.5 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 mx-auto cursor-pointer shadow-md"
+                    className="duo-btn-blue px-2.5 py-1 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
                   >
                     <Zap size={11} />
-                    <span>Connect Trading Broker</span>
+                    <span>Connect</span>
                   </button>
                 </div>
               )}
@@ -1258,6 +1289,14 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 </span>
               </div>
             )}
+
+            {/* PROP FIRM TRAILING DRAWDOWN & LIQUIDATION BUFFER GAUGE */}
+            <PropFirmDrawdownGauge
+              trailingMetrics={trailingMetrics}
+              trailingMaxDrawdown={trailingMaxDrawdown}
+              onSelectTrailingDrawdown={handleSelectTrailingDrawdown}
+              isStealthMode={isStealthMode}
+            />
 
             {/* UNDO DELETION BANNER */}
             {deletedTradesBackup && (
@@ -1276,6 +1315,9 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 </button>
               </div>
             )}
+
+            {/* Active In-Flight Inventory / Open Positions */}
+            <LivePositionsCard openPositions={filteredOpenPositions} />
 
             {/* Trade Cards List */}
             <div 
@@ -1300,14 +1342,17 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                   .filter(t => matchesAccountFilter(t.account, selectedBasketFilter))
                   .map((trade) => {
                     const isChecked = selectedTradeIds.includes(trade.id);
+                    const classification = classifyTradeExecution(trade, hubLossLimitNum);
+                    const pnlNum = parseFinancialNumber(trade.pnlNum !== undefined ? trade.pnlNum : trade.pnl, 0);
+
                     return (
                       <div key={trade.id} className={`p-2 rounded-xl bg-[#142127] border transition-all space-y-1 shadow-sm ${isChecked ? 'border-[#FFC800] bg-[#FFC800]/10' : 'border-[#20323D]'}`}>
                         <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
                             <button
                               type="button"
                               onClick={() => toggleSelectTrade(trade.id)}
-                              className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all cursor-pointer ${
+                              className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all cursor-pointer shrink-0 ${
                                 isChecked
                                   ? 'bg-[#FFC800] border-amber-600 text-slate-950 shadow-sm'
                                   : 'bg-[#182830] border-[#20323D] hover:border-[#1CB0F6]'
@@ -1317,14 +1362,25 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                               {isChecked && <Check size={9} strokeWidth={4} />}
                             </button>
 
-                            <span className={`text-[9px] font-black px-1 py-0.5 rounded ${trade.side === 'LONG' ? 'bg-[#58CC02]/20 text-[#58CC02]' : trade.side === 'MISSED' ? 'bg-amber-500/20 text-amber-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                            <span className={`text-[9px] font-black px-1 py-0.5 rounded shrink-0 ${trade.side === 'LONG' ? 'bg-[#58CC02]/20 text-[#58CC02]' : trade.side === 'MISSED' ? 'bg-amber-500/20 text-amber-400' : 'bg-rose-500/20 text-rose-400'}`}>
                               {trade.side}
                             </span>
-                            <span className="font-black text-white text-[11px]">{trade.symbol}</span>
-                            <span className="text-[9px] font-bold text-slate-500">{trade.time}</span>
+                            <span className="font-black text-white text-[11px] truncate">{trade.symbol}</span>
+                            <span className="text-[9px] font-bold text-slate-500 shrink-0">{trade.time}</span>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-black text-white text-[11px]">{trade.pnl}</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className={`font-black text-[11px] font-mono ${
+                              classification.isToxicWin
+                                ? 'text-amber-400'
+                                : pnlNum > 0.001
+                                ? 'text-[#58CC02]'
+                                : pnlNum < -0.001
+                                ? 'text-rose-400'
+                                : 'text-slate-300'
+                            }`}>
+                              {classification.isToxicWin && <span className="text-[8px] mr-1 px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">TOXIC</span>}
+                              {formatHubTradePnl(trade)}
+                            </span>
                             <button
                               onClick={() => handleDeleteTrade(trade.id)}
                               className="text-slate-500 hover:text-rose-400 p-0.5 cursor-pointer transition-colors"
@@ -1335,20 +1391,55 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                           </div>
                         </div>
 
-                        {/* Account & Playbook Badges */}
-                        <div className="flex items-center justify-between text-[9px] font-bold text-slate-400 pt-0.5">
-                          <span className="bg-[#182830] px-1.5 py-0.5 rounded border border-[#20323D] text-[#00F0FF] font-black">
-                            {trade.account || primaryAccountName}
-                          </span>
+                        {/* Account, Playbook & Archetype Badges */}
+                        <div className="flex items-center justify-between text-[9px] font-bold text-slate-400 pt-0.5 gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0 truncate">
+                            <span className="bg-[#182830] px-1.5 py-0.5 rounded border border-[#20323D] text-[#00F0FF] font-black shrink-0">
+                              {trade.account || primaryAccountName}
+                            </span>
+                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-wider shrink-0 ${classification.badgeBg}`}>
+                              {classification.shortLabel}
+                            </span>
+                          </div>
                           <button
                             type="button"
                             onClick={() => handleCycleTradePlaybook(trade.id, trade.playbook)}
-                            className="bg-[#182830] hover:bg-[#20323D] text-[#1CB0F6] border border-[#20323D] hover:border-[#1CB0F6] px-2 py-0.5 rounded text-[9px] font-black cursor-pointer transition-all flex items-center gap-1"
+                            className="bg-[#182830] hover:bg-[#20323D] text-[#1CB0F6] border border-[#20323D] hover:border-[#1CB0F6] px-2 py-0.5 rounded text-[9px] font-black cursor-pointer transition-all flex items-center gap-1 shrink-0 truncate max-w-[130px]"
                             title="Click to cycle strategy playbook (Zero popups)"
                           >
-                            <span>{trade.playbook || 'Breakout & Retest'}</span>
+                            <span className="truncate">{trade.playbook || 'Breakout & Retest'}</span>
                           </button>
                         </div>
+
+                        {/* Trade Management Behavioral Tags */}
+                        {Array.isArray(trade.managementTags) && trade.managementTags.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                            {trade.managementTags.map(tagId => {
+                              const isToxic = tagId === 'widened_stop' || tagId === 'averaged_down' || tagId === 'chased_entry';
+                              const label = tagId === 'scaled_out' ? 'Partials' :
+                                            tagId === 'trailed_be' ? 'Trailed BE' :
+                                            tagId === 'trailed_structure' ? 'Trailed Structure' :
+                                            tagId === 'held_runner' ? 'Runner' :
+                                            tagId === 'respected_stop' ? 'Respected SL' :
+                                            tagId === 'widened_stop' ? '⚠️ Widened SL' :
+                                            tagId === 'averaged_down' ? '⚠️ Averaged Down' :
+                                            tagId === 'early_exit' ? 'Early Exit' :
+                                            tagId === 'chased_entry' ? '⚠️ Chased' : tagId;
+                              return (
+                                <span
+                                  key={tagId}
+                                  className={`text-[8px] font-black uppercase px-1.5 py-0.2 rounded tracking-wider ${
+                                    isToxic
+                                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                                      : 'bg-[#58CC02]/15 text-[#58CC02] border border-[#58CC02]/30'
+                                  }`}
+                                >
+                                  {label}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
 
                         {/* Trade Confirmation & Classification Section */}
                         {(trade.side === 'MISSED' || trade.type === 'missed_trade') ? (
@@ -1414,29 +1505,25 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                           </div>
                         ) : trade.confirmed ? (
                           /* CONFIRMED / AUDITED DONE STATE */
-                          <div className="p-2 rounded-xl bg-[#58CC02]/15 border border-[#58CC02]/40 flex items-center justify-between text-xs animate-fade-in mt-1 shadow-sm">
-                            <div className="flex items-center gap-1.5 text-[#58CC02] font-black text-[10px]">
-                              <CheckCircle2 size={13} className="text-[#58CC02] shrink-0" />
-                              <span>AUDITED: {
-                                [
-                                  { id: 'win', label: 'Disciplined Win' },
-                                  { id: 'good_loss', label: 'Disciplined Loss' },
-                                  { id: 'breakeven', label: 'Disciplined BE' },
-                                  { id: 'toxic_win', label: 'Toxic Win' },
-                                  { id: 'toxic_be', label: 'Toxic BE' },
-                                  { id: 'double_failure', label: 'Double Failure' },
-                                ].find(o => o.id === trade.type)?.label.toUpperCase() || 'DISCIPLINED LOSS'
-                              }</span>
-                              <span className="text-[9px] font-black text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">+50 DP</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleUnconfirmTrade(trade.id)}
-                              className="text-[9px] font-bold text-slate-400 hover:text-white underline cursor-pointer transition-colors"
-                            >
-                              Edit
-                            </button>
-                          </div>
+                          (() => {
+                            const info = getAuditedPillInfo(trade.type);
+                            return (
+                              <div className={`p-2 rounded-xl border flex items-center justify-between text-xs animate-fade-in mt-1 shadow-sm ${info.cardCls}`}>
+                                <div className="flex items-center gap-1.5 font-black text-[10px]">
+                                  {info.icon}
+                                  <span>{info.label}</span>
+                                  <span className="text-[9px] font-black text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">+50 DP</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUnconfirmTrade(trade.id)}
+                                  className="text-[9px] font-bold text-slate-400 hover:text-white underline cursor-pointer transition-colors"
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                            );
+                          })()
                         ) : (
                           /* UNCONFIRMED / SELECTION STATE - 6 EXECUTED TYPES ONLY */
                           <div className="space-y-1.5 pt-1">
@@ -1506,7 +1593,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
               <div className="flex items-center justify-between text-slate-300 font-bold">
                 <span>Session Journal Status:</span>
                 <span className="text-amber-300 font-black">
-                  {tasks.find(t => t.id === 4)?.completed ? 'Completed' : 'Debrief Pending'}
+                  {isDebriefDoneToday ? 'Completed' : 'Debrief Pending'}
                 </span>
               </div>
             </div>
@@ -1519,7 +1606,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
               className="duo-btn-green w-full py-2.5 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg cursor-pointer"
             >
               <CheckCircle2 size={16} />
-              <span>{tasks.find(t => t.id === 4)?.completed ? 'Edit Journal Debrief' : 'Log 60-Sec Debrief Journal'}</span>
+              <span>{isDebriefDoneToday ? 'Edit Journal Debrief' : 'Log 60-Sec Debrief Journal'}</span>
             </button>
 
             <button
@@ -1589,6 +1676,19 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
               <h3 className="text-xs font-black text-white uppercase tracking-wider">
                 Discipline Heatmap
               </h3>
+              {onOpenCalendarTab && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundFx.playPop();
+                    onOpenCalendarTab();
+                  }}
+                  className="text-[9px] font-black uppercase text-[#1CB0F6] hover:text-white px-1.5 py-0.5 rounded-lg bg-[#142127] border border-[#20323D] hover:border-[#1CB0F6] transition-all cursor-pointer"
+                  title="Open Full Performance Calendar"
+                >
+                  Full →
+                </button>
+              )}
             </div>
 
             {/* Month Switcher Controls */}
@@ -1679,41 +1779,20 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
 
 
-      {/* CUSTOM 3D DATA INTEGRITY SAFEGUARD MODAL */}
-      {isIntegrityModalOpen && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 bg-[#070C1E]/95 backdrop-blur-xl flex items-center justify-center p-4 z-[9999] animate-fade-in">
-          <div className="duo-card max-w-md w-full p-6 sm:p-8 space-y-5 border-2 border-[#FF6B00] relative shadow-2xl">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border-2 border-amber-500/40">
-                <ShieldAlert size={24} />
-              </div>
-              <div>
-                <span className="text-[10px] font-black uppercase text-[#FF6B00] tracking-wider">DATA INTEGRITY SAFEGUARD</span>
-                <h3 className="text-lg font-black text-white">Action Blocked</h3>
-              </div>
-            </div>
 
-            <p className="text-xs font-bold text-slate-300 leading-relaxed bg-[#142127] p-4 rounded-2xl border-2 border-[#20323D]">
-              {integrityMessage}
-            </p>
-
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => setIsIntegrityModalOpen(false)}
-                className="flex-1 py-3.5 rounded-2xl bg-[#20323D] hover:bg-[#2B3D47] text-white text-xs font-black uppercase tracking-wider cursor-pointer border-2 border-[#2B3840]"
-              >
-                Understand & Dismiss
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
 
       {/* 5-RULE INSTITUTIONAL PROTOCOL MODAL */}
       {isRulesModalOpen && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 bg-[#070C1E]/95 backdrop-blur-xl flex items-center justify-center p-4 z-[9999] animate-fade-in text-left">
-          <div className="duo-card max-w-lg w-full p-6 sm:p-8 space-y-6 border-2 border-[#58CC02] relative shadow-2xl">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsRulesModalOpen(false);
+          }}
+          className="fixed inset-0 bg-[#070C1E]/95 backdrop-blur-xl flex items-center justify-center p-4 z-[9999] animate-fade-in text-left"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="duo-card max-w-lg w-full p-6 sm:p-8 space-y-6 border-2 border-[#58CC02] relative shadow-2xl"
+          >
             <button
               onClick={() => setIsRulesModalOpen(false)}
               className="absolute top-5 right-5 p-2 rounded-xl bg-[#142127] hover:bg-[#20323D] text-slate-400 hover:text-white cursor-pointer"
@@ -1768,10 +1847,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <AlertCircle size={14} className="text-amber-400 shrink-0" />
-                    <div>
-                      <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider block">Missed Setups (Hesitation)</span>
-                      <span className="text-[9px] text-slate-400 font-medium">Valid setups watched without entering</span>
-                    </div>
+                    <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider">Missed Setups (Hesitation)</span>
                   </div>
                   <span className="text-xs font-black text-amber-300 font-mono bg-amber-500/20 px-2.5 py-1 rounded-lg border border-amber-500/30">
                     {sessionTrades.filter(t => t.type === 'missed_trade' || t.side === 'MISSED').length} Missed ($0.00)
@@ -1819,7 +1895,9 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
           onClose={() => setIsDebriefModalOpen(false)}
           onFinish={() => {
             setIsDebriefModalOpen(false);
-            toggleTask(4);
+            const updatedSteps = Array.from(new Set([...completedSteps, 4]));
+            setCompletedSteps(updatedSteps);
+            saveStoredData('tradepigeon_completed_steps', updatedSteps);
             setTradingStatusState('DONE');
             saveStoredData('tradepigeon_trading_status', 'DONE');
             saveStoredData('tradepigeon_vacation_active', false);
@@ -1828,126 +1906,29 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
         />
       )}
 
-      {/* 3D ADD MANUAL TRADE MODAL */}
-      {isAddTradeModalOpen && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 bg-[#070C1E]/95 backdrop-blur-xl flex items-center justify-center p-4 z-[9999] animate-fade-in">
-          <div className="duo-card max-w-sm w-full p-5 sm:p-6 space-y-4 border-2 border-[#1CB0F6] relative shadow-2xl text-left">
-            <button
-              onClick={() => setIsAddTradeModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
-            >
-              <X size={18} />
-            </button>
-
-            <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-[#1CB0F6] tracking-wider">MANUAL ENTRY</span>
-              <h3 className="text-lg font-black text-white">Add Session Trade</h3>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase block mb-1">Asset / Symbol</label>
-                <input
-                  type="text"
-                  value={newTradeSymbol}
-                  onChange={(e) => setNewTradeSymbol(e.target.value)}
-                  className="w-full bg-[#142127] border-2 border-[#20323D] rounded-xl px-3 py-2 text-xs font-black text-white focus:outline-none focus:border-[#1CB0F6]"
-                  placeholder="e.g. NQ1!, ES1!, AAPL"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase block mb-1">Target Account</label>
-                <select
-                  value={newTradeAccount}
-                  onChange={(e) => setNewTradeAccount(e.target.value)}
-                  className="w-full bg-[#142127] border-2 border-[#20323D] rounded-xl px-3 py-2 text-xs font-black text-white focus:outline-none focus:border-[#1CB0F6]"
-                >
-                  {connectedAccounts.length > 0 ? (
-                    connectedAccounts.map(acc => (
-                      <option key={acc.id || acc.accountNumber} value={acc.name || acc.id}>
-                        {acc.name || acc.accountNumber} ({acc.broker ? acc.broker.split(' ')[0] : 'Live'})
-                      </option>
-                    ))
-                  ) : (
-                    <option value="Primary Account">Primary Account</option>
-                  )}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase block mb-1">Direction</label>
-                  <select
-                    value={newTradeSide}
-                    onChange={(e) => setNewTradeSide(e.target.value)}
-                    className="w-full bg-[#142127] border-2 border-[#20323D] rounded-xl px-3 py-2 text-xs font-black text-white focus:outline-none focus:border-[#1CB0F6]"
-                  >
-                    <option value="LONG">LONG</option>
-                    <option value="SHORT">SHORT</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase block mb-1">Net PnL ($)</label>
-                  <input
-                    type="text"
-                    value={newTradePnl}
-                    onChange={(e) => setNewTradePnl(e.target.value)}
-                    className="w-full bg-[#142127] border-2 border-[#20323D] rounded-xl px-3 py-2 text-xs font-black text-white focus:outline-none focus:border-[#1CB0F6]"
-                    placeholder="+$500.00"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase block mb-1">Classification</label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {[
-                    { id: 'win', label: 'Disciplined Win' },
-                    { id: 'good_loss', label: 'Disciplined Loss' },
-                    { id: 'breakeven', label: 'Disciplined BE' },
-                    { id: 'toxic_win', label: 'Toxic Win' },
-                    { id: 'toxic_be', label: 'Toxic BE' },
-                    { id: 'double_failure', label: 'Double Failure' },
-                  ].map((opt) => (
-                    <button
-                      key={opt.id}
-                      onClick={() => setNewTradeType(opt.id)}
-                      className={`p-2 rounded-xl text-[10px] font-black cursor-pointer border-2 text-left ${
-                        newTradeType === opt.id
-                          ? 'bg-[#1CB0F6] text-white border-[#147BB0]'
-                          : 'bg-[#142127] border-[#20323D] text-slate-300'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={handleAddManualTrade}
-              className="duo-btn-blue w-full py-3 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg cursor-pointer"
-            >
-              <Plus size={16} />
-              <span>Log Trade to Session Audit</span>
-            </button>
-          </div>
-        </div>,
-        document.body
-      )}
-
       {/* MANUAL TRADE ENTRY MODAL OVERLAY */}
       <ManualTradeModal 
         isOpen={isManualModalOpen} 
         onClose={() => setIsManualModalOpen(false)} 
+        onTradeAdded={(newTrade) => {
+          const updated = [...sessionTrades, newTrade];
+          setSessionTrades(updated);
+          triggerHubToast(`Logged ${newTrade.symbol} execution to audit!`);
+        }}
       />
 
       {/* DUOLINGO 3D VACATION / REST DURATION PICKER MODAL */}
       {isVacationModalOpen && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 bg-[#070C1E]/95 backdrop-blur-xl flex items-center justify-center p-4 z-[9999] animate-fade-in">
-          <div className="duo-card max-w-sm w-full p-5 sm:p-6 space-y-5 border-2 border-[#00F0FF] relative shadow-2xl text-left">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsVacationModalOpen(false);
+          }}
+          className="fixed inset-0 bg-[#070C1E]/95 backdrop-blur-xl flex items-center justify-center p-4 z-[9999] animate-fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="duo-card max-w-sm w-full p-5 sm:p-6 space-y-5 border-2 border-[#00F0FF] relative shadow-2xl text-left"
+          >
             <button
               type="button"
               onClick={() => setIsVacationModalOpen(false)}
@@ -2019,7 +2000,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
         <BrokerConnectModal
           isOpen={isBrokerModalOpen}
           onClose={() => setIsBrokerModalOpen(false)}
-          onAccountAdded={({ account, accounts }) => {
+          onAccountAdded={({ account }) => {
             const allAccs = loadStoredData('tradepigeon_accounts_data', []);
             setConnectedAccounts(allAccs);
             if (account?.name) {
@@ -2028,6 +2009,25 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
           }}
         />
       )}
+
+      {/* Hub Inline Toast Notification */}
+      {hubToast && (
+        <div className="fixed bottom-6 right-6 z-[9999] bg-[#14203E] border-2 border-[#00F0FF] text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-fade-in pointer-events-none max-w-sm">
+          <div className="w-2 h-2 rounded-full bg-[#00F0FF] animate-ping flex-shrink-0" />
+          <span className="text-xs font-bold leading-tight">{hubToast}</span>
+        </div>
+      )}
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmText={confirmConfig.confirmText}
+        cancelText="Cancel"
+        variant={confirmConfig.variant || 'danger'}
+        onConfirm={confirmConfig.onConfirm}
+        onCancel={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+      />
     </aside>
   </>
   );

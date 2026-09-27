@@ -5,10 +5,11 @@ import {
   Pencil, Crown, Activity, Layers, HelpCircle, X, FileText
 } from 'lucide-react';
 import { DuoShieldIcon, DuoLightningIcon, DuoTrophyIcon, DuoStarIcon } from './DuoIcons';
-import { TradovateLogo, NinjaTraderLogo, TradeLockerLogo, MetaTrader5Logo, CsvLogo } from './BrokerLogos';
+import { TradovateLogo, NinjaTraderLogo, MetaTrader5Logo, CsvLogo } from './BrokerLogos';
 import BrokerConnectModal from './BrokerConnectModal';
 import StatementImportModal from './StatementImportModal';
-import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS } from '../utils/storage';
+import ConfirmModal from './ConfirmModal';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 import { parseFinancialNumber, formatFinancialCurrency, formatBalance as formatBalanceMath, formatRMultiple } from '../utils/financialMath';
 
@@ -23,6 +24,13 @@ export default function ConnectionsTab() {
   const [editingAccountId, setEditingAccountId] = useState(null);
   const [editingNickname, setEditingNickname] = useState('');
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    onConfirm: () => {}
+  });
 
   // Subscribe to reactive storage updates from anywhere in app
   useEffect(() => {
@@ -72,12 +80,15 @@ export default function ConnectionsTab() {
 
   // Initialize all connections as expanded by default for instant visibility
   useEffect(() => {
-    if (connectionList.length > 0 && Object.keys(expandedConnections).length === 0) {
-      const initial = {};
-      connectionList.forEach(c => { initial[c.id] = true; });
-      setExpandedConnections(initial);
+    if (connectionList.length > 0) {
+      setExpandedConnections(prev => {
+        if (Object.keys(prev).length > 0) return prev;
+        const initial = {};
+        connectionList.forEach(c => { initial[c.id] = true; });
+        return initial;
+      });
     }
-  }, [connectionList.length]);
+  }, [connectionList]);
 
   const toggleConnectionExpand = (connId) => {
     soundFx.playPop();
@@ -110,7 +121,7 @@ export default function ConnectionsTab() {
     });
     setAccounts(updated);
     saveStoredData('tradepigeon_accounts_data', updated);
-    setToastMsg('Master Lead account updated! Trades will copy from this anchor.');
+    setToastMsg('Primary Anchor account updated! Baseline analytics will reference this account.');
     setTimeout(() => setToastMsg(''), 3000);
   };
 
@@ -149,41 +160,123 @@ export default function ConnectionsTab() {
 
   // Disconnect entire broker connection
   const handleDisconnectConnection = (connId, platformName) => {
-    if (window.confirm(`Disconnect all accounts under connection "${connId}" (${platformName})? Historical trade debriefs will be preserved.`)) {
-      soundFx.playPop();
-      const remaining = accounts.filter(a => {
-        const thisConnId = a.connectionId || `TDV-${(a.accountNumber || a.id || '1789392210861').replace(/[^0-9]/g, '').slice(-13) || '1789392210861'}`;
-        return thisConnId !== connId;
-      });
-      setAccounts(remaining);
-      saveStoredData('tradepigeon_accounts_data', remaining);
-      setToastMsg(`Disconnected ${platformName} successfully.`);
-      setTimeout(() => setToastMsg(''), 3000);
-    }
+    soundFx.playPop();
+    setConfirmConfig({
+      isOpen: true,
+      title: `Disconnect ${platformName}?`,
+      message: `Disconnect all accounts under connection "${connId}"? Historical trade debriefs will remain safely preserved in your journal.`,
+      confirmText: 'Disconnect',
+      onConfirm: () => {
+        const remaining = accounts.filter(a => {
+          const thisConnId = a.connectionId || `TDV-${(a.accountNumber || a.id || '1789392210861').replace(/[^0-9]/g, '').slice(-13) || '1789392210861'}`;
+          return thisConnId !== connId;
+        });
+        setAccounts(remaining);
+        saveStoredData('tradepigeon_accounts_data', remaining);
+        setToastMsg(`Disconnected ${platformName} successfully.`);
+        setTimeout(() => setToastMsg(''), 3000);
+        setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+      }
+    });
   };
 
   // Remove individual sub-account
   const handleRemoveSubAccount = (accId, accName) => {
     soundFx.playPop();
-    if (window.confirm(`Remove sub-account "${accName || accId}" from TradePigeon? Historical trade debriefs will be preserved.`)) {
-      const updated = accounts.filter(a => a.id !== accId && a.accountNumber !== accId);
-      setAccounts(updated);
-      saveStoredData('tradepigeon_accounts_data', updated);
-      setToastMsg(`Removed ${accName || accId} successfully.`);
-      setTimeout(() => setToastMsg(''), 3000);
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Remove Sub-Account?',
+      message: `Remove account "${accName || accId}" from TradePigeon? Historical trades will remain safely preserved in your journal.`,
+      confirmText: 'Remove',
+      onConfirm: () => {
+        const updated = accounts.filter(a => a.id !== accId && a.accountNumber !== accId);
+        setAccounts(updated);
+        saveStoredData('tradepigeon_accounts_data', updated);
+        setToastMsg(`Removed ${accName || accId} successfully.`);
+        setTimeout(() => setToastMsg(''), 3000);
+        setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+      }
+    });
   };
 
   // Sync fills
-  const handleSyncAllFills = () => {
+  const handleSyncAllFills = async () => {
     setIsSyncing(true);
     soundFx.playPop();
-    setTimeout(() => {
-      setIsSyncing(false);
+
+    let fetchedCount = 0;
+    let hasTokenExpired = false;
+    try {
+      const activeTradovateAcc = accounts.find(a => a.platformId === 'tradovate' && a.accessToken);
+      if (activeTradovateAcc?.accessToken) {
+        const envParam = activeTradovateAcc.environment ? `&env=${activeTradovateAcc.environment}` : '';
+        const res = await fetch(`/api/tradovate?action=fills${envParam}`, {
+          headers: { 'Authorization': `Bearer ${activeTradovateAcc.accessToken}` }
+        });
+        if (res.status === 401) {
+          hasTokenExpired = true;
+          activeTradovateAcc.tokenExpired = true;
+          activeTradovateAcc.status = 'EXPIRED';
+        } else if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.fills) && data.fills.length > 0) {
+            const currentDay = loadStoredData('tradepigeon_current_day', 1);
+            const sessionKey = `tradepigeon_session_trades_day_${currentDay}`;
+            const existingTrades = loadStoredData(sessionKey, []);
+            const existingHistory = loadStoredData('tradepigeon_tradelogs', []);
+            const todayIso = new Date().toISOString().slice(0, 10);
+            const sessionIsoKey = `tradepigeon_session_trades_day_${todayIso}`;
+            const existingIsoTrades = loadStoredData(sessionIsoKey, []);
+
+            const isDuplicate = (list, fill) => list.some(t => 
+              (fill.id && t.id === fill.id) ||
+              (t.time === fill.time && t.pnl === fill.pnl && t.symbol === fill.symbol && (fill.account && t.account ? t.account === fill.account : true))
+            );
+
+            const newFills = data.fills.filter(f => !isDuplicate(existingTrades, f));
+            fetchedCount = newFills.length;
+
+            if (fetchedCount > 0) {
+              saveStoredData(sessionKey, [...newFills, ...existingTrades]);
+              saveStoredData(sessionIsoKey, [...newFills, ...existingIsoTrades]);
+              saveStoredData('tradepigeon_tradelogs', [...newFills, ...existingHistory]);
+
+              const currentStats = loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS);
+              const updatedStats = {
+                ...currentStats,
+                tradesLogged: (currentStats.tradesLogged || 0) + fetchedCount
+              };
+              saveStoredData('tradepigeon_user_stats', updatedStats);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Sync Notice]: API sync handled with local cache:', err);
+    }
+
+    // Refresh last sync timestamp and status on connected accounts
+    const nowTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const refreshed = accounts.map(a => {
+      if (a.tokenExpired || (hasTokenExpired && a.platformId === 'tradovate')) {
+        return { ...a, status: 'EXPIRED', lastSync: 'Auth Required', tokenExpired: true };
+      }
+      return { ...a, lastSync: `${nowTimeStr} NY` };
+    });
+    setAccounts(refreshed);
+    saveStoredData('tradepigeon_accounts_data', refreshed);
+
+    setIsSyncing(false);
+    if (hasTokenExpired) {
+      soundFx.playMistake?.();
+      setToastMsg('Broker token expired. Please reconnect your account.');
+    } else {
       soundFx.playSuccess();
-      setToastMsg('All connected broker accounts synced with latest market fills!');
-      setTimeout(() => setToastMsg(''), 3000);
-    }, 700);
+      setToastMsg(fetchedCount > 0 
+        ? `Synced ${fetchedCount} execution fill${fetchedCount === 1 ? '' : 's'} from your broker!` 
+        : 'All connected accounts synced with latest market fills!');
+    }
+    setTimeout(() => setToastMsg(''), 3500);
   };
 
   // Total active accounts & combined stats
@@ -194,10 +287,9 @@ export default function ConnectionsTab() {
   }, 0);
 
   const getPlatformLogo = (platformId = '') => {
-    const lower = platformId.toLowerCase();
+    const lower = String(platformId || '').toLowerCase();
     if (lower.includes('tradovate')) return <TradovateLogo className="w-5 h-5 shrink-0" />;
     if (lower.includes('ninja')) return <NinjaTraderLogo className="w-5 h-5 shrink-0" />;
-    if (lower.includes('locker')) return <TradeLockerLogo className="w-5 h-5 shrink-0" />;
     if (lower.includes('meta')) return <MetaTrader5Logo className="w-5 h-5 shrink-0" />;
     return <TradovateLogo className="w-5 h-5 shrink-0" />;
   };
@@ -426,7 +518,12 @@ export default function ConnectionsTab() {
                   <div className="flex items-center gap-3.5 min-w-0">
                     <button
                       type="button"
-                      className="w-8 h-8 rounded-xl bg-[#182830] border border-[#20323D] flex items-center justify-center text-slate-300 shrink-0 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleConnectionExpand(conn.id);
+                      }}
+                      aria-label={isExpanded ? 'Collapse connection details' : 'Expand connection details'}
+                      className="w-8 h-8 rounded-xl bg-[#182830] border border-[#20323D] flex items-center justify-center text-slate-300 shrink-0 cursor-pointer hover:text-white hover:border-[#1CB0F6] transition-all"
                     >
                       {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </button>
@@ -447,10 +544,17 @@ export default function ConnectionsTab() {
                         <div className="text-[11px] font-bold text-slate-400 mt-0.5 flex items-center gap-2">
                           <span>{activeInConn} / {conn.accounts.length} Accounts Active</span>
                           <span>&bull;</span>
-                          <span className="text-[#58CC02] flex items-center gap-1 font-black">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#58CC02] animate-pulse"></span>
-                            <span>Connected</span>
-                          </span>
+                          {conn.accounts.some(a => a.tokenExpired || a.status === 'EXPIRED') ? (
+                            <span className="text-amber-400 flex items-center gap-1 font-black">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                              <span>Token Expired</span>
+                            </span>
+                          ) : (
+                            <span className="text-[#58CC02] flex items-center gap-1 font-black">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#58CC02] animate-pulse"></span>
+                              <span>Connected</span>
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -458,6 +562,20 @@ export default function ConnectionsTab() {
 
                   {/* Actions for this connection */}
                   <div className="flex items-center gap-2.5 self-end md:self-auto" onClick={(e) => e.stopPropagation()}>
+                    {conn.accounts.some(a => a.tokenExpired || a.status === 'EXPIRED') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          soundFx.playPop();
+                          setIsBrokerModalOpen(true);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-xs font-black text-amber-400 hover:text-amber-300 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                      >
+                        <RefreshCw size={12} />
+                        <span>Reconnect</span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={handleSyncAllFills}
@@ -484,7 +602,7 @@ export default function ConnectionsTab() {
                     <table className="w-full text-left text-xs">
                       <thead>
                         <tr className="border-b border-[#20323D] text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                          <th className="py-3 px-4 w-16 text-center">Follow</th>
+                          <th className="py-3 px-4 w-16 text-center" title="Primary Sync Anchor">Sync</th>
                           <th className="py-3 px-4">Account</th>
                           <th className="py-3 px-4 hidden md:table-cell">Connection</th>
                           <th className="py-3 px-4">Symbol</th>
@@ -512,8 +630,13 @@ export default function ConnectionsTab() {
                                   {isLead ? (
                                     <button
                                       type="button"
-                                      title="Master Anchor Account"
-                                      className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center cursor-default shadow-sm"
+                                      onClick={() => {
+                                        soundFx.playPop();
+                                        setToastMsg(`"${acc.name || acc.accountNumber}" is already your Primary Anchor.`);
+                                        setTimeout(() => setToastMsg(''), 2500);
+                                      }}
+                                      title="Active Primary Anchor Account for Analytics & Dashboard (Click for status)"
+                                      className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center cursor-pointer shadow-sm hover:scale-105 active:scale-95 transition-transform"
                                     >
                                       <Crown size={14} className="fill-amber-400" />
                                     </button>
@@ -521,14 +644,14 @@ export default function ConnectionsTab() {
                                     <button
                                       type="button"
                                       onClick={() => handleSetLeadAccount(acc.id || acc.accountNumber)}
-                                      title="Click to set as Master Anchor Account"
+                                      title="Click to set as Primary Anchor Account for Analytics"
                                       className="w-7 h-7 rounded-lg bg-[#182830] hover:bg-amber-500/20 border border-[#20323D] hover:border-amber-500/40 text-slate-500 hover:text-amber-400 flex items-center justify-center transition-all cursor-pointer"
                                     >
                                       <Crown size={13} />
                                     </button>
                                   )}
 
-                                  {/* Follow Toggle Switch */}
+                                  {/* Telemetry Tracking Toggle Switch */}
                                   <button
                                     type="button"
                                     onClick={() => handleToggleAccountActive(acc.id || acc.accountNumber)}
@@ -616,11 +739,13 @@ export default function ConnectionsTab() {
                               {/* Status Badge */}
                               <td className="py-3.5 px-4 text-center">
                                 <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full font-mono ${
-                                  isActive
+                                  acc.tokenExpired || acc.status === 'EXPIRED'
+                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                                    : isActive
                                     ? 'bg-[#58CC02]/15 text-[#58CC02] border border-[#58CC02]/30'
                                     : 'bg-slate-800 text-slate-500 border border-slate-700'
                                 }`}>
-                                  {isActive ? 'LIVE' : 'PAUSED'}
+                                  {acc.tokenExpired || acc.status === 'EXPIRED' ? 'EXPIRED' : isActive ? 'LIVE' : 'PAUSED'}
                                 </span>
                               </td>
 
@@ -678,9 +803,24 @@ export default function ConnectionsTab() {
         onClose={() => setIsImportModalOpen(false)}
         onSuccess={(count, accName) => {
           soundFx.playLevelUp();
-          setToastMsg(`Successfully imported ${count} trade fills for ${accName}!`);
+          if (count === 0) {
+            setToastMsg(`All statement trades were already recorded for ${accName} (0 new duplicates added).`);
+          } else {
+            setToastMsg(`Successfully imported ${count} new trade fill${count === 1 ? '' : 's'} for ${accName}!`);
+          }
           setTimeout(() => setToastMsg(''), 4000);
         }}
+      />
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmText={confirmConfig.confirmText}
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={confirmConfig.onConfirm}
+        onCancel={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
       />
     </main>
   );

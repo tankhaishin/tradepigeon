@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Mail, Lock, User, ArrowRight, ShieldCheck, AlertCircle, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { soundFx } from '../utils/audioEngine';
@@ -11,6 +11,15 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && typeof onClose === 'function') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -77,7 +86,12 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget && typeof onClose === 'function') onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+    >
       <div 
         className="w-full max-w-md bg-[#0D1635] border-2 border-[#1C2A4E] border-b-8 border-b-[#141F3C] rounded-3xl p-6 sm:p-8 space-y-6 text-white shadow-2xl relative"
         onClick={(e) => e.stopPropagation()}
@@ -93,25 +107,22 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
           <X size={18} />
         </button>
 
-        {/* Mascot & Header */}
+        {/* Brand Header */}
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#070C1E] border-2 border-[#FF6B00] border-b-4 border-b-[#C2410C] flex items-center justify-center shadow-lg shrink-0">
-            <img src="/parrot_logo.png" alt="TradePigeon" className="w-8 h-8 object-cover rounded-xl" />
+          <div className="w-12 h-12 rounded-2xl bg-[#070C1E] border-2 border-[#FF6B00] border-b-4 border-b-[#C2410C] flex items-center justify-center shadow-lg shrink-0 p-1.5">
+            <img src="/parrot_logo.png" alt="TradePigeon" className="w-8 h-8 object-contain rounded-xl" onError={(e) => { e.currentTarget.src = '/favicon.svg'; }} />
           </div>
           <div>
             <h3 className="text-xl font-black text-white tracking-tight">
-              {mode === 'signup' ? 'Create Cloud Account' : 'Welcome Back'}
+              {mode === 'signup' ? 'Create Account' : 'Welcome Back'}
             </h3>
-            <p className="text-xs font-bold text-slate-400">
-              Sync your trading journal seamlessly across desktop & mobile
-            </p>
           </div>
         </div>
 
         {/* Cloud Badge */}
         <div className="flex items-center gap-2 p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-300 text-[11px] font-bold">
           <ShieldCheck size={16} className="shrink-0 text-sky-400" />
-          <span>{isLiveCloud ? 'Live Cloud Sync Active • 256-bit Encrypted' : 'Encrypted Cloud Journal Sync'}</span>
+          <span>{isLiveCloud ? 'Cloud Sync Active' : 'Cloud Journal Sync'}</span>
         </div>
 
         {/* Google 1-Click Button */}

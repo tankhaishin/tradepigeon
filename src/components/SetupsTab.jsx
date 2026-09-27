@@ -1,27 +1,50 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Plus, Tag, CheckCircle2, ShieldAlert, Sparkles, ChevronRight, TrendingUp, 
-  DollarSign, Brain, BarChart3, AlertCircle, RefreshCw, Layers, Check, 
-  Clock, Shield, Award, Cpu, Zap, Lock, ArrowUpRight, CheckSquare, XCircle, AlertTriangle, FileText, PieChart, Upload, Filter, Calendar, X, BookOpen, Pencil
+  Plus, Tag, CheckCircle2, ChevronRight, ChevronLeft, TrendingUp, BarChart3, 
+  AlertTriangle, Upload, X, BookOpen, Pencil, Image as ImageIcon, Clock
 } from 'lucide-react';
 import ManualTradeModal from './ManualTradeModal';
-import { parseTradeFile, calculateExecutionMatrix, calculateSetupExpectancy, formatCurrencyOrR } from '../utils/tradeParser';
-import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, buildDefaultPlaybooks, getAllStoredTrades } from '../utils/storage';
+import BrokerConnectModal from './BrokerConnectModal';
+import ExecutionMatrixFilter from './playbook/ExecutionMatrixFilter';
+import MarketSessionsGrid from './playbook/MarketSessionsGrid';
+import {
+  DuoBookIcon,
+  DuoLightningIcon,
+  DuoFileSheetIcon,
+  DuoChartIcon,
+  DuoTrophyIcon,
+  DuoChestIcon,
+  DuoDisciplinedWinIcon,
+  DuoDisciplinedLossIcon,
+  DuoDisciplinedBeIcon,
+  DuoToxicWinIcon,
+  DuoToxicBeIcon,
+  DuoDoubleFailureIcon,
+  DuoMissedTradeIcon
+} from './DuoIcons';
+import { 
+  parseTradeFile, 
+  calculateExecutionMatrix, 
+  calculateSetupExpectancy, 
+  formatCurrencyOrR, 
+  classifyTradeExecution,
+  MARKET_SESSIONS,
+  resolveMarketSession,
+  calculateSessionMetrics
+} from '../utils/tradeParser';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, buildDefaultPlaybooks, getAllStoredTrades, deleteStoredTrade, updateStoredTrade, restoreStoredTrade } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
-import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl } from '../utils/financialMath';
+import { parseFinancialNumber, formatFinancialCurrency, sumTradesPnl } from '../utils/financialMath';
+import { compressImage } from '../utils/imageCompressor';
 import InteractiveEquityCurve from './InteractiveEquityCurve';
 
 export default function SetupsTab() {
   const [selectedSetup, setSelectedSetup] = useState(null);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
   const [isManualTradeModalOpen, setIsManualTradeModalOpen] = useState(false);
   const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('tradepigeon_stealth_mode', false));
   const [playbookSetups, setPlaybookSetups] = useState(() => loadStoredData('tradepigeon_playbook_setups', buildDefaultPlaybooks()));
-
-  // Auto-Sync Accounts State
-  const [syncedAccounts, setSyncedAccounts] = useState(() => loadStoredData('tradepigeon_synced_accounts', []));
 
   // LIVE TRADE EXECUTIONS LOG TABLE DATA (Consolidates session trades, imports, and manual entries)
   const [tradeLogs, setTradeLogs] = useState(() => {
@@ -38,7 +61,7 @@ export default function SetupsTab() {
       if (key === 'tradepigeon_playbook_setups') {
         setPlaybookSetups(value);
       }
-      if (key && (key.startsWith('tradepigeon_session_trades_') || key === 'tradepigeon_tradelogs' || key.startsWith('day_'))) {
+      if (key && (key.startsWith('tradepigeon_session_trades') || key.startsWith('goodtrader_session_trades') || key === 'tradepigeon_tradelogs' || key === 'goodtrader_tradelogs' || key.startsWith('day_') || key === 'trades_cleared')) {
         setTradeLogs(getAllStoredTrades());
       }
     });
@@ -51,53 +74,333 @@ export default function SetupsTab() {
   const [importCount, setImportCount] = useState(0);
   const [parseError, setParseError] = useState('');
   const [activeDateFilter, setActiveDateFilter] = useState('30D');
-  const [manualChartUrl, setManualChartUrl] = useState('');
   const [activeChartLightbox, setActiveChartLightbox] = useState(null);
+  const [taggingTrade, setTaggingTrade] = useState(null);
+  const [attachingChartTrade, setAttachingChartTrade] = useState(null);
+  const [chartUrlInput, setChartUrlInput] = useState('');
   const [showTradeLogsTable, setShowTradeLogsTable] = useState(false);
+  const [selectedExecutionFilter, setSelectedExecutionFilter] = useState(null);
+  const [selectedSessionFilter, setSelectedSessionFilter] = useState(null);
   const [expandedPlaybooksState, setExpandedPlaybooksState] = useState({});
 
+  const handleToggleExecutionFilter = (matrixId) => {
+    soundFx.playPop();
+    if (selectedExecutionFilter === matrixId) {
+      setSelectedExecutionFilter(null);
+    } else {
+      setSelectedExecutionFilter(matrixId);
+      setShowTradeLogsTable(true);
+    }
+  };
+
+  const handleToggleSessionFilter = (sessionId) => {
+    soundFx.playPop();
+    if (selectedSessionFilter === sessionId) {
+      setSelectedSessionFilter(null);
+    } else {
+      setSelectedSessionFilter(sessionId);
+      setShowTradeLogsTable(true);
+    }
+  };
+
   const [deletedTradeBackup, setDeletedTradeBackup] = useState(null);
+
+  const handleSelectExecutionTag = (tradeId, tagType) => {
+    const updated = tradeLogs.map(t => t.id === tradeId ? { ...t, type: tagType } : t);
+    setTradeLogs(updated);
+    updateStoredTrade(tradeId, { type: tagType });
+    soundFx.playSuccess();
+    setTaggingTrade(null);
+  };
+
+  const handleSaveChartAttachment = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!attachingChartTrade) return;
+    const url = chartUrlInput.trim();
+    const updated = tradeLogs.map(t => t.id === attachingChartTrade.id ? { ...t, chartUrl: url } : t);
+    setTradeLogs(updated);
+    updateStoredTrade(attachingChartTrade.id, { chartUrl: url });
+    soundFx.playSuccess();
+    setAttachingChartTrade(null);
+    setChartUrlInput('');
+  };
 
   const handleDeleteTrade = (logToDelete) => {
     setDeletedTradeBackup(logToDelete);
     const updated = tradeLogs.filter(t => t.id !== logToDelete.id);
     setTradeLogs(updated);
+    deleteStoredTrade(logToDelete.id);
     soundFx.playPop();
   };
 
   const handleUndoDelete = () => {
     if (!deletedTradeBackup) return;
+    restoreStoredTrade(deletedTradeBackup);
     setTradeLogs([deletedTradeBackup, ...tradeLogs]);
     setDeletedTradeBackup(null);
     soundFx.playSuccess();
   };
 
-  const [selectedAccountFilter, setSelectedAccountFilter] = useState('ALL');
+  useEffect(() => {
+    const handleTradeDeleted = (e) => {
+      const { tradeId, tradeIds } = e.detail || {};
+      if (tradeId) {
+        setTradeLogs(prev => prev.filter(t => t && t.id !== tradeId));
+      } else if (Array.isArray(tradeIds)) {
+        const idSet = new Set(tradeIds);
+        setTradeLogs(prev => prev.filter(t => t && !idSet.has(t.id)));
+      }
+    };
+    window.addEventListener('tradepigeon_trade_deleted', handleTradeDeleted);
+    return () => window.removeEventListener('tradepigeon_trade_deleted', handleTradeDeleted);
+  }, []);
 
-  const filteredTradeLogs = tradeLogs.filter(log => {
-    if (selectedAccountFilter === 'FUNDED') {
-      return log.type?.startsWith('FOLLOW') && !log.setup?.toLowerCase().includes('revenge') && !log.setup?.toLowerCase().includes('fomo');
-    }
-    if (selectedAccountFilter === 'EVAL') {
-      return log.setup?.toLowerCase().includes('fomo') || log.setup?.toLowerCase().includes('revenge') || log.type?.startsWith('VIOLATE');
-    }
-    return true;
-  });
+  const [connectedAccounts, setConnectedAccounts] = useState(() => loadStoredData('tradepigeon_accounts_data', []));
 
   useEffect(() => {
-    saveStoredData('tradepigeon_tradelogs', tradeLogs);
-  }, [tradeLogs]);
+    const unsub = subscribeToStorageUpdate(({ key, value }) => {
+      if (key === 'tradepigeon_accounts_data') {
+        setConnectedAccounts(value || []);
+      }
+    });
+    return unsub;
+  }, []);
 
-  // Dynamic Real-Time Matrix Calculation based on active tradeLogs
-  const executionMatrix = calculateExecutionMatrix(filteredTradeLogs, 500);
+  const [selectedAccountFilter, setSelectedAccountFilter] = useState('ALL');
+
+  const isAccountFunded = (accName) => {
+    const nameLower = (accName || '').toLowerCase();
+    const found = connectedAccounts.find(a => (a.name || '').toLowerCase() === nameLower || (a.accountNumber || '').toLowerCase() === nameLower);
+    if (found) {
+      const type = (found.type || found.accountType || '').toUpperCase();
+      return type === 'FUNDED' || type === 'LIVE' || type === 'PA';
+    }
+    return nameLower.includes('funded') || nameLower.includes('live') || nameLower.includes('pa ');
+  };
+
+  const isAccountEval = (accName) => {
+    const nameLower = (accName || '').toLowerCase();
+    const found = connectedAccounts.find(a => (a.name || '').toLowerCase() === nameLower || (a.accountNumber || '').toLowerCase() === nameLower);
+    if (found) {
+      const type = (found.type || found.accountType || '').toUpperCase();
+      return type === 'EVALUATION' || type === 'EVAL' || type === 'COMBINE' || type === 'CHALLENGE';
+    }
+    return nameLower.includes('eval') || nameLower.includes('combine') || nameLower.includes('challenge') || nameLower.includes('step');
+  };
+
+  const isTradeInDateRange = (trade, rangeId) => {
+    if (!rangeId || rangeId === 'ALL') return true;
+    const rawDate = trade.date || trade.time || trade.executedTime;
+    if (!rawDate) return true;
+    const d = new Date(rawDate);
+    if (isNaN(d.getTime())) return true;
+    const now = new Date();
+
+    if (rangeId === '7D') {
+      const diffMs = now.getTime() - d.getTime();
+      return diffMs >= -86400000 && diffMs <= 7 * 24 * 60 * 60 * 1000;
+    }
+    if (rangeId === '30D') {
+      const diffMs = now.getTime() - d.getTime();
+      return diffMs >= -86400000 && diffMs <= 30 * 24 * 60 * 60 * 1000;
+    }
+    if (rangeId === 'THIS_MONTH') {
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    }
+    return true;
+  };
+
+  const filteredTradeLogs = tradeLogs.filter(log => {
+    if (!isTradeInDateRange(log, activeDateFilter)) return false;
+    if (selectedAccountFilter === 'ALL') return true;
+    if (selectedAccountFilter === 'FUNDED') {
+      return isAccountFunded(log.account);
+    }
+    if (selectedAccountFilter === 'EVAL') {
+      return isAccountEval(log.account);
+    }
+    return log.account === selectedAccountFilter || (log.account && String(log.account).includes(selectedAccountFilter));
+  });
+
+  const accountFilterOptions = useMemo(() => {
+    const base = [
+      { id: 'ALL', label: 'All' },
+      { id: 'FUNDED', label: 'Funded' },
+      { id: 'EVAL', label: 'Eval' }
+    ];
+    if (Array.isArray(connectedAccounts) && connectedAccounts.length > 0) {
+      connectedAccounts.forEach(acc => {
+        if (acc.name && !base.some(b => b.id === acc.name)) {
+          base.push({ id: acc.name, label: acc.name.length > 14 ? acc.name.slice(0, 12) + '...' : acc.name });
+        }
+      });
+    }
+    return base;
+  }, [connectedAccounts]);
+
+  // Modal Escape Key Dismissal & Global Paste Listener
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (attachingChartTrade) setAttachingChartTrade(null);
+        if (activeChartLightbox) setActiveChartLightbox(null);
+        if (isNewSetupModalOpen) setIsNewSetupModalOpen(false);
+        if (selectedSetup) setSelectedSetup(null);
+        if (isCsvModalOpen) setIsCsvModalOpen(false);
+        if (taggingTrade) setTaggingTrade(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [attachingChartTrade, activeChartLightbox, isNewSetupModalOpen, selectedSetup, isCsvModalOpen, taggingTrade]);
+
+  const handleImagePaste = (e) => {
+    const clipboardData = e.clipboardData || window.clipboardData;
+    if (!clipboardData) return;
+    const items = clipboardData.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf('image') !== -1) {
+        const blob = items[i].getAsFile();
+        if (blob) {
+          compressImage(blob).then((compressedUrl) => {
+            if (compressedUrl) {
+              setChartUrlInput(compressedUrl);
+              soundFx.playSuccess();
+            }
+          });
+          if (e.preventDefault) e.preventDefault();
+          return;
+        }
+      }
+    }
+  };
+
+  const handleImageDrop = (e) => {
+    e.preventDefault();
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith('image/')) {
+        compressImage(file).then((compressedUrl) => {
+          if (compressedUrl) {
+            setChartUrlInput(compressedUrl);
+            soundFx.playSuccess();
+          }
+        });
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!attachingChartTrade) return;
+    const onWindowPaste = (e) => handleImagePaste(e);
+    window.addEventListener('paste', onWindowPaste);
+    return () => window.removeEventListener('paste', onWindowPaste);
+  }, [attachingChartTrade]);
+
+  // Dynamic Real-Time Matrix Calculation based on active tradeLogs and calibrated max daily loss
+  const storedLossLimitRaw = loadStoredData('tradepigeon_max_daily_loss', '$1,000');
+  const numericLossLimit = Math.abs(parseFloat(String(storedLossLimitRaw).replace(/[^0-9.]/g, '')) || 500);
+  const executionMatrix = calculateExecutionMatrix(filteredTradeLogs, numericLossLimit);
+
+  // Filtered displayed trade logs based on interactive execution archetype and market session selection
+  const displayedTradeLogs = useMemo(() => {
+    let logs = filteredTradeLogs;
+    if (selectedExecutionFilter) {
+      logs = logs.filter(log => {
+        const classification = classifyTradeExecution(log, numericLossLimit);
+        return classification.id === selectedExecutionFilter;
+      });
+    }
+    if (selectedSessionFilter) {
+      logs = logs.filter(log => {
+        const session = resolveMarketSession(log.time || log.timestamp);
+        return session.id === selectedSessionFilter;
+      });
+    }
+    return logs;
+  }, [filteredTradeLogs, selectedExecutionFilter, selectedSessionFilter, numericLossLimit]);
+
+  // Aggregate Market Session & Killzone telemetry
+  const sessionMetrics = useMemo(() => {
+    return calculateSessionMetrics(filteredTradeLogs, numericLossLimit);
+  }, [filteredTradeLogs, numericLossLimit]);
+
+  // Responsive Pagination State & Virtualized Display Window
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  // Automatically reset to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedExecutionFilter, selectedSessionFilter, activeDateFilter, selectedAccountFilter]);
+
+  const totalLogsItems = displayedTradeLogs.length;
+  const effectivePageSize = pageSize === 'ALL' ? totalLogsItems || 1 : Number(pageSize) || 25;
+  const totalPages = Math.max(1, Math.ceil(totalLogsItems / effectivePageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedTradeLogs = useMemo(() => {
+    if (pageSize === 'ALL') return displayedTradeLogs;
+    const startIdx = (safeCurrentPage - 1) * effectivePageSize;
+    return displayedTradeLogs.slice(startIdx, startIdx + effectivePageSize);
+  }, [displayedTradeLogs, safeCurrentPage, effectivePageSize, pageSize]);
 
   // Dynamic Behavioral Audit & Execution Precision Telemetry
   const totalLogsCount = filteredTradeLogs.length;
 
-  const followedLogs = filteredTradeLogs.filter(t => !t.setup?.toLowerCase().includes('revenge') && !t.setup?.toLowerCase().includes('fomo') && !t.type?.startsWith('VIOLATE'));
-  const cleanRiskLogs = filteredTradeLogs.filter(t => !t.type?.includes('VIOLATE_LOSS') && !t.type?.includes('VIOLATE_WIN'));
+  const isTradeViolated = (t) => {
+    const type = (t.type || '').toLowerCase();
+    const execType = (t.executionType || '').toLowerCase();
+    const setup = (t.setup || '').toLowerCase();
+    return (
+      type.includes('violate') ||
+      type.includes('toxic') ||
+      type.includes('double_failure') ||
+      execType.includes('toxic') ||
+      execType.includes('double failure') ||
+      setup.includes('revenge') ||
+      setup.includes('fomo') ||
+      t.grade === 'F'
+    );
+  };
+
+  const getExecutionBadge = (type = '', pnl = 0) => {
+    const t = String(type || '').toLowerCase();
+    if (t === 'follow_win' || t === 'win' || t === 'disciplined win') {
+      return { label: 'Disciplined Win', cls: 'bg-[#58CC02]/20 text-[#58CC02] border border-[#58CC02]/30' };
+    }
+    if (t === 'follow_loss' || t === 'good_loss' || t === 'disciplined loss') {
+      return { label: 'Disciplined Loss', cls: 'bg-[#1CB0F6]/20 text-[#1CB0F6] border border-[#1CB0F6]/30' };
+    }
+    if (t === 'follow_be' || t === 'breakeven' || t === 'disciplined be' || t === 'disciplined breakeven') {
+      return { label: 'Disciplined BE', cls: 'bg-[#CE82FF]/20 text-[#CE82FF] border border-[#CE82FF]/30' };
+    }
+    if (t === 'violate_win' || t === 'toxic_win' || t === 'toxic win') {
+      return { label: 'Toxic Win', cls: 'bg-[#FFC800]/20 text-[#FFC800] border border-[#FFC800]/30' };
+    }
+    if (t === 'violate_be' || t === 'toxic_be' || t === 'toxic be' || t === 'toxic breakeven') {
+      return { label: 'Toxic BE', cls: 'bg-[#00F0FF]/20 text-[#00F0FF] border border-[#00F0FF]/30' };
+    }
+    if (t === 'missed_trade' || t === 'missed' || t === 'missed setup') {
+      return { label: 'Missed Setup', cls: 'bg-[#FF9600]/20 text-[#FF9600] border border-[#FF9600]/30' };
+    }
+    if (t === 'violate_loss' || t === 'double_failure' || t === 'double failure') {
+      return { label: 'Double Failure', cls: 'bg-rose-500/20 text-rose-400 border border-rose-500/30' };
+    }
+    if (pnl > 0) {
+      return { label: 'Disciplined Win', cls: 'bg-[#58CC02]/20 text-[#58CC02] border border-[#58CC02]/30' };
+    }
+    if (pnl < 0) {
+      return { label: 'Disciplined Loss', cls: 'bg-[#1CB0F6]/20 text-[#1CB0F6] border border-[#1CB0F6]/30' };
+    }
+    return { label: 'Disciplined BE', cls: 'bg-[#CE82FF]/20 text-[#CE82FF] border border-[#CE82FF]/30' };
+  };
+
+  const followedLogs = filteredTradeLogs.filter(t => !isTradeViolated(t));
+  const cleanRiskLogs = filteredTradeLogs.filter(t => !isTradeViolated(t));
   const tiltFreeLogs = filteredTradeLogs.filter(t => !t.setup?.toLowerCase().includes('revenge') && !t.setup?.toLowerCase().includes('fomo'));
-  const stopLossLogs = filteredTradeLogs.filter(t => !t.type?.includes('VIOLATE_LOSS'));
+  const stopLossLogs = filteredTradeLogs.filter(t => !t.type?.includes('VIOLATE_LOSS') && t.type !== 'double_failure');
 
   const planCompPercent = totalLogsCount > 0 ? Math.round((followedLogs.length / totalLogsCount) * 100) : 0;
   const riskLimitsPercent = totalLogsCount > 0 ? Math.round((cleanRiskLogs.length / totalLogsCount) * 100) : 0;
@@ -120,6 +423,27 @@ export default function SetupsTab() {
 
   // Total Net PnL calculation
   const totalNetPnl = sumTradesPnl(filteredTradeLogs);
+
+  // Cumulative Equity Trajectory Curve Data
+  const equityCurveData = useMemo(() => {
+    if (!filteredTradeLogs || filteredTradeLogs.length === 0) {
+      return [0, 0];
+    }
+    const sorted = [...filteredTradeLogs].sort((a, b) => {
+      const tA = new Date(a.date || a.timestamp || 0).getTime();
+      const tB = new Date(b.date || b.timestamp || 0).getTime();
+      return tA - tB;
+    });
+    let running = 0;
+    const curve = [0];
+    sorted.forEach((t) => {
+      const pnl = t.pnlNum !== undefined ? t.pnlNum : parseFinancialNumber(t.pnl, 0);
+      running += pnl;
+      curve.push(running);
+    });
+    if (curve.length === 1) curve.push(0);
+    return curve;
+  }, [filteredTradeLogs]);
 
   // Grade & Status calculation
   let overallGrade = 'NO DATA';
@@ -213,51 +537,12 @@ export default function SetupsTab() {
       psychologyMistake: 'Stick strictly to your defined risk parameters.'
     };
 
-    setPlaybookSetups([newSetupObj, ...playbookSetups]);
+    const updatedPlaybooks = [newSetupObj, ...playbookSetups];
+    setPlaybookSetups(updatedPlaybooks);
+    saveStoredData('tradepigeon_playbook_setups', updatedPlaybooks);
     setNewSetupName('');
     setNewSetupRules('');
     setIsNewSetupModalOpen(false);
-  };
-
-  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
-  const [manualSymbol, setManualSymbol] = useState('NQ1!');
-  const [manualSide, setManualSide] = useState('BUY');
-  const [manualSize, setManualSize] = useState('2.0');
-  const [manualEntry, setManualEntry] = useState('18,450.00');
-  const [manualExit, setManualExit] = useState('18,510.00');
-  const [manualPnl, setManualPnl] = useState('1200');
-  const [manualSetup, setManualSetup] = useState('Breakout & Retest (Key S/R Level)');
-  const [manualType, setManualType] = useState('FOLLOW_WIN');
-
-  const handleAddManualTrade = (e) => {
-    e.preventDefault();
-    soundFx.playSuccess();
-    const newLog = {
-      id: `TRD-${Math.floor(1000 + Math.random() * 9000)}`,
-      time: 'Just Now',
-      symbol: manualSymbol,
-      side: manualSide,
-      size: `${manualSize} Lots`,
-      entry: manualEntry,
-      exit: manualExit,
-      pnlNum: parseFinancialNumber(manualPnl, 0),
-      pnl: formatFinancialCurrency(parseFinancialNumber(manualPnl, 0), { showPlus: true }),
-      type: manualType,
-      setup: manualSetup,
-      r: formatRMultiple(parseFinancialNumber(manualPnl, 0), 500, 1),
-      chartUrl: manualChartUrl.trim() || 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=1200&auto=format&fit=crop'
-    };
-
-    setTradeLogs([newLog, ...tradeLogs]);
-    setManualChartUrl('');
-    setIsManualModalOpen(false);
-  };
-
-  const handleSimulateSync = () => {
-    setIsSyncing(true);
-    setTimeout(() => {
-      setIsSyncing(false);
-    }, 1200);
   };
 
   const [isGlobalDragging, setIsGlobalDragging] = useState(false);
@@ -279,41 +564,6 @@ export default function SetupsTab() {
     }
   };
 
-  const compressImageFile = (file, callback) => {
-    if (!file.type.startsWith('image/')) return;
-
-    if (file.size > 15 * 1024 * 1024) {
-      console.warn("Image exceeds 15MB file size limit.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1200;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > MAX_WIDTH) {
-          height = Math.round((height * MAX_WIDTH) / width);
-          width = MAX_WIDTH;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
-        callback(compressedDataUrl);
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  };
-
   const handleGlobalFileDrop = (e) => {
     e.preventDefault();
     setIsGlobalDragging(false);
@@ -331,15 +581,17 @@ export default function SetupsTab() {
         };
         reader.readAsText(file);
       } else if (file.type.startsWith('image/')) {
-        compressImageFile(file, (compressedUrl) => {
-          setSelectedChartLog({
-            id: 'DRAG_DROP_UPLOAD',
-            symbol: file.name,
-            side: 'CHART ATTACHMENT',
-            pnl: 'Compressed Attachment',
-            chartUrl: compressedUrl
-          });
-          soundFx.playSuccess();
+        compressImage(file).then((compressedUrl) => {
+          if (compressedUrl) {
+            setActiveChartLightbox({
+              id: 'DRAG_DROP_UPLOAD',
+              symbol: file.name,
+              side: 'CHART ATTACHMENT',
+              pnl: 'Compressed Attachment',
+              chartUrl: compressedUrl
+            });
+            soundFx.playSuccess();
+          }
         });
       }
     }
@@ -393,7 +645,7 @@ export default function SetupsTab() {
             className="duo-btn-blue px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
           >
             <Plus size={14} className="shrink-0" />
-            <span>+ Manual Trade Log</span>
+            <span>Manual Trade</span>
           </button>
         </div>
       </div>
@@ -513,6 +765,35 @@ export default function SetupsTab() {
         </div>
       </div>
 
+      {/* CUMULATIVE EQUITY PERFORMANCE TRAJECTORY */}
+      <div className="duo-card p-5 sm:p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#58CC02]/15 text-[#58CC02] flex items-center justify-center shrink-0 border border-[#58CC02]/30">
+              <TrendingUp size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-white">Equity Curve</h3>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Net Realized:</span>
+            <span className={`text-base sm:text-lg font-black font-mono ${totalNetPnl >= 0 ? 'text-[#58CC02]' : 'text-rose-400'}`}>
+              {formatFinancialCurrency(totalNetPnl, { showPlus: true })}
+            </span>
+          </div>
+        </div>
+
+        <div className="pt-2">
+          <InteractiveEquityCurve 
+            data={equityCurveData} 
+            color={totalNetPnl >= 0 ? "#58CC02" : "#FF4B4B"}
+            id="setups-telemetry-curve"
+            formatValue={(val) => formatFinancialCurrency(val, { showPlus: true })}
+          />
+        </div>
+      </div>
+
       <div className="duo-card p-5 sm:p-6 space-y-6">
         {/* Integrated Header Row (Zero Inner Boxes & Floating Filter Pill) */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#20323D]">
@@ -525,16 +806,12 @@ export default function SetupsTab() {
             </span>
           </div>
 
-          <div className="flex items-center gap-1 bg-[#142127] p-1 rounded-xl border border-[#20323D]">
-            {[
-              { id: 'ALL', label: 'All' },
-              { id: 'FUNDED', label: 'Funded' },
-              { id: 'EVAL', label: 'Eval' },
-            ].map((filter) => (
+          <div className="flex items-center gap-1 bg-[#142127] p-1 rounded-xl border border-[#20323D] overflow-x-auto max-w-full">
+            {accountFilterOptions.map((filter) => (
               <button
                 key={filter.id}
                 onClick={() => setSelectedAccountFilter(filter.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
                   selectedAccountFilter === filter.id
                     ? 'bg-[#1CB0F6] text-white shadow-sm'
                     : 'text-[#52656D] hover:text-white'
@@ -547,120 +824,11 @@ export default function SetupsTab() {
         </div>
 
         {/* 7 EXECUTION TYPES MATRIX & DONUT BREAKDOWN */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
-          {/* PRECISION DONUT + DISCIPLINE INDEX CENTER */}
-          <div className="xl:col-span-4 flex flex-col items-center justify-center p-6 bg-[#142127] rounded-3xl border-2 border-[#20323D] relative shadow-inner shrink-0">
-            {(() => {
-              const radius = 38;
-              const circumference = 2 * Math.PI * radius;
-              let accumulatedPercent = 0;
-              const totalTradesCount = executionMatrix.reduce((acc, curr) => acc + parseInt(curr.count), 0);
-
-              // Calculate overall Discipline Adherence Rate (Followed Plan Trades / Total Trades)
-              const followedTrades = executionMatrix.filter(m => m.id.startsWith('FOLLOW')).reduce((acc, curr) => acc + parseInt(curr.count), 0);
-              const adherenceScore = totalTradesCount > 0 ? Math.round((followedTrades / totalTradesCount) * 100) : 100;
-
-              return (
-                <div className="relative flex items-center justify-center w-full my-auto">
-                  <svg viewBox="0 0 100 100" className="w-44 h-44 sm:w-48 sm:h-48 transform -rotate-90">
-                    {executionMatrix.map((item) => {
-                      const strokeDasharray = `${(item.percent / 100) * circumference} ${circumference}`;
-                      const strokeDashoffset = -((accumulatedPercent / 100) * circumference);
-                      accumulatedPercent += item.percent;
-
-                      return (
-                        <circle
-                          key={item.id}
-                          cx="50"
-                          cy="50"
-                          r={radius}
-                          fill="none"
-                          stroke={item.color}
-                          strokeWidth="16"
-                          strokeDasharray={strokeDasharray}
-                          strokeDashoffset={strokeDashoffset}
-                          className="transition-all duration-500"
-                        />
-                      );
-                    })}
-                  </svg>
-
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center p-4">
-                    <span className="text-[8px] sm:text-[9px] font-black uppercase text-[#52656D] tracking-wider leading-none truncate max-w-[110px]">DISCIPLINE SCORE</span>
-                    <div className="text-2xl sm:text-3xl font-black text-white leading-tight my-0.5">{adherenceScore}%</div>
-                    <span className="text-[9px] sm:text-[10px] font-extrabold text-[#58CC02] leading-none truncate max-w-[120px]">{followedTrades} of {totalTradesCount} Fills Clean</span>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* BEHAVIORAL EXECUTION MATRIX CARDS (LIGHTWEIGHT & AIRY) */}
-          <div className="xl:col-span-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3 gap-3.5 min-w-0">
-            {executionMatrix.map((item) => {
-              const isFollow = item.id.startsWith('FOLLOW');
-              const isMissed = item.id === 'MISSED_TRADE';
-              const countVal = parseInt(item.count) || 0;
-              const hasTrades = countVal > 0;
-
-              let activeCardStyle = 'bg-[#58CC02] border-[#46A302] border-b-4 text-white';
-              if (item.id === 'FOLLOW_LOSS') activeCardStyle = 'bg-[#1CB0F6] border-[#1899D6] border-b-4 text-white';
-              if (item.id === 'FOLLOW_BE') activeCardStyle = 'bg-[#CE82FF] border-[#B955FF] border-b-4 text-white';
-              if (item.id === 'VIOLATE_WIN') activeCardStyle = 'bg-[#FFC800] border-[#D9AA00] border-b-4 text-slate-950';
-              if (item.id === 'VIOLATE_BE') activeCardStyle = 'bg-[#00F0FF] border-[#00D8E6] border-b-4 text-slate-950';
-              if (item.id === 'VIOLATE_LOSS') activeCardStyle = 'bg-[#FF4B4B] border-[#E03A3A] border-b-4 text-white';
-              if (item.id === 'MISSED_TRADE') activeCardStyle = 'bg-[#FF9600] border-[#D97D00] border-b-4 text-white';
-
-              const isDarkText = item.id === 'VIOLATE_WIN' || item.id === 'VIOLATE_BE';
-
-              return (
-                <div 
-                  key={item.id} 
-                  className={`p-3.5 sm:p-4 rounded-2xl transition-all space-y-3 shadow-sm min-w-0 flex flex-col justify-between overflow-hidden ${
-                    hasTrades
-                      ? activeCardStyle
-                      : 'bg-[#142127]/60 border border-[#20323D] text-slate-500 opacity-60'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {item.id === 'FOLLOW_WIN' && <DuoDisciplinedWinIcon className="w-8 h-8 shrink-0 drop-shadow" />}
-                      {item.id === 'FOLLOW_LOSS' && <DuoDisciplinedLossIcon className="w-8 h-8 shrink-0 drop-shadow" />}
-                      {item.id === 'FOLLOW_BE' && <DuoDisciplinedBeIcon className="w-8 h-8 shrink-0 drop-shadow" />}
-                      {item.id === 'VIOLATE_WIN' && <DuoToxicWinIcon className="w-8 h-8 shrink-0 drop-shadow" />}
-                      {item.id === 'VIOLATE_BE' && <DuoToxicBeIcon className="w-8 h-8 shrink-0 drop-shadow" />}
-                      {item.id === 'VIOLATE_LOSS' && <DuoDoubleFailureIcon className="w-8 h-8 shrink-0 drop-shadow" />}
-                      {item.id === 'MISSED_TRADE' && <DuoMissedTradeIcon className="w-8 h-8 shrink-0 drop-shadow" />}
-                      <div className="min-w-0">
-                        <h4 className="text-xs sm:text-sm font-black leading-tight tracking-tight whitespace-nowrap truncate">{item.title}</h4>
-                        <span className="text-[9px] font-black uppercase tracking-wider opacity-75 block truncate">
-                          {isMissed ? 'HESITATION' : isFollow ? 'DISCIPLINED' : 'VIOLATION'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full font-mono shrink-0 ${
-                      hasTrades
-                        ? isDarkText ? 'bg-slate-950/20 text-slate-950' : 'bg-white/20 text-white'
-                        : 'bg-[#20323D] text-slate-400'
-                    }`}>
-                      {item.percent}%
-                    </span>
-                  </div>
-
-                  <div className="flex items-baseline justify-between pt-2 border-t border-current/15 gap-2">
-                    <span className="text-sm sm:text-base font-black leading-none shrink-0">
-                      {item.count}
-                    </span>
-                    {hasTrades && (
-                      <span className="text-xs font-black font-mono opacity-90 truncate text-right">{item.pnl}</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <ExecutionMatrixFilter
+          executionMatrix={executionMatrix}
+          selectedExecutionFilter={selectedExecutionFilter}
+          onToggleExecutionFilter={handleToggleExecutionFilter}
+        />
       </div>
 
 
@@ -740,7 +908,8 @@ export default function SetupsTab() {
                 >
                   {/* Calculate Expectancy Telemetry for this setup */}
                   {(() => {
-                    const setupTrades = tradeLogs.filter(t => t.setup?.toLowerCase() === setup.name.toLowerCase() || t.playbook?.toLowerCase() === setup.name.toLowerCase());
+                    const setupName = String(setup?.name || '').toLowerCase();
+                    const setupTrades = tradeLogs.filter(t => String(t.setup || '').toLowerCase() === setupName || String(t.playbook || '').toLowerCase() === setupName);
                     const expData = calculateSetupExpectancy(setupTrades);
                     const rawNetPnl = sumTradesPnl(setupTrades);
                     const pnlFormatted = formatCurrencyOrR(rawNetPnl, isStealthMode);
@@ -857,8 +1026,20 @@ export default function SetupsTab() {
 
       {/* FULLY FUNCTIONAL REAL CSV UPLOAD MODAL */}
       {isCsvModalOpen && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="duo-card max-w-lg w-full p-6 space-y-5 border-2 border-[#1CB0F6] relative">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsCsvModalOpen(false);
+              setUploadedFileName('');
+              setImportSuccess(false);
+            }
+          }}
+          className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="duo-card max-w-lg w-full p-6 space-y-5 border-2 border-[#1CB0F6] relative"
+          >
             <button 
               onClick={() => {
                 setIsCsvModalOpen(false);
@@ -866,8 +1047,9 @@ export default function SetupsTab() {
                 setImportSuccess(false);
               }}
               className="absolute top-4 right-4 p-2 rounded-xl bg-[#20323D] text-slate-400 hover:text-white cursor-pointer font-black text-xs"
+              title="Close CSV Import"
             >
-              
+              <X size={16} />
             </button>
 
             <div className="space-y-1">
@@ -928,7 +1110,24 @@ export default function SetupsTab() {
                 try {
                   const parsedFills = parseTradeFile(uploadedFileContent, uploadedFileName);
                   if (parsedFills && parsedFills.length > 0) {
-                    setTradeLogs([...parsedFills, ...tradeLogs]);
+                    const combined = [...parsedFills, ...tradeLogs];
+                    setTradeLogs(combined);
+                    saveStoredData('tradepigeon_tradelogs', combined);
+
+                    // Also index trades by their explicit ISO dates for CalendarTab
+                    const dateGroups = {};
+                    parsedFills.forEach(t => {
+                      if (t && t.date) {
+                        dateGroups[t.date] = dateGroups[t.date] || [];
+                        dateGroups[t.date].push(t);
+                      }
+                    });
+                    Object.entries(dateGroups).forEach(([isoDate, tradesForDate]) => {
+                      const isoKey = `tradepigeon_session_trades_day_${isoDate}`;
+                      const existingIsoTrades = loadStoredData(isoKey, []);
+                      saveStoredData(isoKey, [...tradesForDate, ...existingIsoTrades]);
+                    });
+
                     setImportCount(parsedFills.length);
                     setImportSuccess(true);
                     setParseError('');
@@ -957,15 +1156,24 @@ export default function SetupsTab() {
       <BrokerConnectModal 
         isOpen={isBrokerModalOpen}
         onClose={() => setIsBrokerModalOpen(false)}
-        onAccountAdded={(newAccount) => {
-          setSyncedAccounts([newAccount, ...syncedAccounts]);
+        onAccountAdded={() => {
+          soundFx.playSuccess();
+          setTradeLogs(getAllStoredTrades());
         }}
       />
 
       {/* FULL STRATEGY BLUEPRINT MODAL */}
       {selectedSetup && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="duo-card max-w-2xl w-full p-6 sm:p-8 space-y-6 border-2 border-[#1CB0F6] relative max-h-[92vh] overflow-y-auto">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedSetup(null);
+          }}
+          className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="duo-card max-w-2xl w-full p-6 sm:p-8 space-y-6 border-2 border-[#1CB0F6] relative max-h-[92vh] overflow-y-auto"
+          >
             <button 
               onClick={() => setSelectedSetup(null)}
               className="absolute top-4 right-4 p-2 rounded-xl bg-[#20323D] text-slate-400 hover:text-white cursor-pointer font-black text-xs"
@@ -981,24 +1189,39 @@ export default function SetupsTab() {
               <p className="text-xs font-bold text-[#52656D]">Strategy Rules & Institutional Edge Metrics</p>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 rounded-2xl bg-[#142127] border border-[#20323D]">
-                <div className="text-[9px] font-black text-[#52656D] uppercase">Sharpe Ratio</div>
-                <div className="text-base font-black text-[#58CC02] mt-0.5">{selectedSetup.tradeMetrics.sharpeRatio}</div>
-              </div>
-              <div className="p-3 rounded-2xl bg-[#142127] border border-[#20323D]">
-                <div className="text-[9px] font-black text-[#52656D] uppercase">Profit Factor</div>
-                <div className="text-base font-black text-[#1CB0F6] mt-0.5">{selectedSetup.tradeMetrics.profitFactor}</div>
-              </div>
-              <div className="p-3 rounded-2xl bg-[#142127] border border-[#20323D]">
-                <div className="text-[9px] font-black text-[#52656D] uppercase">Max Drawdown</div>
-                <div className="text-base font-black text-rose-400 mt-0.5">{selectedSetup.tradeMetrics.maxDrawdownR}</div>
-              </div>
-              <div className="p-3 rounded-2xl bg-[#142127] border border-[#20323D]">
-                <div className="text-[9px] font-black text-[#52656D] uppercase">Plan Adherence</div>
-                <div className="text-base font-black text-amber-400 mt-0.5">{selectedSetup.tradeMetrics.execPrecision}</div>
-              </div>
-            </div>
+            {(() => {
+              const selName = String(selectedSetup?.name || '').toLowerCase();
+              const setupTrades = tradeLogs.filter(t => 
+                String(t.setup || '').toLowerCase() === selName || 
+                String(t.playbook || '').toLowerCase() === selName
+              );
+              const exp = calculateSetupExpectancy(setupTrades, 350);
+              const sharpe = setupTrades.length > 0 ? exp.sharpeRatio : (selectedSetup.tradeMetrics?.sharpeRatio || '0.0');
+              const pf = setupTrades.length > 0 ? exp.profitFactor : (selectedSetup.tradeMetrics?.profitFactor || '0.0');
+              const maxDd = setupTrades.length > 0 ? exp.maxDrawdownR : (selectedSetup.tradeMetrics?.maxDrawdownR || '0.0 R');
+              const adherence = setupTrades.length > 0 ? exp.execPrecision : (selectedSetup.tradeMetrics?.execPrecision || '100% Plan Adherence');
+
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-2xl bg-[#142127] border border-[#20323D]">
+                    <div className="text-[9px] font-black text-[#52656D] uppercase">Sharpe Ratio</div>
+                    <div className="text-base font-black text-[#58CC02] mt-0.5">{sharpe}</div>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-[#142127] border border-[#20323D]">
+                    <div className="text-[9px] font-black text-[#52656D] uppercase">Profit Factor</div>
+                    <div className="text-base font-black text-[#1CB0F6] mt-0.5">{pf}</div>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-[#142127] border border-[#20323D]">
+                    <div className="text-[9px] font-black text-[#52656D] uppercase">Max Drawdown</div>
+                    <div className="text-base font-black text-rose-400 mt-0.5">{maxDd}</div>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-[#142127] border border-[#20323D]">
+                    <div className="text-[9px] font-black text-[#52656D] uppercase">Plan Adherence</div>
+                    <div className="text-base font-black text-amber-400 mt-0.5">{adherence}</div>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
@@ -1047,6 +1270,20 @@ export default function SetupsTab() {
         </div>
       )}
 
+      {/* SECTION 2.5: MARKET SESSIONS & KILLZONES (CME US Eastern Time) */}
+      <div className="duo-card p-5 sm:p-6 border-2 border-[#20323D] space-y-4 mt-6">
+        <MarketSessionsGrid
+          sessionMetrics={sessionMetrics}
+          selectedSessionFilter={selectedSessionFilter}
+          onToggleSessionFilter={handleToggleSessionFilter}
+          onClearSessionFilter={() => {
+            soundFx.playPop();
+            setSelectedSessionFilter(null);
+          }}
+        />
+      </div>
+
+
       {/* SECTION 3: LIVE TRADE EXECUTION LOG TABLE (Collapsible Accordion View at Page Bottom) */}
       <div className="duo-card p-5 sm:p-6 border-2 border-[#20323D] space-y-4 mt-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#20323D]">
@@ -1054,7 +1291,9 @@ export default function SetupsTab() {
             <div className="flex items-center gap-2.5">
               <h3 className="text-lg sm:text-xl font-black text-white">Live Execution Fills Log</h3>
               <span className="text-xs font-black text-[#1CB0F6] bg-[#1CB0F6]/15 px-2.5 py-0.5 rounded-lg border border-[#1CB0F6]/30">
-                {tradeLogs.length} Fills
+                {(selectedExecutionFilter || selectedSessionFilter)
+                  ? `${displayedTradeLogs.length} of ${filteredTradeLogs.length} Fills (Filtered)`
+                  : `${filteredTradeLogs.length} Fills`}
               </span>
             </div>
           </div>
@@ -1074,6 +1313,84 @@ export default function SetupsTab() {
 
         {showTradeLogsTable && (
           <>
+            {/* Active Execution & Session Filter Pill Banner */}
+            {(selectedExecutionFilter || selectedSessionFilter) && (
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-2xl bg-[#142127] border-2 border-[#20323D] animate-fade-in shadow-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-black uppercase text-[#52656D] tracking-wider">FILTERS APPLIED:</span>
+                  
+                  {selectedExecutionFilter && (() => {
+                    const activeMeta = executionMatrix.find(m => m.id === selectedExecutionFilter);
+                    return (
+                      <span 
+                        className="px-3 py-1 rounded-xl text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5 shadow-sm"
+                        style={{
+                          backgroundColor: `${activeMeta?.color || '#1CB0F6'}20`,
+                          color: activeMeta?.color || '#1CB0F6',
+                          border: `1px solid ${activeMeta?.color || '#1CB0F6'}50`
+                        }}
+                      >
+                        <span>{activeMeta?.title || selectedExecutionFilter}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            soundFx.playPop();
+                            setSelectedExecutionFilter(null);
+                          }}
+                          className="hover:opacity-75 cursor-pointer ml-0.5"
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    );
+                  })()}
+
+                  {selectedSessionFilter && (() => {
+                    const sessionMeta = MARKET_SESSIONS.find(s => s.id === selectedSessionFilter);
+                    return (
+                      <span 
+                        className="px-3 py-1 rounded-xl text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5 shadow-sm"
+                        style={{
+                          backgroundColor: `${sessionMeta?.color || '#FF9600'}20`,
+                          color: sessionMeta?.color || '#FF9600',
+                          border: `1px solid ${sessionMeta?.color || '#FF9600'}50`
+                        }}
+                      >
+                        <Clock size={12} />
+                        <span>{sessionMeta?.name || selectedSessionFilter}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            soundFx.playPop();
+                            setSelectedSessionFilter(null);
+                          }}
+                          className="hover:opacity-75 cursor-pointer ml-0.5"
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    );
+                  })()}
+
+                  <span className="text-xs font-bold text-slate-400">
+                    &bull; {displayedTradeLogs.length} of {filteredTradeLogs.length} Fills
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => {
+                    soundFx.playPop();
+                    setSelectedExecutionFilter(null);
+                    setSelectedSessionFilter(null);
+                  }}
+                  className="px-3 py-1.5 rounded-xl text-xs font-black text-slate-300 hover:text-white bg-[#20323D] hover:bg-[#2B3D47] border border-[#37464F] transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm active:scale-95"
+                >
+                  <X size={13} />
+                  <span>Clear All</span>
+                </button>
+              </div>
+            )}
+
             {tradeLogs.length === 0 ? (
           <div className="py-12 px-4 text-center space-y-4 bg-[#142127]/50 rounded-2xl border-2 border-dashed border-[#20323D] my-2">
             <div className="w-16 h-16 mx-auto rounded-3xl bg-[#1CB0F6]/15 border-2 border-[#1CB0F6]/40 flex items-center justify-center text-[#1CB0F6]">
@@ -1085,15 +1402,49 @@ export default function SetupsTab() {
                 Connect your broker socket or upload a CSV statement to populate your live execution ledger.
               </p>
             </div>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+              <button
+                onClick={() => {
+                  soundFx.playPop();
+                  setIsManualTradeModalOpen(true);
+                }}
+                className="duo-btn-green px-5 py-2.5 text-xs uppercase tracking-wider inline-flex items-center gap-2 cursor-pointer shadow-md"
+              >
+                <Plus size={14} />
+                <span>Log Manual Trade (N)</span>
+              </button>
+              <button
+                onClick={() => {
+                  soundFx.playPop();
+                  setIsCsvModalOpen(true);
+                }}
+                className="duo-btn-blue px-5 py-2.5 text-xs uppercase tracking-wider inline-flex items-center gap-2 cursor-pointer shadow-md"
+              >
+                <Upload size={14} />
+                <span>Import Broker CSV</span>
+              </button>
+            </div>
+          </div>
+        ) : displayedTradeLogs.length === 0 ? (
+          <div className="py-10 px-4 text-center space-y-3 bg-[#142127]/50 rounded-2xl border-2 border-dashed border-[#20323D] my-2">
+            <p className="text-sm font-bold text-slate-300">
+              No trades match the current filter selection
+              {selectedExecutionFilter && <span> (Archetype: <strong className="text-white">{executionMatrix.find(m => m.id === selectedExecutionFilter)?.title}</strong>)</span>}
+              {selectedSessionFilter && <span> (Session: <strong className="text-white">{MARKET_SESSIONS.find(s => s.id === selectedSessionFilter)?.name}</strong>)</span>}
+            </p>
             <button
-              onClick={() => setIsCsvModalOpen(true)}
-              className="duo-btn-blue px-5 py-2.5 text-xs uppercase tracking-wider inline-flex items-center gap-2 cursor-pointer"
+              onClick={() => {
+                soundFx.playPop();
+                setSelectedExecutionFilter(null);
+                setSelectedSessionFilter(null);
+              }}
+              className="duo-btn-blue px-4 py-2 text-xs uppercase tracking-wider inline-flex items-center gap-1.5 cursor-pointer"
             >
-              <Upload size={14} />
-              <span>Import Broker CSV / Statement</span>
+              <X size={14} />
+              <span>Show All Fills</span>
             </button>
           </div>
-        ) : (
+        ) : (<>
           <div className="overflow-x-auto w-full scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             <table className="w-full min-w-[760px] text-left text-xs font-bold text-slate-300 border-collapse">
               <thead>
@@ -1111,15 +1462,24 @@ export default function SetupsTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#20323D]/60">
-                {tradeLogs.map((log) => {
+                {paginatedTradeLogs.map((log) => {
                   const isBuy = (log.side || 'BUY').toUpperCase().includes('BUY');
                   const cleanSide = isBuy ? 'BUY' : 'SELL';
                   const cleanSize = (log.size || '1.0').replace(/lots/i, '').trim();
+                  const classification = classifyTradeExecution(log, numericLossLimit);
+                  const session = resolveMarketSession(log.time || log.timestamp);
 
                   return (
                     <tr key={log.id} className="hover:bg-[#142127] transition-all group">
                       <td className="py-3.5 pr-3 font-black text-white whitespace-nowrap">{log.id}</td>
-                      <td className="py-3.5 px-3 text-[#52656D] whitespace-nowrap">{log.time}</td>
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        <div className="text-slate-300 font-mono text-xs">{log.time}</div>
+                        <div className="mt-0.5">
+                          <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-wider ${session.badgeBg}`}>
+                            {session.shortName}
+                          </span>
+                        </div>
+                      </td>
                       <td className="py-3.5 px-3 font-black text-[#1CB0F6] whitespace-nowrap">{log.symbol}</td>
                       <td className="py-3.5 px-3 whitespace-nowrap">
                         <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black inline-flex items-center gap-1.5 ${
@@ -1130,55 +1490,54 @@ export default function SetupsTab() {
                           <span>{cleanSize}</span>
                         </span>
                       </td>
-                      <td className="py-3.5 px-3 text-slate-300 font-mono text-[11px] whitespace-nowrap">{log.entry} &rarr; {log.exit}</td>
-                      <td className="py-3.5 px-3 font-black text-white whitespace-nowrap">{log.setup}</td>
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        <div className="font-black text-white">{log.setup}</div>
+                        {Array.isArray(log.managementTags) && log.managementTags.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1 mt-1">
+                            {log.managementTags.map(tagId => {
+                              const isToxic = tagId === 'widened_stop' || tagId === 'averaged_down' || tagId === 'chased_entry';
+                              const label = tagId === 'scaled_out' ? 'Partials' :
+                                            tagId === 'trailed_be' ? 'Trailed BE' :
+                                            tagId === 'trailed_structure' ? 'Trailed' :
+                                            tagId === 'held_runner' ? 'Runner' :
+                                            tagId === 'respected_stop' ? 'Respected SL' :
+                                            tagId === 'widened_stop' ? '⚠️ Widened SL' :
+                                            tagId === 'averaged_down' ? '⚠️ Averaged Down' :
+                                            tagId === 'early_exit' ? 'Early Exit' :
+                                            tagId === 'chased_entry' ? '⚠️ Chased' : tagId;
+                              return (
+                                <span
+                                  key={tagId}
+                                  className={`text-[8px] font-black uppercase px-1.5 py-0.2 rounded tracking-wider ${
+                                    isToxic
+                                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                                      : 'bg-[#58CC02]/15 text-[#58CC02] border border-[#58CC02]/30'
+                                  }`}
+                                >
+                                  {label}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3.5 px-3 whitespace-nowrap">
                         {(!log.type || log.type === 'UNAUDITED') ? (
                           <button
-                            onClick={() => {
-                              const choice = prompt(
-                                `Tag Execution Quality for ${log.id} (${log.symbol} ${log.pnl}):\n\n` +
-                                `1: Disciplined Win\n` +
-                                `2: Disciplined Loss\n` +
-                                `3: Disciplined BE\n` +
-                                `4: Toxic Win\n` +
-                                `5: Toxic BE\n` +
-                                `6: Double Failure\n` +
-                                `7: Missed Setup`
-                              );
-                              const typeMap = {
-                                '1': 'FOLLOW_WIN', '2': 'FOLLOW_LOSS', '3': 'FOLLOW_BE',
-                                '4': 'VIOLATE_WIN', '5': 'VIOLATE_BE', '6': 'VIOLATE_LOSS',
-                                '7': 'MISSED_TRADE'
-                              };
-                              if (choice && typeMap[choice.trim()]) {
-                                const updated = tradeLogs.map(t => t.id === log.id ? { ...t, type: typeMap[choice.trim()] } : t);
-                                setTradeLogs(updated);
-                                saveStoredData('tradepigeon_tradelogs', updated);
-                              }
-                            }}
+                            onClick={() => setTaggingTrade(log)}
                             className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500 hover:text-slate-950 text-[10px] font-black tracking-wider transition-all cursor-pointer inline-flex items-center gap-1"
                           >
                             <Tag size={11} />
                             <span>Needs Tagging</span>
                           </button>
                         ) : (
-                          <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${
-                            log.type === 'FOLLOW_WIN' ? 'bg-[#58CC02]/20 text-[#58CC02] border border-[#58CC02]/30' :
-                            log.type === 'FOLLOW_LOSS' ? 'bg-[#1CB0F6]/20 text-[#1CB0F6] border border-[#1CB0F6]/30' :
-                            log.type === 'FOLLOW_BE' ? 'bg-[#CE82FF]/20 text-[#CE82FF] border border-[#CE82FF]/30' :
-                            log.type === 'VIOLATE_WIN' ? 'bg-[#FFC800]/20 text-[#FFC800] border border-[#FFC800]/30' :
-                            log.type === 'VIOLATE_BE' ? 'bg-[#00F0FF]/20 text-[#00F0FF] border border-[#00F0FF]/30' :
-                            log.type === 'MISSED_TRADE' ? 'bg-[#FF9600]/20 text-[#FF9600] border border-[#FF9600]/30' :
-                            'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                          }`}>
-                            {log.type === 'FOLLOW_WIN' ? 'Disciplined Win' :
-                             log.type === 'FOLLOW_LOSS' ? 'Disciplined Loss' :
-                             log.type === 'FOLLOW_BE' ? 'Disciplined BE' :
-                             log.type === 'VIOLATE_WIN' ? 'Toxic Win' :
-                             log.type === 'VIOLATE_BE' ? 'Toxic BE' :
-                             log.type === 'MISSED_TRADE' ? 'Missed Setup' : 'Double Failure'}
-                          </span>
+                          <button
+                            onClick={() => setTaggingTrade(log)}
+                            title="Click to re-classify execution quality"
+                            className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all hover:scale-105 cursor-pointer ${classification.badgeBg}`}
+                          >
+                            {classification.label}
+                          </button>
                         )}
                       </td>
                       <td className="py-3.5 px-3 text-center whitespace-nowrap">
@@ -1193,12 +1552,8 @@ export default function SetupsTab() {
                         ) : (
                           <button
                             onClick={() => {
-                              const url = prompt('Paste TradingView Chart Snapshot URL (e.g. https://www.tradingview.com/x/...):');
-                              if (url) {
-                                const updated = tradeLogs.map(t => t.id === log.id ? { ...t, chartUrl: url } : t);
-                                setTradeLogs(updated);
-                                saveStoredData('tradepigeon_tradelogs', updated);
-                              }
+                              setAttachingChartTrade(log);
+                              setChartUrlInput(log.chartUrl || '');
                             }}
                             className="px-2.5 py-1 rounded-lg bg-[#20323D] hover:bg-[#2B3D47] text-slate-400 hover:text-white font-bold text-[10px] transition-all cursor-pointer inline-flex items-center gap-1 border border-[#37464F]"
                           >
@@ -1207,7 +1562,22 @@ export default function SetupsTab() {
                         )}
                       </td>
                       <td className="py-3.5 pl-3 text-right font-black whitespace-nowrap">
-                        <div className={(log.pnl || '$0.00').startsWith('+') ? 'text-[#58CC02]' : 'text-rose-400'}>{log.pnl || '$0.00'}</div>
+                        <div className={
+                          classification.isToxicWin
+                            ? 'text-amber-400 inline-flex items-center justify-end gap-1.5 font-mono'
+                            : String(log.pnl || '').startsWith('+')
+                            ? 'text-[#58CC02] font-mono'
+                            : String(log.pnl || '').startsWith('-')
+                            ? 'text-rose-400 font-mono'
+                            : 'text-slate-400 font-mono'
+                        }>
+                          {classification.isToxicWin && (
+                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider">
+                              TOXIC
+                            </span>
+                          )}
+                          <span>{log.pnl || '$0.00'}</span>
+                        </div>
                         <div className="text-[10px] text-[#FF6B00] font-black">{log.r || '0.0 R'}</div>
                       </td>
                       <td className="py-3.5 pl-3 text-center whitespace-nowrap">
@@ -1225,6 +1595,96 @@ export default function SetupsTab() {
               </tbody>
             </table>
           </div>
+
+          {/* DUOLINGO-STYLE PAGINATION BAR */}
+          {totalLogsItems > 0 && (
+            <div className="mt-4 pt-4 border-t border-[#20323D] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              {/* Range Info */}
+              <div className="text-[#52656D] font-bold text-[11px] flex items-center gap-1.5">
+                <span>Showing</span>
+                <span className="font-black text-white font-mono">
+                  {pageSize === 'ALL' ? 1 : Math.min((safeCurrentPage - 1) * effectivePageSize + 1, totalLogsItems)}
+                </span>
+                <span>-</span>
+                <span className="font-black text-white font-mono">
+                  {pageSize === 'ALL' ? totalLogsItems : Math.min(safeCurrentPage * effectivePageSize, totalLogsItems)}
+                </span>
+                <span>of</span>
+                <span className="font-black text-[#1CB0F6] font-mono">{totalLogsItems}</span>
+                <span>fills</span>
+                {selectedExecutionFilter && (
+                  <span className="text-[10px] text-amber-400 font-bold ml-1">
+                    (Filtered)
+                  </span>
+                )}
+              </div>
+
+              {/* Page Size & Navigation Controls */}
+              <div className="flex items-center gap-3">
+                {/* Page Size Selector */}
+                <div className="flex items-center gap-1 bg-[#142127] p-1 rounded-xl border border-[#20323D]">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase px-1.5">Rows:</span>
+                  {[25, 50, 100, 'ALL'].map(size => (
+                    <button
+                      key={size}
+                      onClick={() => {
+                        soundFx.playPop();
+                        setPageSize(size);
+                        setCurrentPage(1);
+                      }}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                        pageSize === size
+                          ? 'bg-[#1CB0F6] text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white hover:bg-[#20323D]'
+                      }`}
+                    >
+                      {size === 'ALL' ? 'All' : size}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Navigation Prev / Next */}
+                {pageSize !== 'ALL' && totalPages > 1 && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => {
+                        if (safeCurrentPage > 1) {
+                          soundFx.playPop();
+                          setCurrentPage(p => Math.max(1, p - 1));
+                        }
+                      }}
+                      disabled={safeCurrentPage <= 1}
+                      className={`duo-btn-dark px-2.5 py-1.5 text-xs flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed`}
+                      title="Previous Page"
+                    >
+                      <ChevronLeft size={14} />
+                      <span className="hidden sm:inline font-black text-[10px] uppercase">Prev</span>
+                    </button>
+
+                    <div className="px-2.5 py-1 rounded-xl bg-[#142127] border border-[#20323D] font-mono text-[11px] font-black text-white">
+                      {safeCurrentPage} <span className="text-slate-500 font-normal">/</span> {totalPages}
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        if (safeCurrentPage < totalPages) {
+                          soundFx.playPop();
+                          setCurrentPage(p => Math.min(totalPages, p + 1));
+                        }
+                      }}
+                      disabled={safeCurrentPage >= totalPages}
+                      className={`duo-btn-dark px-2.5 py-1.5 text-xs flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed`}
+                      title="Next Page"
+                    >
+                      <span className="hidden sm:inline font-black text-[10px] uppercase">Next</span>
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
         )}
         </>
         )}
@@ -1246,152 +1706,18 @@ export default function SetupsTab() {
         )}
       </div>
 
-      {/* MANUAL TRADE ENTRY MODAL */}
-      {isManualModalOpen && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="duo-card max-w-lg w-full p-6 sm:p-8 space-y-5 border-2 border-[#1CB0F6] relative max-h-[92vh] overflow-y-auto">
-            <button 
-              onClick={() => setIsManualModalOpen(false)}
-              className="absolute top-4 right-4 p-2 rounded-xl bg-[#20323D] text-slate-400 hover:text-white cursor-pointer font-black text-xs"
-            >
-              Close
-            </button>
-
-            <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#1CB0F6]">MANUAL TRADE ENTRY</span>
-              <h3 className="text-xl font-black text-white">Log Trade Fill</h3>
-              <p className="text-xs font-bold text-[#52656D]">Record your trade execution directly into your analytics matrix</p>
-            </div>
-
-            <form onSubmit={handleAddManualTrade} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Symbol</label>
-                  <input 
-                    type="text"
-                    value={manualSymbol}
-                    onChange={(e) => setManualSymbol(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs focus:border-[#1CB0F6] outline-none"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Direction / Side</label>
-                  <select 
-                    value={manualSide}
-                    onChange={(e) => setManualSide(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs focus:border-[#1CB0F6] outline-none cursor-pointer"
-                  >
-                    <option value="BUY">BUY</option>
-                    <option value="SELL">SELL</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Size (Lots)</label>
-                  <input 
-                    type="text"
-                    value={manualSize}
-                    onChange={(e) => setManualSize(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs focus:border-[#1CB0F6] outline-none"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Entry Price</label>
-                  <input 
-                    type="text"
-                    value={manualEntry}
-                    onChange={(e) => setManualEntry(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs focus:border-[#1CB0F6] outline-none"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Exit Price</label>
-                  <input 
-                    type="text"
-                    value={manualExit}
-                    onChange={(e) => setManualExit(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs focus:border-[#1CB0F6] outline-none"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Net P&L ($)</label>
-                  <input 
-                    type="number"
-                    value={manualPnl}
-                    onChange={(e) => setManualPnl(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs focus:border-[#1CB0F6] outline-none"
-                    placeholder="e.g. 1200 or -450"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Execution Process</label>
-                  <select 
-                    value={manualType}
-                    onChange={(e) => setManualType(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs focus:border-[#1CB0F6] outline-none cursor-pointer"
-                  >
-                    <option value="FOLLOW_WIN">Followed Plan (Win)</option>
-                    <option value="FOLLOW_LOSS">Followed Plan (Good Loss)</option>
-                    <option value="VIOLATE_WIN">Violated Plan (Bad Win)</option>
-                    <option value="VIOLATE_LOSS">Violated Plan (Bad Loss)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Playbook Setup Used</label>
-                <select 
-                  value={manualSetup}
-                  onChange={(e) => setManualSetup(e.target.value)}
-                  className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs focus:border-[#1CB0F6] outline-none cursor-pointer"
-                >
-                  {playbookSetups.map((s) => (
-                    <option key={s.id} value={s.name}>{s.name}</option>
-                  ))}
-                  <option value="Unplanned / Discretionary">Unplanned / Discretionary (No Setup)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Chart Screenshot URL (Optional)</label>
-                <input 
-                  type="url"
-                  value={manualChartUrl}
-                  onChange={(e) => setManualChartUrl(e.target.value)}
-                  className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs focus:border-[#1CB0F6] outline-none"
-                  placeholder="https://www.tradingview.com/x/... or image link"
-                />
-              </div>
-
-              <button 
-                type="submit"
-                className="duo-btn-orange w-full py-3.5 text-xs font-black uppercase tracking-wider cursor-pointer mt-2"
-              >
-                Log Trade to Analytics Matrix
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* FULL-SCREEN CHART LIGHTBOX MODAL */}
       {activeChartLightbox && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="duo-card max-w-4xl w-full p-6 sm:p-8 space-y-4 border-2 border-[#1CB0F6] relative max-h-[95vh] overflow-y-auto">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActiveChartLightbox(null);
+          }}
+          className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="duo-card max-w-4xl w-full p-6 sm:p-8 space-y-4 border-2 border-[#1CB0F6] relative max-h-[95vh] overflow-y-auto"
+          >
             <button 
               onClick={() => setActiveChartLightbox(null)}
               className="absolute top-4 right-4 p-2 rounded-xl bg-[#20323D] text-slate-400 hover:text-white cursor-pointer font-black text-xs"
@@ -1404,7 +1730,7 @@ export default function SetupsTab() {
                 <span className="text-[10px] font-black uppercase text-[#1CB0F6]">TRADE CHART ANALYSIS</span>
                 <h3 className="text-xl font-black text-white">{activeChartLightbox.symbol} &bull; {activeChartLightbox.side} ({activeChartLightbox.size})</h3>
                 <p className="text-xs font-bold text-[#52656D]">
-                  Entry: {activeChartLightbox.entry} &rarr; Exit: {activeChartLightbox.exit} | PnL: <span className={(activeChartLightbox.pnl || '').startsWith('+') ? 'text-[#58CC02]' : 'text-rose-400'}>{activeChartLightbox.pnl} ({activeChartLightbox.r})</span>
+                  Entry: {activeChartLightbox.entry} &rarr; Exit: {activeChartLightbox.exit} | PnL: <span className={String(activeChartLightbox.pnl || '').startsWith('+') ? 'text-[#58CC02]' : String(activeChartLightbox.pnl || '').startsWith('-') ? 'text-rose-400' : 'text-slate-400'}>{activeChartLightbox.pnl} ({activeChartLightbox.r})</span>
                 </p>
               </div>
               <span className="text-xs font-black text-white bg-[#20323D] px-3 py-1.5 rounded-xl border border-[#37464F]">
@@ -1416,7 +1742,7 @@ export default function SetupsTab() {
               <img 
                 src={activeChartLightbox.chartUrl} 
                 alt={`Chart Execution for ${activeChartLightbox.id}`} 
-                className="w-full h-full object-contain max-h-[60vh]"
+                className="w-full h-full object-contain max-h-[60vh]" 
               />
             </div>
 
@@ -1432,10 +1758,196 @@ export default function SetupsTab() {
         </div>
       )}
 
+      {/* CLASSIFY EXECUTION QUALITY MODAL */}
+      {taggingTrade && (
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setTaggingTrade(null);
+          }}
+          className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="duo-card max-w-md w-full p-6 space-y-5 border-2 border-[#1CB0F6] relative shadow-2xl"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-[#20323D]">
+              <div>
+                <span className="text-[10px] font-black uppercase text-[#1CB0F6]">BEHAVIORAL AUDIT</span>
+                <h3 className="text-base font-black text-white">Classify Execution Quality</h3>
+                <p className="text-xs text-slate-400 font-bold mt-0.5">
+                  {taggingTrade.symbol} &bull; {taggingTrade.setup} &bull; <span className={String(taggingTrade.pnl || '').startsWith('+') ? 'text-[#58CC02]' : String(taggingTrade.pnl || '').startsWith('-') ? 'text-rose-400' : 'text-slate-400'}>{taggingTrade.pnl || '$0.00'}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setTaggingTrade(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black uppercase text-slate-400 block mb-1">Select Execution Type:</span>
+              {[
+                { type: 'FOLLOW_WIN', label: 'Disciplined Win', desc: 'Rules followed, edge rewarded with profit', color: 'bg-[#58CC02]/20 border-[#58CC02] text-[#58CC02] hover:bg-[#58CC02]/30' },
+                { type: 'FOLLOW_LOSS', label: 'Disciplined Loss', desc: 'Rules strictly followed, acceptable cost of trading', color: 'bg-[#1CB0F6]/20 border-[#1CB0F6] text-[#1CB0F6] hover:bg-[#1CB0F6]/30' },
+                { type: 'FOLLOW_BE', label: 'Disciplined Break-Even', desc: 'Rules followed, target reached or protected at BE', color: 'bg-[#CE82FF]/20 border-[#CE82FF] text-[#CE82FF] hover:bg-[#CE82FF]/30' },
+                { type: 'VIOLATE_WIN', label: 'Toxic Win', desc: 'Rules broken or FOMO entry, rewarded by luck', color: 'bg-[#FFC800]/20 border-[#FFC800] text-[#FFC800] hover:bg-[#FFC800]/30' },
+                { type: 'VIOLATE_BE', label: 'Toxic Break-Even', desc: 'Rules violated, lucky escape at scratch', color: 'bg-[#00F0FF]/20 border-[#00F0FF] text-[#00F0FF] hover:bg-[#00F0FF]/30' },
+                { type: 'VIOLATE_LOSS', label: 'Double Failure', desc: 'Plan broken AND capital lost (Tilt/Revenge)', color: 'bg-rose-500/20 border-rose-500 text-rose-400 hover:bg-rose-500/30' },
+                { type: 'MISSED_TRADE', label: 'Missed Setup', desc: 'Valid edge confirmed, hesitation prevented entry', color: 'bg-[#FF9600]/20 border-[#FF9600] text-[#FF9600] hover:bg-[#FF9600]/30' },
+              ].map((item) => (
+                <button
+                  key={item.type}
+                  onClick={() => handleSelectExecutionTag(taggingTrade.id, item.type)}
+                  className={`w-full p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex items-center justify-between ${item.color}`}
+                >
+                  <div>
+                    <div className="font-black text-xs">{item.label}</div>
+                    <div className="text-[10px] opacity-80 font-bold">{item.desc}</div>
+                  </div>
+                  <Tag size={14} className="shrink-0" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ATTACH TRADINGVIEW CHART MODAL */}
+      {attachingChartTrade && (
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setAttachingChartTrade(null);
+          }}
+          className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="duo-card max-w-md w-full p-6 space-y-5 border-2 border-[#1CB0F6] relative shadow-2xl"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-[#20323D]">
+              <div>
+                <span className="text-[10px] font-black uppercase text-[#1CB0F6]">CHART ATTACHMENT</span>
+                <h3 className="text-base font-black text-white">Attach TradingView Snapshot</h3>
+                <p className="text-xs text-slate-400 font-bold mt-0.5">
+                  {attachingChartTrade.symbol} &bull; {attachingChartTrade.setup} ({attachingChartTrade.pnl})
+                </p>
+              </div>
+              <button
+                onClick={() => setAttachingChartTrade(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveChartAttachment} className="space-y-4">
+              {/* Image Dropzone / Paste Area */}
+              <div
+                onDrop={handleImageDrop}
+                onDragOver={(e) => e.preventDefault()}
+                onClick={() => document.getElementById('chart-attachment-file-input')?.click()}
+                className="p-4 rounded-2xl border-2 border-dashed border-[#1CB0F6]/40 hover:border-[#1CB0F6] bg-[#142127] text-center cursor-pointer transition-all space-y-2 group"
+              >
+                <input
+                  id="chart-attachment-file-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file && file.type.startsWith('image/')) {
+                      compressImage(file).then((compressedUrl) => {
+                        if (compressedUrl) {
+                          setChartUrlInput(compressedUrl);
+                          soundFx.playSuccess();
+                        }
+                      });
+                    }
+                  }}
+                  className="hidden"
+                />
+                {chartUrlInput ? (
+                  <div className="relative group/preview" onClick={(e) => e.stopPropagation()}>
+                    <img
+                      src={chartUrlInput}
+                      alt="Chart Preview"
+                      className="max-h-48 w-full object-contain rounded-xl border border-[#20323D] bg-black/40"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setChartUrlInput('');
+                      }}
+                      className="absolute top-2 right-2 p-1.5 rounded-lg bg-rose-500/80 hover:bg-rose-500 text-white cursor-pointer"
+                    >
+                      <X size={14} />
+                    </button>
+                    <p className="text-[10px] font-bold text-slate-400 mt-1">Image Loaded. Click to replace or paste a new one.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-center text-[#1CB0F6] group-hover:scale-110 transition-transform">
+                      <ImageIcon size={32} />
+                    </div>
+                    <div className="text-xs font-black text-white">
+                      Paste Screenshot (<span className="text-[#1CB0F6]">Cmd+V</span> / <span className="text-[#1CB0F6]">Ctrl+V</span>)
+                    </div>
+                    <p className="text-[10px] font-bold text-slate-400">
+                      Or drag and drop an image file, or click to browse
+                    </p>
+                  </>
+                )}
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">
+                  Or Paste TradingView Chart URL
+                </label>
+                <input
+                  type="url"
+                  value={chartUrlInput.startsWith('data:') ? '' : chartUrlInput}
+                  onChange={(e) => setChartUrlInput(e.target.value)}
+                  onPaste={handleImagePaste}
+                  placeholder={chartUrlInput.startsWith('data:') ? 'Screenshot attached from clipboard' : 'https://www.tradingview.com/x/...'}
+                  className="w-full bg-[#142127] border-2 border-[#20323D] rounded-xl px-3.5 py-2.5 text-xs font-black text-white focus:outline-none focus:border-[#1CB0F6]"
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setAttachingChartTrade(null)}
+                  className="flex-1 py-3 rounded-2xl bg-[#142127] border-2 border-[#20323D] text-slate-300 hover:bg-[#182830] font-black text-xs uppercase cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!chartUrlInput.trim()}
+                  className="flex-1 py-3 rounded-2xl duo-btn-green font-black text-xs uppercase cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                >
+                  Attach Chart
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* CREATE NEW STRATEGY PLAYBOOK MODAL */}
       {isNewSetupModalOpen && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="duo-card max-w-md w-full p-6 sm:p-8 space-y-5 border-2 border-[#58CC02] relative max-h-[92vh] overflow-y-auto">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsNewSetupModalOpen(false);
+          }}
+          className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="duo-card max-w-md w-full p-6 sm:p-8 space-y-5 border-2 border-[#58CC02] relative max-h-[92vh] overflow-y-auto"
+          >
             <button 
               onClick={() => setIsNewSetupModalOpen(false)}
               className="absolute top-4 right-4 p-2 rounded-xl bg-[#20323D] text-slate-400 hover:text-white cursor-pointer font-black text-xs"

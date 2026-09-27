@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Flame, Gem, Heart, Calendar, ShieldCheck, Award, TrendingUp, CheckCircle2, AlertCircle, Cpu, RefreshCw, BarChart3, Activity, Sparkles, Trash2, RotateCcw, ShieldAlert, CheckSquare, Square, X, Download, Upload, FileText, Check, LogOut } from 'lucide-react';
+import { User, Flame, Gem, Heart, Calendar, ShieldCheck, Award, TrendingUp, CheckCircle2, AlertCircle, Cpu, RefreshCw, BarChart3, Activity, Sparkles, Trash2, RotateCcw, ShieldAlert, CheckSquare, Square, X, Download, Upload, FileText, Check, LogOut, CreditCard, Mail, ExternalLink, AlertTriangle, Volume2, VolumeX, HardDrive, Database } from 'lucide-react';
 import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoProfileIcon, DuoTrophyIcon } from './DuoIcons';
 import GoogleAuthButton from './GoogleAuthButton';
 import MobileAlertSettings from './MobileAlertSettings';
+import ConfirmModal from './ConfirmModal';
 import { soundFx } from '../utils/audioEngine';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -14,23 +15,108 @@ import {
   exportFullBackup,
   exportTradesCsv,
   importFullBackup,
-  wipeAccountTrades
+  wipeAccountTrades,
+  getAllStoredTrades,
+  getStorageUsage,
+  safeRemoveItem
 } from '../utils/storage';
+import { formatFinancialCurrency, sumTradesPnl, parseFinancialNumber } from '../utils/financialMath';
 
 export default function ProfileTab() {
   const { user, signOutUser } = useAuth();
-  const [googleUser, setGoogleUser] = useState(() => loadStoredData('tradepigeon_google_user', null));
+  const [googleUser, setGoogleUser] = useState(() => loadStoredData('tradepigeon_auth_user', null) || loadStoredData('tradepigeon_google_user', null));
   const [isPro, setIsPro] = useState(() => loadStoredData('tradepigeon_is_pro', false));
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('DEBRIEF_HISTORY');
   const [isProcessingStripe, setIsProcessingStripe] = useState(false);
+  const [isOpeningPortal, setIsOpeningPortal] = useState(false);
+  const [isDunning, setIsDunning] = useState(() => loadStoredData('tradepigeon_dunning_status', false));
+  const [emailBriefingPref, setEmailBriefingPref] = useState(() => loadStoredData('tradepigeon_pref_daily_email', true));
+  const [emailRiskPref, setEmailRiskPref] = useState(() => loadStoredData('tradepigeon_pref_risk_email', true));
   const [profileToast, setProfileToast] = useState('');
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState('');
   const [keepBrokersOnReset, setKeepBrokersOnReset] = useState(true);
+
+  // Audio & Haptic preferences
+  const [isSoundMuted, setIsSoundMuted] = useState(() => soundFx.isMuted);
+
+  // Storage utilization & Quota
+  const [storageUsage, setStorageUsage] = useState(() => getStorageUsage());
+
+  useEffect(() => {
+    const handleSoundToggle = (e) => {
+      if (e?.detail) {
+        setIsSoundMuted(Boolean(e.detail.isMuted));
+      }
+    };
+    window.addEventListener('tradepigeon_sound_toggled', handleSoundToggle);
+    return () => window.removeEventListener('tradepigeon_sound_toggled', handleSoundToggle);
+  }, []);
+
+  useEffect(() => {
+    if (activeSubTab === 'RESET_ZONE') {
+      setStorageUsage(getStorageUsage());
+    }
+  }, [activeSubTab]);
+
+  // Risk & Prop Firm Drawdown Calibration
+  const [maxDailyLoss, setMaxDailyLoss] = useState(() => loadStoredData('tradepigeon_max_daily_loss', '$1,000'));
+  const [trailingMaxDrawdown, setTrailingMaxDrawdown] = useState(() => loadStoredData('tradepigeon_trailing_max_drawdown', '$2,500'));
+  const [customLossInput, setCustomLossInput] = useState('');
+  const [customDrawdownInput, setCustomDrawdownInput] = useState('');
+  const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('tradepigeon_stealth_mode', false));
+
+  useEffect(() => {
+    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
+      if (key === 'tradepigeon_max_daily_loss') setMaxDailyLoss(value || '$1,000');
+      if (key === 'tradepigeon_trailing_max_drawdown') setTrailingMaxDrawdown(value || '$2,500');
+      if (key === 'tradepigeon_stealth_mode') setIsStealthMode(Boolean(value));
+      if (key === 'tradepigeon_sound_muted') setIsSoundMuted(value === 'true' || value === true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSetMaxDailyLoss = (val) => {
+    soundFx.playPop();
+    const num = Math.abs(parseFinancialNumber(val, 1000));
+    const formatted = `$${num.toLocaleString()}`;
+    setMaxDailyLoss(formatted);
+    saveStoredData('tradepigeon_max_daily_loss', formatted);
+    triggerToast(`Max Daily Loss updated to ${formatted}`);
+  };
+
+  const handleSetTrailingDrawdown = (val) => {
+    soundFx.playPop();
+    const num = Math.abs(parseFinancialNumber(val, 2500));
+    const formatted = `$${num.toLocaleString()}`;
+    setTrailingMaxDrawdown(formatted);
+    saveStoredData('tradepigeon_trailing_max_drawdown', formatted);
+    triggerToast(`Trailing Max Drawdown updated to ${formatted}`);
+  };
+
+  const handleToggleStealthMode = () => {
+    soundFx.playPop();
+    const next = !isStealthMode;
+    setIsStealthMode(next);
+    saveStoredData('tradepigeon_stealth_mode', next);
+    triggerToast(next ? 'Stealth Mode Activated (R-Multiples)' : 'Stealth Mode Deactivated (Dollar PnL)');
+  };
   
   // Account Specific Wipe / Disconnect modal
   const [accountActionTarget, setAccountActionTarget] = useState(null);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (isResetModalOpen) setIsResetModalOpen(false);
+        if (accountActionTarget) setAccountActionTarget(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isResetModalOpen, accountActionTarget]);
 
   const triggerToast = (msg) => {
     soundFx.playPop();
@@ -66,10 +152,10 @@ export default function ProfileTab() {
           setTimeout(() => window.location.reload(), 1200);
         } else {
           soundFx.playPop();
-          alert(res.error || 'Failed to import backup');
+          triggerToast(res.error || 'Failed to import backup');
         }
       } catch (err) {
-        alert('Corrupted JSON file');
+        triggerToast('Corrupted JSON file');
       }
     };
     reader.readAsText(file);
@@ -77,52 +163,130 @@ export default function ProfileTab() {
 
   const handleWipeTodayTrades = () => {
     soundFx.playPop();
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith('tradepigeon_session_trades_')) {
-        localStorage.removeItem(k);
-      }
-    }
+    const now = new Date();
+    const todayIso = now.toISOString().slice(0, 10);
+    const todayDom = String(now.getDate());
+
+    const targetTodayKeys = new Set([
+      'tradepigeon_session_trades',
+      'goodtrader_session_trades',
+      `tradepigeon_session_trades_day_${todayIso}`,
+      `goodtrader_session_trades_day_${todayIso}`,
+      `tradepigeon_session_trades_day_${todayDom}`,
+      `goodtrader_session_trades_day_${todayDom}`,
+      `day_${todayIso}`,
+    ]);
+
+    targetTodayKeys.forEach(key => {
+      safeRemoveItem(key);
+    });
+
+    // Also clean today's date from tradepigeon_tradelogs and goodtrader_tradelogs
+    ['tradepigeon_tradelogs', 'goodtrader_tradelogs'].forEach(storageKey => {
+      try {
+        const logs = loadStoredData(storageKey, []);
+        if (Array.isArray(logs)) {
+          const filtered = logs.filter(t => t?.date !== todayIso);
+          saveStoredData(storageKey, filtered);
+        }
+      } catch (_) {}
+    });
+
     window.dispatchEvent(new CustomEvent('tradepigeon-storage-update', { detail: { key: 'trades_cleared', value: Date.now() } }));
+    window.dispatchEvent(new CustomEvent('goodtrader-storage-update', { detail: { key: 'trades_cleared', value: Date.now() } }));
     triggerToast("Today's session trades wiped clean.");
   };
 
-  const handleExecuteFactoryReset = () => {
+  const handleExecuteFactoryReset = async () => {
     if (resetConfirmText.trim().toUpperCase() !== 'RESET') return;
     soundFx.playSuccess();
-    factoryResetCleanSlate({ keepBrokerAccounts: keepBrokersOnReset });
+    await factoryResetCleanSlate({ keepBrokerAccounts: keepBrokersOnReset });
   };
 
   const handleExportCsv = () => {
     soundFx.playSuccess();
-    exportTradesCsv();
-    triggerToast('Trades exported (CSV)');
+    const res = exportTradesCsv();
+    if (res && res.success === false) {
+      triggerToast(res.error || 'No trades found to export.');
+    } else {
+      triggerToast('Trades exported (CSV)');
+    }
   };
 
-  const handleStripeCheckout = () => {
+  const handleStripeCheckout = async () => {
     soundFx.playPop();
     setIsProcessingStripe(true);
     const monthlyUrl = import.meta.env.VITE_STRIPE_MONTHLY_LINK || 'https://buy.stripe.com/00w28t0HrfyO93VamV7ss01';
     const emailParam = user?.email ? `?prefilled_email=${encodeURIComponent(user.email)}` : '';
-    window.open(`${monthlyUrl}${emailParam}`, '_blank', 'noopener,noreferrer');
-    setTimeout(() => setIsProcessingStripe(false), 800);
-  };
+    const fallbackUrl = `${monthlyUrl}${emailParam}`;
 
-  const handleCancelSubscription = () => {
-    triggerToast("Pro access active through billing cycle.");
-  };
-
-  const handleSignOut = async () => {
-    soundFx.playPop();
-    if (window.confirm('Are you sure you want to log out of TradePigeon?')) {
-      try {
-        await signOutUser();
-      } catch (err) {
-        console.warn('[Sign Out Error]:', err);
+    try {
+      const res = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan: 'monthly',
+          customerEmail: user?.email || googleUser?.email || '',
+          userId: user?.uid || googleUser?.id || ''
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.url) {
+          window.location.href = data.url;
+          return;
+        }
       }
-      saveStoredData('tradepigeon_google_user', null);
-      triggerToast('Signed out of TradePigeon');
+    } catch (err) {
+      console.warn('[Stripe Checkout] Dynamic checkout session creation fallback:', err);
+    } finally {
+      setIsProcessingStripe(false);
     }
+
+    window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleOpenBillingPortal = async () => {
+    soundFx.playPop();
+    setIsOpeningPortal(true);
+    try {
+      const res = await fetch('/api/stripe/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerEmail: user?.email || googleUser?.email || '',
+          returnUrl: window.location.href
+        })
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        triggerToast(data.error || 'Failed to initialize billing portal');
+      }
+    } catch (err) {
+      triggerToast('Billing service unavailable');
+    } finally {
+      setIsOpeningPortal(false);
+    }
+  };
+
+  const handleSignOut = () => {
+    soundFx.playPop();
+    setIsLogoutModalOpen(true);
+  };
+
+  const handleConfirmSignOut = async () => {
+    setIsLogoutModalOpen(false);
+    try {
+      await signOutUser();
+    } catch (err) {
+      console.warn('[Sign Out Error]:', err);
+    }
+    saveStoredData('tradepigeon_auth_user', null);
+    saveStoredData('tradepigeon_google_user', null);
+    setGoogleUser(null);
+    triggerToast('Signed out of TradePigeon');
   };
 
   // VERIFIED TRADING EDGE LOG (Loaded from Storage with clean zero-state and live reactivity)
@@ -131,8 +295,16 @@ export default function ProfileTab() {
   // Connected Auto-Synced Trading Accounts (Loaded from Storage with clean zero-state)
   const [connectedAccounts, setConnectedAccounts] = useState(() => loadStoredData('tradepigeon_accounts_data', []));
 
+  // Live User Stats, Discipline Points, and Stored Trades from Storage (with reactive state)
+  const [userStats, setUserStats] = useState(() => loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS));
+  const [userDp, setUserDp] = useState(() => loadStoredData('tradepigeon_user_dp', 0));
+  const [storedTrades, setStoredTrades] = useState(() => getAllStoredTrades());
+
   useEffect(() => {
-    const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
+    const unsubscribe = subscribeToStorageUpdate(({ key, legacyKey, value }) => {
+      if (key === 'tradepigeon_auth_user' || key === 'tradepigeon_google_user' || legacyKey === 'tradepigeon_google_user') {
+        setGoogleUser(value);
+      }
       if (key === 'tradepigeon_accounts_data') {
         setConnectedAccounts(value || []);
       }
@@ -141,6 +313,20 @@ export default function ProfileTab() {
       }
       if (key === 'tradepigeon_is_pro') {
         setIsPro(Boolean(value));
+      }
+      if (key === 'tradepigeon_user_stats') {
+        setUserStats(value || DEFAULT_USER_STATS);
+      }
+      if (key === 'tradepigeon_user_dp') {
+        setUserDp(Number(value) || 0);
+      }
+      if (
+        key === 'tradepigeon_tradelogs' ||
+        key === 'goodtrader_tradelogs' ||
+        key === 'trades_cleared' ||
+        (key && (key.startsWith('tradepigeon_session_trades') || key.startsWith('goodtrader_session_trades') || key.startsWith('day_')))
+      ) {
+        setStoredTrades(getAllStoredTrades());
       }
     });
     return () => unsubscribe();
@@ -184,9 +370,6 @@ export default function ProfileTab() {
     triggerToast('All connected accounts cleared');
   };
 
-  // Live User Stats from Storage
-  const userStats = loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS);
-  const userDp = loadStoredData('tradepigeon_user_dp', 0);
   const activeUser = user || googleUser;
 
   return (
@@ -200,7 +383,7 @@ export default function ProfileTab() {
               src={activeUser.picture} 
               alt={activeUser.name || 'Trader'} 
               className="w-11 h-11 rounded-2xl object-cover border-2 border-[#FF6B00] shadow-md shrink-0"
-              onError={(e) => { e.target.src = '/parrot_logo.png'; }}
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
           ) : (
             <div className="w-11 h-11 rounded-2xl bg-[#0D1635] border-2 border-[#FF6B00] flex items-center justify-center shrink-0">
@@ -223,9 +406,20 @@ export default function ProfileTab() {
         <div className="flex flex-wrap items-center gap-3 shrink-0">
           <GoogleAuthButton className="py-2.5 text-xs" buttonText="Google Identity" />
           {isPro ? (
-            <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#58CC02]/20 border-2 border-[#58CC02] border-b-4 border-b-[#388202] text-xs font-black text-white shadow-md">
-              <CheckCircle2 size={16} className="text-[#58CC02]" />
-              <span>PRO ACTIVE</span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-[#58CC02]/20 border-2 border-[#58CC02] border-b-4 border-b-[#388202] text-xs font-black text-white shadow-md">
+                <CheckCircle2 size={15} className="text-[#58CC02]" />
+                <span>PRO ACTIVE</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenBillingPortal}
+                disabled={isOpeningPortal}
+                className="duo-btn-blue px-3.5 py-2 text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5 cursor-pointer shadow-md"
+              >
+                <CreditCard size={14} />
+                <span>{isOpeningPortal ? 'Connecting...' : 'Manage Billing'}</span>
+              </button>
             </div>
           ) : (
             <button
@@ -247,6 +441,27 @@ export default function ProfileTab() {
           </button>
         </div>
       </div>
+
+      {/* Involuntary Churn / Dunning Warning Alert */}
+      {isDunning && (
+        <div className="p-4 rounded-2xl bg-amber-950/30 border-2 border-amber-500/60 flex items-center justify-between gap-4 animate-fade-in text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0">
+              <AlertTriangle size={20} />
+            </div>
+            <div>
+              <div className="text-xs font-black text-amber-300 uppercase tracking-wider">Payment Action Required</div>
+              <div className="text-xs font-bold text-slate-300">Your latest Pro subscription renewal failed. Update your card to keep broker sync active.</div>
+            </div>
+          </div>
+          <button
+            onClick={handleOpenBillingPortal}
+            className="duo-btn-orange px-4 py-2 text-xs font-black uppercase tracking-wider shrink-0 cursor-pointer"
+          >
+            Update Card &rarr;
+          </button>
+        </div>
+      )}
 
       {/* Core Stats Hero Card */}
       <div className="duo-card p-6 space-y-6">
@@ -271,24 +486,55 @@ export default function ProfileTab() {
               <span className="text-xl sm:text-2xl font-black text-[#1CB0F6]">{userDp || 0}</span>
             </div>
 
-            <div className="flex items-center justify-between">
-              <span className="text-base font-black text-white">Disciplined Trades</span>
-              <span className="text-xl sm:text-2xl font-black text-[#58CC02]">{userStats.tradesLogged || 0}</span>
-            </div>
+            {(() => {
+              const totalTradesCount = storedTrades.length;
+              const followedTradesCount = totalTradesCount > 0
+                ? storedTrades.filter(t => t.followedRules !== false && !t.violated && !t.violatedRules).length
+                : (userStats.tradesLogged || 0);
 
-            <div className="flex items-center justify-between">
-              <span className="text-base font-black text-white">Plan Adherence</span>
-              <span className="text-xl sm:text-2xl font-black text-[#58CC02]">{userStats.overallWinRate || '0%'}</span>
-            </div>
+              const planAdherenceStr = totalTradesCount > 0
+                ? `${Math.round((followedTradesCount / totalTradesCount) * 100)}%`
+                : '100%';
+
+              const winsCount = storedTrades.filter(t => (t.pnlNum !== undefined ? t.pnlNum : parseFinancialNumber(t.pnl, 0)) > 0).length;
+              const winRateStr = totalTradesCount > 0 ? `${Math.round((winsCount / totalTradesCount) * 100)}%` : '0%';
+              const totalRealizedPnl = sumTradesPnl(storedTrades);
+
+              return (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-base font-black text-white">Net Realized PnL</span>
+                    <span className={`text-xl sm:text-2xl font-black font-mono ${totalRealizedPnl >= 0 ? 'text-[#58CC02]' : 'text-rose-400'}`}>
+                      {formatFinancialCurrency(totalRealizedPnl, { showPlus: true })}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-base font-black text-white">Win Rate</span>
+                    <span className="text-xl sm:text-2xl font-black font-mono text-[#1CB0F6]">{winRateStr}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-base font-black text-white">Disciplined Trades</span>
+                    <span className="text-xl sm:text-2xl font-black text-[#58CC02]">{followedTradesCount}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-base font-black text-white">Plan Adherence</span>
+                    <span className="text-xl sm:text-2xl font-black text-[#58CC02]">{planAdherenceStr}</span>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
 
-      {/* 2. SUB-NAVIGATION TABS (SESSION DEBRIEF HISTORY / ACCOUNTS) */}
-      <div className="flex items-center gap-2.5 border-b-2 border-[#20323D] pb-3">
+      {/* 2. SUB-NAVIGATION TABS (SESSION DEBRIEF HISTORY / ACCOUNTS / RISK RULES / RESET) */}
+      <div className="flex items-center gap-2.5 border-b-2 border-[#20323D] pb-3 overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveSubTab('DEBRIEF_HISTORY')}
-          className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+          className={`px-4 sm:px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shrink-0 ${
             activeSubTab === 'DEBRIEF_HISTORY'
               ? 'duo-btn-blue'
               : 'duo-btn-dark'
@@ -298,7 +544,7 @@ export default function ProfileTab() {
         </button>
         <button
           onClick={() => setActiveSubTab('ACCOUNTS')}
-          className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+          className={`px-4 sm:px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shrink-0 ${
             activeSubTab === 'ACCOUNTS'
               ? 'duo-btn-blue'
               : 'duo-btn-dark'
@@ -307,8 +553,19 @@ export default function ProfileTab() {
           Connected Broker Accounts
         </button>
         <button
+          onClick={() => setActiveSubTab('RISK_RULES')}
+          className={`px-4 sm:px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+            activeSubTab === 'RISK_RULES'
+              ? 'duo-btn-green'
+              : 'duo-btn-dark'
+          }`}
+        >
+          <ShieldAlert size={14} />
+          <span>Risk & Drawdown Rules</span>
+        </button>
+        <button
           onClick={() => setActiveSubTab('RESET_ZONE')}
-          className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+          className={`px-4 sm:px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
             activeSubTab === 'RESET_ZONE'
               ? 'duo-btn-orange !bg-rose-600 !border-rose-700'
               : 'duo-btn-dark hover:text-rose-400'
@@ -453,8 +710,286 @@ export default function ProfileTab() {
           )}
 
           {/* MOBILE PHONE PUSH NOTIFICATION SETTINGS */}
-          <div className="pt-4">
+          <div className="pt-4 space-y-4">
             <MobileAlertSettings />
+
+            {/* EMAIL RETENTION & PERFORMANCE BRIEFING SETTINGS */}
+            <div className="duo-card p-6 space-y-4 border-2 border-[#20323D]">
+              <div className="flex items-center justify-between pb-3 border-b border-[#20323D]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-[#1CB0F6]/15 border border-[#1CB0F6]/30 text-[#1CB0F6] flex items-center justify-center">
+                    <Mail size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-white">Email Digest &amp; Risk Telemetry</h3>
+                    <p className="text-[10px] font-bold text-slate-400">Automated post-market debriefs and emergency liquidation alerts</p>
+                  </div>
+                </div>
+                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-[#1CB0F6]/15 text-[#1CB0F6] border border-[#1CB0F6]/30">
+                  ACTIVE PIPELINE
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                <label className="flex items-center justify-between p-3.5 rounded-2xl bg-[#142127] border border-[#20323D] cursor-pointer">
+                  <div className="pr-4">
+                    <div className="text-xs font-black text-white">Daily Post-Market Discipline Debrief</div>
+                    <div className="text-[10px] font-bold text-slate-400">Receive your execution grade, net PnL, and rule adherence card at 17:00 EST.</div>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={emailBriefingPref} 
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setEmailBriefingPref(checked);
+                      saveStoredData('tradepigeon_pref_daily_email', checked);
+                      triggerToast(`Daily Briefing ${checked ? 'enabled' : 'disabled'}`);
+                    }}
+                    className="w-4 h-4 rounded text-[#58CC02] focus:ring-0 cursor-pointer shrink-0"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3.5 rounded-2xl bg-[#142127] border border-[#20323D] cursor-pointer">
+                  <div className="pr-4">
+                    <div className="text-xs font-black text-white">Emergency Risk Breach Alerts</div>
+                    <div className="text-[10px] font-bold text-slate-400">Instant high-priority notification if daily loss limit or trailing buffer is reached.</div>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={emailRiskPref} 
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setEmailRiskPref(checked);
+                      saveStoredData('tradepigeon_pref_risk_email', checked);
+                      triggerToast(`Risk Alert ${checked ? 'enabled' : 'disabled'}`);
+                    }}
+                    className="w-4 h-4 rounded text-[#58CC02] focus:ring-0 cursor-pointer shrink-0"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-TAB: RISK & DRAWDOWN RULES */}
+      {activeSubTab === 'RISK_RULES' && (
+        <div className="space-y-6 animate-fade-in text-left">
+          {/* Card 1: Max Daily Loss Limit */}
+          <div className="duo-card p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#20323D]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center">
+                  <ShieldAlert size={16} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Daily Loss Circuit Breaker</h3>
+                  <p className="text-xs font-bold text-[#52656D]">Hard stop limit per trading session</p>
+                </div>
+              </div>
+              <div className="px-3 py-1 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 font-mono font-black text-sm">
+                {maxDailyLoss}
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              When your session net loss hits this circuit breaker, trades automatically fail process rules (Double Failure) and your session triggers lockout mode.
+            </p>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Quick Presets:</span>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                {[500, 1000, 1500, 2000, 2500, 3000].map(amt => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => handleSetMaxDailyLoss(amt)}
+                    className={`py-2 px-1 rounded-xl border text-xs font-mono font-black cursor-pointer transition-all ${
+                      Math.abs(parseFinancialNumber(maxDailyLoss, 1000)) === amt
+                        ? 'bg-rose-500/20 border-rose-500 text-rose-300 shadow-sm'
+                        : 'bg-[#182830] border-[#20323D] text-slate-400 hover:text-white hover:border-slate-500'
+                    }`}
+                  >
+                    ${amt.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Custom limit (e.g. $1,250)"
+                value={customLossInput}
+                onChange={(e) => setCustomLossInput(e.target.value)}
+                className="duo-input text-xs w-48"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (customLossInput.trim()) {
+                    handleSetMaxDailyLoss(customLossInput);
+                    setCustomLossInput('');
+                  }
+                }}
+                className="duo-btn-green px-4 py-2 text-xs font-black uppercase tracking-wider cursor-pointer"
+              >
+                Save Limit
+              </button>
+            </div>
+          </div>
+
+          {/* Card 2: Prop Firm Trailing Max Drawdown */}
+          <div className="duo-card p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#20323D]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#1CB0F6]/20 border border-[#1CB0F6]/40 text-[#1CB0F6] flex items-center justify-center">
+                  <ShieldCheck size={16} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Prop Firm Trailing Max Drawdown</h3>
+                  <p className="text-xs font-bold text-[#52656D]">Apex / Topstep / MyFundedFutures liquidation threshold</p>
+                </div>
+              </div>
+              <div className="px-3 py-1 rounded-xl bg-[#1CB0F6]/20 border border-[#1CB0F6]/40 text-[#1CB0F6] font-mono font-black text-sm">
+                {trailingMaxDrawdown}
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Your trailing threshold dynamically trails upward behind your session peak equity (High-Water Mark). If your equity falls below this trailing threshold, the Cockpit signals a Liquidation Breach.
+            </p>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Prop Firm Account Presets:</span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { label: '$1,500 (25k Account)', amt: 1500 },
+                  { label: '$2,000 (25k / 50k)', amt: 2000 },
+                  { label: '$2,500 (50k Standard)', amt: 2500 },
+                  { label: '$3,000 (75k Standard)', amt: 3000 },
+                  { label: '$4,500 (100k Standard)', amt: 4500 },
+                  { label: '$7,500 (150k Standard)', amt: 7500 },
+                ].map(item => (
+                  <button
+                    key={item.amt}
+                    type="button"
+                    onClick={() => handleSetTrailingDrawdown(item.amt)}
+                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold text-left cursor-pointer transition-all flex items-center justify-between ${
+                      Math.abs(parseFinancialNumber(trailingMaxDrawdown, 2500)) === item.amt
+                        ? 'bg-[#1CB0F6]/20 border-[#1CB0F6] text-white shadow-sm'
+                        : 'bg-[#182830] border-[#20323D] text-slate-400 hover:text-white hover:border-slate-500'
+                    }`}
+                  >
+                    <span>{item.label}</span>
+                    <span className="font-mono font-black text-[11px]">${item.amt.toLocaleString()}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Custom buffer (e.g. $3,500)"
+                value={customDrawdownInput}
+                onChange={(e) => setCustomDrawdownInput(e.target.value)}
+                className="duo-input text-xs w-48"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (customDrawdownInput.trim()) {
+                    handleSetTrailingDrawdown(customDrawdownInput);
+                    setCustomDrawdownInput('');
+                  }
+                }}
+                className="duo-btn-green px-4 py-2 text-xs font-black uppercase tracking-wider cursor-pointer"
+              >
+                Save Buffer
+              </button>
+            </div>
+          </div>
+
+          {/* Card 3: Psychology Shield & Stealth Mode */}
+          <div className="duo-card p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#20323D]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#58CC02]/20 border border-[#58CC02]/40 text-[#58CC02] flex items-center justify-center">
+                  <Activity size={16} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Stealth Mode (Psychology Shield)</h3>
+                  <p className="text-xs font-bold text-[#52656D]">Display R-Multiples instead of dollar PnL</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleStealthMode}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-black uppercase tracking-wider cursor-pointer transition-all ${
+                  isStealthMode
+                    ? 'bg-[#58CC02] text-white border-[#46A302] shadow-sm'
+                    : 'bg-[#182830] border-[#20323D] text-slate-400 hover:text-white'
+                }`}
+              >
+                {isStealthMode ? 'ACTIVE (R-Multiples)' : 'DISABLED (Dollar PnL)'}
+              </button>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              When Stealth Mode is enabled, the Cockpit and trade logs mask raw dollar amounts into R-Multiples (+2.4 R, -1.0 R) to shield your emotional psychology from dollar attachment during active trading sessions.
+            </p>
+          </div>
+
+          {/* Card 4: Sound Effects & Haptic Audio */}
+          <div className="duo-card p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#20323D]">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center border ${
+                  !isSoundMuted 
+                    ? 'bg-[#58CC02]/20 border-[#58CC02]/40 text-[#58CC02]' 
+                    : 'bg-slate-700/20 border-slate-600/40 text-slate-400'
+                }`}>
+                  {!isSoundMuted ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Sound Effects & Haptics</h3>
+                  <p className="text-xs font-bold text-[#52656D]">Interactive feedback for trades, debriefs, and level-ups</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {!isSoundMuted && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundFx.playPop();
+                      triggerToast('Testing audio chime 🎵');
+                    }}
+                    className="px-2.5 py-1.5 rounded-xl border border-[#20323D] bg-[#182830] text-[10px] font-black uppercase text-slate-300 hover:text-white hover:border-[#1CB0F6] transition-all cursor-pointer"
+                  >
+                    Test Chime
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextMuted = soundFx.toggleMute();
+                    setIsSoundMuted(nextMuted);
+                    triggerToast(nextMuted ? 'Sound Effects Muted (Silent Mode)' : 'Sound Effects Active 🔊');
+                    if (!nextMuted) soundFx.playSuccess();
+                  }}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-black uppercase tracking-wider cursor-pointer transition-all ${
+                    !isSoundMuted
+                      ? 'bg-[#58CC02] text-white border-[#46A302] shadow-sm'
+                      : 'bg-rose-500/20 border-rose-500/40 text-rose-400'
+                  }`}
+                >
+                  {!isSoundMuted ? 'ACTIVE (Audio ON)' : 'MUTED (Silent Mode)'}
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Enable or silence audible process chimes, daily streak fanfare, and tactile haptic vibration pulses. Ideal for traders operating in voice rooms or squawk calls.
+            </p>
           </div>
         </div>
       )}
@@ -462,7 +997,72 @@ export default function ProfileTab() {
       {/* SUB-TAB 4: CLEAN SLATE & RESET ZONE */}
       {activeSubTab === 'RESET_ZONE' && (
         <div className="space-y-6 animate-fade-in text-left">
-          {/* Card 0: Full Journal Backup & Restore */}
+          {/* Card 0: Browser Storage Headroom & Cloud Sync Health */}
+          <div className="duo-card p-6 space-y-4 border-2 border-emerald-500/30 bg-emerald-500/5">
+            <div className="flex items-center justify-between pb-3 border-b border-emerald-500/20">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#58CC02]/20 border border-[#58CC02]/40 text-[#58CC02] flex items-center justify-center">
+                  <HardDrive size={16} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Browser Storage Headroom & Cloud Sync</h3>
+                  <p className="text-xs font-bold text-[#52656D]">Real-time database footprint and cloud backup status</p>
+                </div>
+              </div>
+              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${
+                storageUsage.isNearQuota
+                  ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                  : 'bg-[#58CC02]/20 text-[#58CC02] border-[#58CC02]/30'
+              }`}>
+                {storageUsage.isNearQuota ? 'NEAR QUOTA (CLEANUP RECOMMENDED)' : 'HEALTHY HEADROOM (OPTIMAL)'}
+              </span>
+            </div>
+
+            {/* Storage Progress Bar */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-slate-300 flex items-center gap-1.5">
+                  <Database size={13} className="text-[#1CB0F6]" />
+                  <span>Local Storage Footprint</span>
+                </span>
+                <span className="font-mono text-slate-200">
+                  <strong className="text-white">{storageUsage.kbUsed} KB</strong> / 5,120 KB used ({storageUsage.percentUsed}%)
+                </span>
+              </div>
+              <div className="w-full h-3 bg-[#101C24] rounded-full overflow-hidden border border-[#20323D]">
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    storageUsage.percentUsed > 80 
+                      ? 'bg-rose-500' 
+                      : storageUsage.percentUsed > 50 
+                        ? 'bg-amber-400' 
+                        : 'bg-[#58CC02]'
+                  }`}
+                  style={{ width: `${Math.max(2, storageUsage.percentUsed)}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs">
+              <div className="flex items-center gap-2 text-slate-400">
+                <div className="w-2 h-2 rounded-full bg-[#58CC02] animate-pulse" />
+                <span className="text-[11px] font-bold text-slate-300">Dual-Tier Firestore Cloud Sync Active & Encrypted</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setStorageUsage(getStorageUsage());
+                  triggerToast('Storage headroom meter refreshed');
+                }}
+                className="text-[11px] font-black uppercase text-[#1CB0F6] hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <RefreshCw size={11} />
+                <span>Refresh Meter</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Card 1: Full Journal Backup & Restore */}
           <div className="duo-card p-6 space-y-4 border-2 border-sky-500/30 bg-sky-500/5">
             <div className="flex items-center justify-between pb-3 border-b border-sky-500/20">
               <div className="flex items-center gap-2.5">
@@ -471,7 +1071,6 @@ export default function ProfileTab() {
                 </div>
                 <div>
                   <h3 className="text-base font-black text-white">Full Journal Backup & Restore</h3>
-                  <p className="text-[11px] font-bold text-slate-400">Export or restore your complete trading history, debrief logs, and accounts</p>
                 </div>
               </div>
               <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-sky-500/20 text-[#1CB0F6] border border-sky-500/30">
@@ -529,7 +1128,6 @@ export default function ProfileTab() {
                 </div>
                 <div>
                   <h3 className="text-base font-black text-white">Reset Today's Session Trades</h3>
-                  <p className="text-[11px] font-bold text-slate-400">Clear today's fills without affecting your streak or calendar history</p>
                 </div>
               </div>
             </div>
@@ -557,7 +1155,6 @@ export default function ProfileTab() {
                 </div>
                 <div>
                   <h3 className="text-base font-black text-rose-400">Complete Clean Slate (Factory Reset)</h3>
-                  <p className="text-[11px] font-bold text-slate-400">Permanent reset to pristine Day 1 state</p>
                 </div>
               </div>
               <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">
@@ -587,8 +1184,16 @@ export default function ProfileTab() {
 
       {/* 3D CLEAN SLATE FACTORY RESET MODAL */}
       {isResetModalOpen && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 z-50 animate-fade-in text-left">
-          <div className="duo-card max-w-md w-full p-6 space-y-5 border-2 border-rose-500 relative shadow-2xl">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsResetModalOpen(false);
+          }}
+          className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 z-50 animate-fade-in text-left"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="duo-card max-w-md w-full p-6 space-y-5 border-2 border-rose-500 relative shadow-2xl"
+          >
             <button
               onClick={() => setIsResetModalOpen(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
@@ -670,8 +1275,16 @@ export default function ProfileTab() {
 
       {/* SELECTIVE ACCOUNT WIPE / DISCONNECT MODAL */}
       {accountActionTarget && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 z-50 animate-fade-in text-left">
-          <div className="duo-card max-w-md w-full p-6 space-y-5 border-2 border-[#1CB0F6] relative shadow-2xl">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setAccountActionTarget(null);
+          }}
+          className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 z-50 animate-fade-in text-left"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="duo-card max-w-md w-full p-6 space-y-5 border-2 border-[#1CB0F6] relative shadow-2xl"
+          >
             <button
               onClick={() => setAccountActionTarget(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
@@ -698,45 +1311,30 @@ export default function ProfileTab() {
               <button
                 type="button"
                 onClick={() => handleExecuteAccountAction('DISCONNECT_KEEP_TRADES')}
-                className="w-full p-3.5 rounded-2xl bg-[#182830] border-2 border-[#2B3D47] hover:border-[#1CB0F6] text-left transition-all cursor-pointer group"
+                className="w-full p-3.5 rounded-2xl bg-[#182830] border-2 border-[#2B3D47] hover:border-[#1CB0F6] text-left transition-all cursor-pointer group flex items-center justify-between"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-white group-hover:text-[#1CB0F6]">Disconnect Only</span>
-                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-sky-500/20 text-sky-400">SAFE</span>
-                </div>
-                <p className="text-[11px] font-bold text-slate-400 mt-1">
-                  Unlinks the broker credentials. All previous trade fills and performance remain in your journal.
-                </p>
+                <span className="text-xs font-black text-white group-hover:text-[#1CB0F6]">Disconnect Only</span>
+                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-sky-500/20 text-sky-400">SAFE</span>
               </button>
 
               {/* Option 2: Wipe trades for this account */}
               <button
                 type="button"
                 onClick={() => handleExecuteAccountAction('WIPE_TRADES_KEEP_ACCOUNT')}
-                className="w-full p-3.5 rounded-2xl bg-[#182830] border-2 border-amber-500/30 hover:border-amber-500 text-left transition-all cursor-pointer group"
+                className="w-full p-3.5 rounded-2xl bg-[#182830] border-2 border-amber-500/30 hover:border-amber-500 text-left transition-all cursor-pointer group flex items-center justify-between"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-amber-400">Wipe Account Trades Only</span>
-                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-400">RESET TRADES</span>
-                </div>
-                <p className="text-[11px] font-bold text-slate-400 mt-1">
-                  Removes all session trades logged under this account. The broker stays connected (ideal for prop evaluation resets).
-                </p>
+                <span className="text-xs font-black text-amber-400">Wipe Account Trades Only</span>
+                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-400">RESET TRADES</span>
               </button>
 
               {/* Option 3: Disconnect and purge */}
               <button
                 type="button"
                 onClick={() => handleExecuteAccountAction('DISCONNECT_AND_PURGE')}
-                className="w-full p-3.5 rounded-2xl bg-rose-500/10 border-2 border-rose-500/40 hover:border-rose-500 text-left transition-all cursor-pointer group"
+                className="w-full p-3.5 rounded-2xl bg-rose-500/10 border-2 border-rose-500/40 hover:border-rose-500 text-left transition-all cursor-pointer group flex items-center justify-between"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-rose-400">Disconnect & Purge All Trades</span>
-                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-rose-500/20 text-rose-400">FULL PURGE</span>
-                </div>
-                <p className="text-[11px] font-bold text-slate-400 mt-1">
-                  Unlinks this account and wipes every execution associated with it from your journal.
-                </p>
+                <span className="text-xs font-black text-rose-400">Disconnect & Purge All Trades</span>
+                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-rose-500/20 text-rose-400">FULL PURGE</span>
               </button>
             </div>
 
@@ -761,6 +1359,17 @@ export default function ProfileTab() {
         </div>
       )}
 
+      <ConfirmModal
+        isOpen={isLogoutModalOpen}
+        title="Log Out of TradePigeon?"
+        message="Your journal history and settings remain safe on this device. Sign back in anytime."
+        confirmText="Log Out"
+        cancelText="Stay Logged In"
+        variant="danger"
+        icon={<LogOut size={28} strokeWidth={2.5} />}
+        onConfirm={handleConfirmSignOut}
+        onCancel={() => setIsLogoutModalOpen(false)}
+      />
     </main>
   );
 }

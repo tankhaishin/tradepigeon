@@ -1,25 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Calendar as CalendarIcon, ChevronLeft, ChevronRight, Download, Share2, 
-  Flame, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, XCircle, TrendingUp, Sparkles, Eye, Filter, X
+  ChevronLeft, ChevronRight, 
+  Flame, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, XCircle, TrendingUp, Sparkles, Eye, EyeOff, Filter, X, Trash2
 } from 'lucide-react';
 import { DuoCalendarIcon, DuoShieldIcon, DuoLightningIcon, DuoGemIcon, DuoTrophyIcon, DuoDisciplinedWinIcon, DuoDisciplinedLossIcon, DuoDisciplinedBeIcon, DuoToxicWinIcon, DuoToxicBeIcon, DuoDoubleFailureIcon, DuoMissedTradeIcon } from './DuoIcons';
-import { Duo3dCheckBadge, Duo3dZenBadge } from './DuolingoFeatureBadges';
-import InteractiveParrotMascot from './InteractiveParrotMascot';
-import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS } from '../utils/storage';
-import { auditAndSanitizeCalendarState } from '../utils/calendarEngine';
+import { Duo3dCheckBadge, Duo3dZenBadge } from './GamifiedFeatureBadges';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS, deleteStoredTrade } from '../utils/storage';
+import { auditAndSanitizeCalendarState, getMonthDataFor } from '../utils/calendarEngine';
 import { soundFx } from '../utils/audioEngine';
-import { parseFinancialNumber, formatFinancialCurrency, sumTradesPnl } from '../utils/financialMath';
+import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl } from '../utils/financialMath';
+import { classifyTradeExecution } from '../utils/tradeParser';
 
 export default function CalendarTab() {
-  const [currentMonthIndex, setCurrentMonthIndex] = useState(() => {
-    const currentMonth = new Date().getMonth(); // 8 for September
-    if (currentMonth === 8) return 2;
-    if (currentMonth === 7) return 1;
-    if (currentMonth === 6) return 0;
-    if (currentMonth === 9) return 3;
-    return 2;
-  });
+  const now = new Date();
+  const [activeYear, setActiveYear] = useState(() => now.getFullYear());
+  const [activeMonth, setActiveMonth] = useState(() => now.getMonth());
   const [calendarViewMode, setCalendarViewMode] = useState('pnl'); // 'pnl' | 'discipline'
   const [selectedBasketFilter, setSelectedBasketFilter] = useState('ALL');
   const [basketsList] = useState(() => loadStoredData('tradepigeon_baskets_list', [
@@ -28,6 +23,12 @@ export default function CalendarTab() {
   ]));
   const [activeCategoryFilter, setActiveCategoryFilter] = useState('ALL'); // 'ALL' | 'win' | 'good_loss' | 'toxic_win' | 'double_failure'
   const [activeModalDay, setActiveModalDay] = useState(null);
+  const [userStats, setUserStats] = useState(() => loadStoredData(STORAGE_KEYS.USER_STATS, DEFAULT_USER_STATS));
+  const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('tradepigeon_stealth_mode', false));
+  const [tradesRevision, setTradesRevision] = useState(0);
+
+  const storedLossLimitRaw = loadStoredData('tradepigeon_max_daily_loss', '$1,000');
+  const numericLossLimit = Math.abs(parseFloat(String(storedLossLimitRaw).replace(/[^0-9.]/g, '')) || 500);
 
   // Dynamic storage-backed Calendar State
   const [monthsData, setMonthsData] = useState(() => {
@@ -41,25 +42,51 @@ export default function CalendarTab() {
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === STORAGE_KEYS.CALENDAR_DATA && value) {
-        setMonthsData(auditAndSanitizeCalendarState(value));
+      if (key === 'tradepigeon_stealth_mode') {
+        setIsStealthMode(Boolean(value));
+      }
+      if (
+        key === STORAGE_KEYS.CALENDAR_DATA ||
+        key === 'tradepigeon_tradelogs' ||
+        key === 'tradepigeon_session_trades' ||
+        key === 'trades_cleared' ||
+        (key && (key.startsWith('tradepigeon_session_trades_day_') || key.startsWith('day_') || key.startsWith('tradepigeon_session_note_day_')))
+      ) {
+        setTradesRevision(r => r + 1);
+        if (key === STORAGE_KEYS.CALENDAR_DATA && value) {
+          setMonthsData(auditAndSanitizeCalendarState(value));
+        }
+      }
+      if (key === STORAGE_KEYS.USER_STATS && value) {
+        setUserStats(value);
       }
     });
     return () => unsubscribe();
   }, []);
 
-  const rawMonth = monthsData[currentMonthIndex] || monthsData[2] || monthsData[0] || { days: [], monthName: 'SEPTEMBER 2026' };
+  const formatDayPnl = (pnlVal) => {
+    const pnlStr = String(pnlVal || '');
+    if (!pnlVal || pnlStr === '-' || pnlStr.includes('CLOSED')) return pnlVal;
+    if (!isStealthMode) return pnlStr;
+    const num = parseFinancialNumber(pnlVal, 0);
+    return formatRMultiple(num, 350, 1);
+  };
+
+  const rawMonth = useMemo(() => {
+    return getMonthDataFor(activeYear, activeMonth, monthsData);
+  }, [activeYear, activeMonth, monthsData]);
 
   const modalDayTrades = useMemo(() => {
     if (!activeModalDay) return [];
+    void tradesRevision;
     const year = rawMonth.year || 2026;
     const monthIdx = rawMonth.monthIndex !== undefined ? rawMonth.monthIndex : 8;
     const padMonth = String(monthIdx + 1).padStart(2, '0');
     const padDate = String(activeModalDay.date).padStart(2, '0');
     const isoDate = `${year}-${padMonth}-${padDate}`;
 
-    const numTrades = loadStoredData(`tradepigeon_session_trades_day_${activeModalDay.date}`, null);
-    if (Array.isArray(numTrades) && numTrades.length > 0) return numTrades;
+    const now = new Date();
+    const isCurrentMonthAndYear = (year === now.getFullYear()) && (monthIdx === now.getMonth());
 
     const isoTrades = loadStoredData(`tradepigeon_session_trades_day_${isoDate}`, null);
     if (Array.isArray(isoTrades) && isoTrades.length > 0) return isoTrades;
@@ -67,8 +94,31 @@ export default function CalendarTab() {
     const generalDay = loadStoredData(`day_${isoDate}`, null);
     if (Array.isArray(generalDay?.trades) && generalDay.trades.length > 0) return generalDay.trades;
 
+    if (isCurrentMonthAndYear) {
+      const numTrades = loadStoredData(`tradepigeon_session_trades_day_${activeModalDay.date}`, null);
+      if (Array.isArray(numTrades) && numTrades.length > 0) return numTrades;
+      if (activeModalDay.date === now.getDate()) {
+        const todaySessionTrades = loadStoredData('tradepigeon_session_trades', null);
+        if (Array.isArray(todaySessionTrades) && todaySessionTrades.length > 0) return todaySessionTrades;
+      }
+    }
+
+    const allTradeLogs = loadStoredData('tradepigeon_tradelogs', []);
+    const matchingLogs = allTradeLogs.filter(t => t && t.date === isoDate);
+    if (matchingLogs.length > 0) return matchingLogs;
+
     return [];
-  }, [activeModalDay, rawMonth]);
+  }, [activeModalDay, rawMonth, tradesRevision]);
+
+  // Modal Escape Key Dismissal
+  useEffect(() => {
+    if (!activeModalDay) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setActiveModalDay(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeModalDay]);
 
   const modalCategoryTotals = useMemo(() => {
     let disciplinedWin = 0;
@@ -81,13 +131,23 @@ export default function CalendarTab() {
 
     modalDayTrades.forEach(t => {
       const val = parseFinancialNumber(t.pnlNum !== undefined ? t.pnlNum : t.pnlValue !== undefined ? t.pnlValue : t.pnl, 0);
-      if (t.type === 'win') disciplinedWin += val;
-      else if (t.type === 'good_loss') disciplinedLoss += val;
-      else if (t.type === 'breakeven') disciplinedBe += val;
-      else if (t.type === 'toxic_win' || t.type === 'violate_win') toxicWin += val;
-      else if (t.type === 'toxic_be') toxicBe += val;
-      else if (t.type === 'missed_trade') missedTradeCount++;
-      else doubleFailure += val;
+      const rawType = String(t.type || '').toLowerCase();
+      const execType = String(t.executionType || '').toLowerCase();
+      const isViolated = t.followedRules === false || t.violated === true || t.violatedRules === true ||
+        rawType.includes('toxic') || rawType.includes('violate') || rawType.includes('double_failure') || rawType.includes('double failure') ||
+        execType.includes('toxic') || execType.includes('double failure');
+
+      if (rawType === 'missed_trade' || rawType === 'missed') {
+        missedTradeCount++;
+      } else if (isViolated) {
+        if (val > 0.001) toxicWin += val;
+        else if (val < -0.001) doubleFailure += val;
+        else toxicBe += val;
+      } else {
+        if (val > 0.001) disciplinedWin += val;
+        else if (val < -0.001) disciplinedLoss += val;
+        else disciplinedBe += val;
+      }
     });
 
     return {
@@ -113,12 +173,16 @@ export default function CalendarTab() {
 
   const currentMonth = useMemo(() => {
     if (!rawMonth) return { days: [], totalPnl: '$0.00', disciplineScore: '100%', weeklySummaries: [] };
-    const year = rawMonth.year || 2026;
-    const monthIdx = rawMonth.monthIndex !== undefined ? rawMonth.monthIndex : (currentMonthIndex === 0 ? 6 : currentMonthIndex === 1 ? 7 : currentMonthIndex === 2 ? 8 : 9);
+    void tradesRevision;
+    const year = rawMonth.year || activeYear;
+    const monthIdx = rawMonth.monthIndex !== undefined ? rawMonth.monthIndex : activeMonth;
 
     let totalPnlNum = 0;
     let disciplinedDays = 0;
     let totalTradeDays = 0;
+
+    const now = new Date();
+    const isCurrentMonthAndYear = (year === now.getFullYear()) && (monthIdx === now.getMonth());
 
     const days = (rawMonth.days || []).map(day => {
       const padMonth = String(monthIdx + 1).padStart(2, '0');
@@ -126,24 +190,50 @@ export default function CalendarTab() {
       const isoDate = `${year}-${padMonth}-${padDate}`;
 
       // Check session trades for this day
-      const sessionTradesNum = loadStoredData(`tradepigeon_session_trades_day_${day.date}`, null);
       const sessionTradesIso = loadStoredData(`tradepigeon_session_trades_day_${isoDate}`, null);
       const sessionTradesGeneral = loadStoredData(`day_${isoDate}`, null);
+      const sessionTradesNum = isCurrentMonthAndYear 
+        ? loadStoredData(`tradepigeon_session_trades_day_${day.date}`, null) 
+        : null;
 
-      const resolvedTrades = (Array.isArray(sessionTradesNum) && sessionTradesNum.length > 0)
-        ? sessionTradesNum
-        : (Array.isArray(sessionTradesIso) && sessionTradesIso.length > 0)
+      let resolvedTrades = (Array.isArray(sessionTradesIso) && sessionTradesIso.length > 0)
         ? sessionTradesIso
-        : (sessionTradesGeneral?.trades || []);
+        : (sessionTradesGeneral?.trades && sessionTradesGeneral.trades.length > 0)
+        ? sessionTradesGeneral.trades
+        : (Array.isArray(sessionTradesNum) && sessionTradesNum.length > 0)
+        ? sessionTradesNum
+        : [];
+
+      if (resolvedTrades.length === 0) {
+        const globalLogs = loadStoredData('tradepigeon_tradelogs', []);
+        const dayLogs = globalLogs.filter(t => t && t.date === isoDate);
+        if (dayLogs.length > 0) resolvedTrades = dayLogs;
+      }
+
+      if (resolvedTrades.length === 0 && isCurrentMonthAndYear && day.date === now.getDate()) {
+        const todayActive = loadStoredData('tradepigeon_session_trades', null) || loadStoredData('goodtrader_session_trades', null);
+        if (Array.isArray(todayActive) && todayActive.length > 0) {
+          resolvedTrades = todayActive;
+        }
+      }
 
       if (resolvedTrades && resolvedTrades.length > 0) {
         const dayPnl = sumTradesPnl(resolvedTrades);
         totalPnlNum += dayPnl;
         totalTradeDays++;
 
-        const isFollowed = resolvedTrades.every(t => 
-          t.type?.includes('FOLLOW') || t.type === 'win' || t.type === 'good_loss' || t.type === 'breakeven'
-        );
+        const storedMaxLoss = loadStoredData('tradepigeon_max_daily_loss', '$1,000');
+        const lossLimitNum = Math.abs(parseFinancialNumber(storedMaxLoss, 1000));
+        const isLossLimitBreached = dayPnl < -lossLimitNum;
+
+        const hasViolations = isLossLimitBreached || resolvedTrades.some(t => {
+          if (t.followedRules === false || t.violated === true || t.violatedRules === true) return true;
+          const rawType = String(t.type || '').toLowerCase();
+          const execType = String(t.executionType || '').toLowerCase();
+          return rawType.includes('toxic') || rawType.includes('violate') || rawType.includes('double_failure') || rawType.includes('double failure') ||
+                 execType.includes('toxic') || execType.includes('double failure');
+        });
+        const isFollowed = !hasViolations;
 
         let dayStatus = 'breakeven';
         if (dayPnl > 5) {
@@ -153,8 +243,8 @@ export default function CalendarTab() {
           dayStatus = isFollowed ? 'good_loss' : 'double_failure';
           if (isFollowed) disciplinedDays++;
         } else {
-          dayStatus = 'breakeven';
-          disciplinedDays++;
+          dayStatus = isFollowed ? 'breakeven' : 'toxic_be';
+          if (isFollowed) disciplinedDays++;
         }
 
         return {
@@ -221,193 +311,28 @@ export default function CalendarTab() {
       disciplineScore: calculatedDisciplineScore,
       weeklySummaries
     };
-  }, [rawMonth, currentMonthIndex]);
+  }, [rawMonth, activeYear, activeMonth, tradesRevision]);
 
   const handlePrevMonth = () => {
     soundFx.playPop();
-    setCurrentMonthIndex((prev) => Math.max(0, prev - 1));
+    setActiveMonth((prev) => {
+      if (prev === 0) {
+        setActiveYear((y) => y - 1);
+        return 11;
+      }
+      return prev - 1;
+    });
   };
 
   const handleNextMonth = () => {
     soundFx.playPop();
-    setCurrentMonthIndex((prev) => Math.min(monthsData.length - 1, prev + 1));
-  };
-
-  const [copiedToast, setCopiedToast] = useState(false);
-  const [isScorecardModalOpen, setIsScorecardModalOpen] = useState(false);
-
-  const downloadScorecardImage = () => {
-    soundFx.playSuccess();
-    const canvas = document.createElement('canvas');
-    canvas.width = 1200;
-    canvas.height = 675;
-    const ctx = canvas.getContext('2d');
-
-    // Outer Dark Background
-    ctx.fillStyle = '#131F24';
-    ctx.fillRect(0, 0, 1200, 675);
-
-    // 3D Outer Card Base (8px 3D depth)
-    ctx.fillStyle = '#388202';
-    ctx.beginPath();
-    ctx.roundRect(60, 60, 1080, 555, 32);
-    ctx.fill();
-
-    // 3D Outer Card Top Face
-    ctx.fillStyle = '#142127';
-    ctx.strokeStyle = '#58CC02';
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.roundRect(60, 50, 1080, 555, 32);
-    ctx.fill();
-    ctx.stroke();
-
-    // VIBRANT GREEN TOP HERO HEADER BANNER (Top 135px)
-    ctx.fillStyle = '#58CC02';
-    ctx.beginPath();
-    ctx.roundRect(60, 50, 1080, 130, [32, 32, 0, 0]);
-    ctx.fill();
-
-    ctx.fillStyle = '#46A302';
-    ctx.fillRect(60, 176, 1080, 4);
-
-    // Header Title Text (White)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-    ctx.font = '900 14px "Plus Jakarta Sans", sans-serif';
-    ctx.fillText('VERIFIED PERFORMANCE SCORECARD', 120, 95);
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '900 32px "Plus Jakarta Sans", sans-serif';
-    ctx.fillText(`${currentMonth.monthName} SCORECARD`, 120, 138);
-
-    // Verified 3D Pill Badge Top Right
-    ctx.fillStyle = '#E2E8F0';
-    ctx.beginPath();
-    ctx.roundRect(830, 92, 250, 48, 16);
-    ctx.fill();
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(830, 86, 250, 48, 16);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#388202';
-    ctx.font = '900 16px "Plus Jakarta Sans", sans-serif';
-    ctx.fillText('VERIFIED EXECUTION', 860, 116);
-
-    // HERO NET PROFIT 3D CONTAINER (y = 210 to 330)
-    ctx.fillStyle = '#142127';
-    ctx.beginPath();
-    ctx.roundRect(100, 214, 1000, 120, 20);
-    ctx.fill();
-
-    ctx.fillStyle = '#182830';
-    ctx.strokeStyle = '#20323D';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.roundRect(100, 208, 1000, 120, 20);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#77909D';
-    ctx.font = '900 14px "Plus Jakarta Sans", sans-serif';
-    ctx.fillText('TOTAL NET PROFIT', 130, 245);
-
-    ctx.fillStyle = '#58CC02';
-    ctx.font = '900 60px "Plus Jakarta Sans", sans-serif';
-    ctx.fillText(currentMonth.totalPnl, 130, 305);
-
-    // 3 CLEAN TACTILE STAT PANELS (y = 360 to 475)
-    // Panel 1: Discipline (#1CB0F6)
-    ctx.fillStyle = '#147BB0';
-    ctx.beginPath();
-    ctx.roundRect(100, 372, 300, 115, 20);
-    ctx.fill();
-
-    ctx.fillStyle = '#182830';
-    ctx.strokeStyle = '#1CB0F6';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.roundRect(100, 366, 300, 115, 20);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#1CB0F6';
-    ctx.font = '900 32px "Plus Jakarta Sans", sans-serif';
-    ctx.fillText(currentMonth.disciplineScore, 130, 415);
-
-    ctx.fillStyle = '#77909D';
-    ctx.font = '900 12px "Plus Jakarta Sans", sans-serif';
-    ctx.fillText('DISCIPLINE SCORE', 130, 448);
-
-    // Panel 2: Streak (#FF6B00)
-    ctx.fillStyle = '#9A3412';
-    ctx.beginPath();
-    ctx.roundRect(450, 372, 300, 115, 20);
-    ctx.fill();
-
-    ctx.fillStyle = '#182830';
-    ctx.strokeStyle = '#FF6B00';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.roundRect(450, 366, 300, 115, 20);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#FF6B00';
-    ctx.font = '900 32px "Plus Jakarta Sans", sans-serif';
-    ctx.fillText('14 Days', 480, 415);
-
-    ctx.fillStyle = '#77909D';
-    ctx.font = '900 12px "Plus Jakarta Sans", sans-serif';
-    ctx.fillText('WINNING STREAK', 480, 448);
-
-    // Panel 3: Rank (#FFC800)
-    ctx.fillStyle = '#B88E00';
-    ctx.beginPath();
-    ctx.roundRect(800, 372, 300, 115, 20);
-    ctx.fill();
-
-    ctx.fillStyle = '#182830';
-    ctx.strokeStyle = '#FFC800';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.roundRect(800, 366, 300, 115, 20);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#FFC800';
-    ctx.font = '900 26px "Plus Jakarta Sans", sans-serif';
-    ctx.fillText('Prop Master', 830, 415);
-
-    ctx.fillStyle = '#77909D';
-    ctx.font = '900 12px "Plus Jakarta Sans", sans-serif';
-    ctx.fillText('RANK TIER', 830, 448);
-
-    // Footer Watermark
-    ctx.fillStyle = '#52656D';
-    ctx.font = '800 16px "Plus Jakarta Sans", sans-serif';
-    ctx.fillText('TradePigeon • Master Your Discipline', 100, 555);
-
-    // Download PNG
-    const link = document.createElement('a');
-    link.download = `TradePigeon_Scorecard_${currentMonth.monthName.replace(' ', '_')}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-
-    setCopiedToast(true);
-    setTimeout(() => setCopiedToast(false), 3500);
-  };
-
-  const handleCopyScreenshotSummary = () => {
-    soundFx.playSuccess();
-    const text = `[TRADEPIGEON VERIFIED PERFORMANCE CALENDAR]\nMonth: ${currentMonth.monthName}\nMonthly Net P&L: ${currentMonth.totalPnl}\nDiscipline Score: ${currentMonth.disciplineScore} Flawless\nStreak: 14 Days Active\n#TradePigeon #PropTrading #Discipline`;
-    navigator.clipboard.writeText(text);
-    setCopiedToast(true);
-    setTimeout(() => setCopiedToast(false), 3500);
+    setActiveMonth((prev) => {
+      if (prev === 11) {
+        setActiveYear((y) => y + 1);
+        return 0;
+      }
+      return prev + 1;
+    });
   };
 
   return (
@@ -452,8 +377,7 @@ export default function CalendarTab() {
           <div className="flex items-center gap-1.5 bg-[#182830] p-1.5 rounded-2xl border-2 border-[#20323D] border-b-4 border-b-[#142127]">
             <button
               onClick={handlePrevMonth}
-              disabled={currentMonthIndex === 0}
-              className="duo-btn-dark p-2 text-white disabled:opacity-30 cursor-pointer"
+              className="duo-btn-dark p-2 text-white hover:text-[#1CB0F6] cursor-pointer transition-colors"
               title="Previous Month"
             >
               <ChevronLeft size={18} />
@@ -463,25 +387,12 @@ export default function CalendarTab() {
             </span>
             <button
               onClick={handleNextMonth}
-              disabled={currentMonthIndex === monthsData.length - 1}
-              className="duo-btn-dark p-2 text-white disabled:opacity-30 cursor-pointer"
+              className="duo-btn-dark p-2 text-white hover:text-[#1CB0F6] cursor-pointer transition-colors"
               title="Next Month"
             >
               <ChevronRight size={18} />
             </button>
           </div>
-
-          <button
-            onClick={() => {
-              soundFx.playPop();
-              setIsScorecardModalOpen(true);
-            }}
-            className="duo-btn-orange px-4 py-3 text-xs uppercase tracking-wider font-black flex items-center gap-2 shadow-lg cursor-pointer"
-            title="Preview and download verified monthly scorecard graphic"
-          >
-            <Share2 size={16} />
-            <span>Share Scorecard</span>
-          </button>
         </div>
       </div>
 
@@ -669,7 +580,8 @@ export default function CalendarTab() {
                     }
 
                     const day = item;
-                    const hasTrades = day.pnl && day.pnl !== '-' && day.pnl !== 'MARKET CLOSED' && !day.pnl.includes('CLOSED');
+                    const dayPnlStr = String(day.pnl || '');
+                    const hasTrades = day.pnl && day.pnl !== '-' && day.pnl !== 'MARKET CLOSED' && !dayPnlStr.includes('CLOSED');
                     const isWin = day.status === 'win' || day.status === 'FOLLOWED_WIN';
                     const isGoodLoss = day.status === 'good_loss' || day.status === 'FOLLOWED_LOSS';
                     const isBreakeven = day.status === 'breakeven';
@@ -754,7 +666,7 @@ export default function CalendarTab() {
                         {/* Bottom Row: Clean P&L Typography */}
                         <div className="w-full text-center">
                           <div className="text-xs font-black font-mono tracking-tight opacity-90">
-                            {day.pnl}
+                            {formatDayPnl(day.pnl)}
                           </div>
                         </div>
                       </div>
@@ -765,9 +677,9 @@ export default function CalendarTab() {
                   <div className="p-3 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-l-2 border-l-[#1CB0F6] text-center flex flex-col justify-between min-h-[105px]">
                     <div className="text-[10px] font-black uppercase text-[#1CB0F6] tracking-wider">{weeklyData.weekLabel}</div>
                     <div className={`text-xs sm:text-sm font-black font-mono tracking-tight my-auto ${
-                      weeklyData.pnl.startsWith('+') ? 'text-[#58CC02]' : 'text-[#FF4B4B]'
+                      String(weeklyData.pnl || '').startsWith('+') ? 'text-[#58CC02]' : String(weeklyData.pnl || '').startsWith('-') ? 'text-[#FF4B4B]' : 'text-slate-400'
                     }`}>
-                      {weeklyData.pnl}
+                      {formatDayPnl(weeklyData.pnl)}
                     </div>
                     <div className="text-[9px] font-bold text-slate-500">{weeklyData.count}</div>
                   </div>
@@ -788,7 +700,7 @@ export default function CalendarTab() {
       {/* INTERACTIVE DAY EXECUTION DETAILS POP-UP MODAL */}
       {activeModalDay && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="duo-card max-w-lg w-full p-6 space-y-5 border-2 border-[#1CB0F6] relative bg-[#182830]">
+          <div className="duo-card max-w-lg w-full p-5 sm:p-6 space-y-5 border-2 border-[#1CB0F6] relative bg-[#182830] max-h-[90vh] overflow-y-auto">
             <button 
               onClick={() => {
                 soundFx.playPop();
@@ -807,30 +719,113 @@ export default function CalendarTab() {
               </div>
             </div>
 
-            {/* SOLID COLOR 3D DUOLINGO COMPLETED DAY CARD */}
-            <div 
-              onClick={() => soundFx.playPop()}
-              className="w-full p-6 sm:p-8 rounded-3xl border-2 border-[#58CC02] border-b-[6px] border-b-[#388202] bg-[#0D1635] text-white space-y-6 shadow-xl hover:shadow-[0_20px_50px_rgba(88,204,2,0.25)] hover:-translate-y-1 active:translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden relative group text-left"
-            >
-              <div className="absolute top-0 left-0 right-0 h-1 bg-[#58CC02]" />
+            {/* SOLID COLOR 3D DUOLINGO COMPLETED DAY CARD WITH DYNAMIC STATUS THEME */}
+            {(() => {
+              const modalStatus = activeModalDay?.status || 'win';
+              const isWin = modalStatus === 'win' || modalStatus === 'FOLLOWED_WIN';
+              const isGoodLoss = modalStatus === 'good_loss' || modalStatus === 'FOLLOWED_LOSS';
+              const isBreakeven = modalStatus === 'breakeven';
+              const isToxicWin = modalStatus === 'toxic_win' || modalStatus === 'violate_win';
+              const isToxicBe = modalStatus === 'toxic_be';
+              const isDoubleFailure = modalStatus === 'double_failure' || modalStatus === 'violate_loss' || (modalStatus === 'loss' && !isGoodLoss);
+              const isMissedTrade = modalStatus === 'missed_trade';
 
-              {/* Top Header Badge */}
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Duo3dCheckBadge className="w-11 h-11 shrink-0 drop-shadow-lg group-hover:scale-110 transition-transform" />
-                  <div>
-                    <span className="text-xs font-black uppercase tracking-widest text-[#58CC02] block">
-                      DAY {activeModalDay.date} &bull; {currentMonth.monthName}
+              let modalTheme = {
+                title: 'Disciplined Win',
+                cardBorder: 'border-[#58CC02] border-b-[6px] border-b-[#388202]',
+                topBar: 'bg-[#58CC02]',
+                accentText: 'text-[#58CC02]',
+                groupHoverText: 'group-hover:text-[#58CC02]',
+                badgeBg: 'bg-[#58CC02] border-b-4 border-b-[#388202] text-white',
+                icon: <Duo3dCheckBadge className="w-11 h-11 shrink-0 drop-shadow-lg group-hover:scale-110 transition-transform" />
+              };
+
+              if (isGoodLoss) {
+                modalTheme = {
+                  title: 'Disciplined Loss',
+                  cardBorder: 'border-[#1CB0F6] border-b-[6px] border-b-[#147BB0]',
+                  topBar: 'bg-[#1CB0F6]',
+                  accentText: 'text-[#1CB0F6]',
+                  groupHoverText: 'group-hover:text-[#1CB0F6]',
+                  badgeBg: 'bg-[#1CB0F6] border-b-4 border-b-[#147BB0] text-white',
+                  icon: <DuoDisciplinedLossIcon className="w-11 h-11 shrink-0 drop-shadow-lg group-hover:scale-110 transition-transform" />
+                };
+              } else if (isBreakeven) {
+                modalTheme = {
+                  title: 'Disciplined Breakeven',
+                  cardBorder: 'border-[#CE82FF] border-b-[6px] border-b-[#9D28EC]',
+                  topBar: 'bg-[#CE82FF]',
+                  accentText: 'text-[#CE82FF]',
+                  groupHoverText: 'group-hover:text-[#CE82FF]',
+                  badgeBg: 'bg-[#CE82FF] border-b-4 border-b-[#9D28EC] text-white',
+                  icon: <DuoDisciplinedBeIcon className="w-11 h-11 shrink-0 drop-shadow-lg group-hover:scale-110 transition-transform" />
+                };
+              } else if (isToxicWin) {
+                modalTheme = {
+                  title: 'Toxic Win',
+                  cardBorder: 'border-[#FFC800] border-b-[6px] border-b-[#8A6B00]',
+                  topBar: 'bg-[#FFC800]',
+                  accentText: 'text-[#FFC800]',
+                  groupHoverText: 'group-hover:text-[#FFC800]',
+                  badgeBg: 'bg-[#FFC800] border-b-4 border-b-[#8A6B00] text-slate-950 font-black',
+                  icon: <DuoToxicWinIcon className="w-11 h-11 shrink-0 drop-shadow-lg group-hover:scale-110 transition-transform" />
+                };
+              } else if (isToxicBe) {
+                modalTheme = {
+                  title: 'Toxic Breakeven',
+                  cardBorder: 'border-[#00F0FF] border-b-[6px] border-b-[#00B3BF]',
+                  topBar: 'bg-[#00F0FF]',
+                  accentText: 'text-[#00F0FF]',
+                  groupHoverText: 'group-hover:text-[#00F0FF]',
+                  badgeBg: 'bg-[#00F0FF] border-b-4 border-b-[#00B3BF] text-slate-950 font-black',
+                  icon: <DuoToxicBeIcon className="w-11 h-11 shrink-0 drop-shadow-lg group-hover:scale-110 transition-transform" />
+                };
+              } else if (isDoubleFailure) {
+                modalTheme = {
+                  title: 'Rule Violation & Loss',
+                  cardBorder: 'border-[#FF4B4B] border-b-[6px] border-b-[#C62828]',
+                  topBar: 'bg-[#FF4B4B]',
+                  accentText: 'text-rose-400',
+                  groupHoverText: 'group-hover:text-rose-400',
+                  badgeBg: 'bg-rose-600 border-b-4 border-b-rose-800 text-white',
+                  icon: <DuoDoubleFailureIcon className="w-11 h-11 shrink-0 drop-shadow-lg group-hover:scale-110 transition-transform" />
+                };
+              } else if (isMissedTrade) {
+                modalTheme = {
+                  title: 'Missed Setup',
+                  cardBorder: 'border-amber-500 border-b-[6px] border-b-amber-700',
+                  topBar: 'bg-amber-500',
+                  accentText: 'text-amber-400',
+                  groupHoverText: 'group-hover:text-amber-400',
+                  badgeBg: 'bg-amber-500 border-b-4 border-b-amber-700 text-slate-950 font-black',
+                  icon: <DuoMissedTradeIcon className="w-11 h-11 shrink-0 drop-shadow-lg group-hover:scale-110 transition-transform" />
+                };
+              }
+
+              return (
+                <div 
+                  onClick={() => soundFx.playPop()}
+                  className={`w-full p-6 sm:p-8 rounded-3xl border-2 ${modalTheme.cardBorder} bg-[#0D1635] text-white space-y-6 shadow-xl hover:-translate-y-1 active:translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden relative group text-left`}
+                >
+                  <div className={`absolute top-0 left-0 right-0 h-1 ${modalTheme.topBar}`} />
+
+                  {/* Top Header Badge */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {modalTheme.icon}
+                      <div>
+                        <span className={`text-xs font-black uppercase tracking-widest ${modalTheme.accentText} block`}>
+                          DAY {activeModalDay.date} &bull; {currentMonth.monthName}
+                        </span>
+                        <h3 className={`text-xl sm:text-2xl font-black text-white leading-tight ${modalTheme.groupHoverText} transition-colors`}>
+                          {modalTheme.title}
+                        </h3>
+                      </div>
+                    </div>
+                    <span className={`text-xs font-black px-4 py-1.5 rounded-2xl shadow-md ${modalTheme.badgeBg}`}>
+                      {formatDayPnl(activeModalDay.pnl)}
                     </span>
-                    <h3 className="text-xl sm:text-2xl font-black text-white leading-tight group-hover:text-[#58CC02] transition-colors">
-                      Flawless Execution
-                    </h3>
                   </div>
-                </div>
-                <span className="text-xs font-black text-white bg-[#58CC02] border-b-4 border-b-[#388202] px-4 py-1.5 rounded-2xl shadow-md">
-                  {activeModalDay.pnl}
-                </span>
-              </div>
 
               {/* 1. HERO SESSION DEBRIEF NOTE (BIG & FRONT-AND-CENTER, NO INNER BOX) */}
               <div className="flex items-start gap-4 py-3 border-y border-[#1C2A4E]">
@@ -840,7 +835,7 @@ export default function CalendarTab() {
                     KEY SESSION TAKEAWAY:
                   </span>
                   <p className="text-base sm:text-lg font-black text-white leading-snug italic">
-                    "{loadStoredData(`tradepigeon_session_note_day_${activeModalDay.date}`, null) || (modalDayIsoDate ? loadStoredData(`tradepigeon_session_note_day_${modalDayIsoDate}`, null) : null) || 'No session debrief note recorded for this day.'}"
+                    "{((modalDayIsoDate ? loadStoredData(`tradepigeon_session_note_day_${modalDayIsoDate}`, null) : null) || loadStoredData(`tradepigeon_session_note_day_${activeModalDay.date}`, null) || 'No session debrief note recorded for this day.')}"
                   </p>
                 </div>
               </div>
@@ -938,28 +933,65 @@ export default function CalendarTab() {
                   <div className="text-[10px] font-black uppercase text-[#1CB0F6] tracking-wider">
                     EXECUTIONS LOGGED ({modalDayTrades.length})
                   </div>
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                    {modalDayTrades.map((t, idx) => (
-                      <div key={t.id || idx} className="p-2.5 rounded-xl bg-[#142127] border border-[#20323D] flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${t.side === 'LONG' ? 'bg-[#58CC02]/20 text-[#58CC02]' : 'bg-rose-500/20 text-rose-400'}`}>
-                            {t.side || 'TRADE'}
-                          </span>
-                          <span className="font-black text-white text-[11px]">{t.symbol}</span>
-                          <span className="text-[9px] font-bold text-slate-500">{t.time}</span>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                    {modalDayTrades.map((t, idx) => {
+                      const pnlNum = parseFinancialNumber(t.pnlNum !== undefined ? t.pnlNum : t.pnl, 0);
+                      const displayPnl = isStealthMode
+                        ? (t.rMultiple || t.r || formatRMultiple(pnlNum, 350, 1))
+                        : (t.pnl || formatFinancialCurrency(pnlNum, { showPlus: true }));
+                      const classification = classifyTradeExecution(t, numericLossLimit);
+
+                      return (
+                        <div key={t.id || idx} className="p-2.5 rounded-xl bg-[#142127] border border-[#20323D] flex items-center justify-between text-xs group/trade">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${t.side === 'LONG' || t.direction === 'LONG' ? 'bg-[#58CC02]/20 text-[#58CC02]' : 'bg-rose-500/20 text-rose-400'}`}>
+                              {t.side || t.direction || 'TRADE'}
+                            </span>
+                            <span className="font-black text-white text-[11px]">{t.symbol}</span>
+                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-wider shrink-0 ${classification.badgeBg}`}>
+                              {classification.shortLabel}
+                            </span>
+                            <span className="text-[9px] font-bold text-slate-500 hidden sm:inline">{t.time}</span>
+                          </div>
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">{t.account}</span>
+                            <span className={`text-xs font-black font-mono ${
+                              classification.isToxicWin
+                                ? 'text-amber-400'
+                                : pnlNum > 0.001 || String(t.pnl || '').startsWith('+')
+                                ? 'text-[#58CC02]'
+                                : pnlNum < -0.001 || String(t.pnl || '').startsWith('-')
+                                ? 'text-rose-400'
+                                : 'text-slate-300'
+                            }`}>
+                              {classification.isToxicWin && <span className="text-[8px] mr-1 px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">TOXIC</span>}
+                              {displayPnl}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (t.id) {
+                                  soundFx.playPop();
+                                  deleteStoredTrade(t.id);
+                                  setTradesRevision(r => r + 1);
+                                }
+                              }}
+                              className="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                              title="Delete this trade record"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono text-slate-400">{t.account}</span>
-                          <span className={`text-xs font-black font-mono ${String(t.pnl).startsWith('-') ? 'text-rose-400' : 'text-[#58CC02]'}`}>
-                            {t.pnl}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
             </div>
+            );
+            })()}
 
             <button
               onClick={() => {
@@ -970,136 +1002,6 @@ export default function CalendarTab() {
             >
               Close Session Breakdown
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* SLEEK FLOATING DUOLINGO TOAST NOTIFICATION */}
-      {copiedToast && (
-        <div className="fixed bottom-6 right-6 z-50 animate-bounce-short">
-          <div className="duo-card p-4 bg-[#58CC02] border-2 border-[#46A302] border-b-4 border-b-[#388202] text-white flex items-center gap-3">
-            <Sparkles size={20} className="shrink-0" />
-            <div>
-              <div className="text-xs font-black">Performance Scorecard Ready!</div>
-              <div className="text-[10px] font-bold text-white/90">Downloaded image / copied text to clipboard.</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* VISUAL SCORECARD PICTURE PREVIEW & EXPORT MODAL */}
-      {isScorecardModalOpen && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="duo-card max-w-3xl w-full p-6 sm:p-8 space-y-6 border-2 border-[#FF6B00] relative bg-[#182830]">
-            <button 
-              onClick={() => {
-                soundFx.playPop();
-                setIsScorecardModalOpen(false);
-              }}
-              className="absolute top-4 right-4 p-2.5 rounded-xl bg-[#20323D] text-slate-400 hover:text-white cursor-pointer"
-            >
-              <X size={16} />
-            </button>
-
-            <div className="flex items-center gap-3">
-              <DuoTrophyIcon className="w-10 h-10 shrink-0" />
-              <div>
-                <h3 className="text-xl font-black text-white">Verified Scorecard Graphic</h3>
-                <p className="text-xs font-bold text-[#77909D]">Download high-res PNG picture card to share on X & Discord</p>
-              </div>
-            </div>
-
-            {/* VERIFIED PERFORMANCE SCORECARD CARD */}
-            <div className="rounded-3xl bg-[#142127] border-4 border-[#58CC02] border-b-8 border-b-[#388202] relative overflow-hidden text-left shadow-2xl space-y-0">
-              
-              {/* VIBRANT DUOLINGO GREEN HERO HEADER BANNER */}
-              <div className="bg-[#58CC02] p-5 sm:p-6 border-b-4 border-[#46A302] flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3.5">
-                  <DuoTrophyIcon className="w-11 h-11 shrink-0 drop-shadow-md" />
-                  <div>
-                    <span className="text-[10px] font-black text-white/80 uppercase tracking-widest block">VERIFIED PERFORMANCE SCORECARD</span>
-                    <h4 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight leading-none mt-0.5">{currentMonth.monthName} SCORECARD</h4>
-                  </div>
-                </div>
-
-                <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-[#388202] bg-white border-2 border-white border-b-4 border-b-slate-200 px-3.5 py-1.5 rounded-2xl shadow-md shrink-0">
-                  VERIFIED EXECUTION
-                </span>
-              </div>
-
-              {/* MAIN CARD BODY */}
-              <div className="p-6 sm:p-7 space-y-5">
-                
-                {/* HERO NET PROFIT 3D CONTAINER */}
-                <div className="p-5 sm:p-6 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] flex items-center justify-between gap-4 shadow-sm">
-                  <div>
-                    <div className="text-xs font-black text-[#77909D] uppercase tracking-wider">Total Net Profit</div>
-                    <div className="text-4xl sm:text-5xl font-black text-[#58CC02] tracking-tight mt-1">{currentMonth.totalPnl}</div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-[10px] font-black text-[#58CC02] bg-[#58CC02]/15 px-3 py-1.5 rounded-xl border border-[#58CC02]/30 uppercase tracking-wider">
-                      100% PLAYBOOK FOLLOWED
-                    </span>
-                  </div>
-                </div>
-
-                {/* 3 CLEAN TACTILE STAT PANELS WITH VIBRANT ACCENT BORDERS */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                  
-                  {/* Panel 1: Discipline */}
-                  <div className="p-4 rounded-2xl bg-[#182830] border-2 border-[#1CB0F6] border-b-4 border-b-[#147BB0] flex items-center gap-3.5 shadow-md">
-                    <DuoShieldIcon className="w-9 h-9 shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-2xl font-black text-[#1CB0F6] leading-none whitespace-nowrap">{currentMonth.disciplineScore}</div>
-                      <div className="text-[10px] font-black text-[#77909D] uppercase tracking-wider mt-1 whitespace-nowrap">Discipline Score</div>
-                    </div>
-                  </div>
-
-                  {/* Panel 2: Streak */}
-                  <div className="p-4 rounded-2xl bg-[#182830] border-2 border-[#FF6B00] border-b-4 border-b-[#9A3412] flex items-center gap-3.5 shadow-md">
-                    <DuoLightningIcon className="w-9 h-9 shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-2xl font-black text-[#FF6B00] leading-none whitespace-nowrap">{currentMonth.streak || '14 Days'}</div>
-                      <div className="text-[10px] font-black text-[#77909D] uppercase tracking-wider mt-1 whitespace-nowrap">Winning Streak</div>
-                    </div>
-                  </div>
-
-                  {/* Panel 3: Rank */}
-                  <div className="p-4 rounded-2xl bg-[#182830] border-2 border-[#FFC800] border-b-4 border-b-[#B88E00] flex items-center gap-3.5 shadow-md">
-                    <DuoTrophyIcon className="w-9 h-9 shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-lg sm:text-xl font-black text-[#FFC800] leading-none whitespace-nowrap">Prop Master</div>
-                      <div className="text-[10px] font-black text-[#77909D] uppercase tracking-wider mt-1 whitespace-nowrap">Rank Tier</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer Watermark */}
-                <div className="pt-2 text-[10px] font-extrabold text-[#52656D] flex items-center justify-between border-t border-[#20323D]">
-                  <span>TradePigeon • Master Your Discipline</span>
-                  <span className="font-mono text-[9px] text-[#77909D]">TRADEPIGEON.APP</span>
-                </div>
-              </div>
-            </div>
-
-            {/* EXPORT ACTION BUTTONS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <button
-                onClick={downloadScorecardImage}
-                className="w-full py-3.5 duo-btn-orange text-xs tracking-wide flex items-center justify-center gap-2 cursor-pointer font-black"
-              >
-                <Download size={16} />
-                <span>Download Scorecard Image</span>
-              </button>
-
-              <button
-                onClick={handleCopyScreenshotSummary}
-                className="w-full py-3.5 duo-btn-blue text-xs tracking-wide flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Share2 size={16} />
-                <span>Copy Text Summary</span>
-              </button>
-            </div>
           </div>
         </div>
       )}

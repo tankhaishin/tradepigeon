@@ -1,15 +1,16 @@
 import express from 'express';
-import cors from 'cors';
 import WebSocket from 'ws';
+import {
+  authenticateTradovate,
+  fetchTradovateFills,
+  fetchTradovateCashBalance
+} from '../utils/tradovateShared.js';
 
 const router = express.Router();
 
 /**
  * TRADOVATE API CONFIGURATION
- * Sandbox: https://demo.tradovateapi.com/v1
- * Production: https://live.tradovateapi.com/v1
  */
-const TRADOVATE_REST_URL = 'https://demo.tradovateapi.com/v1';
 const TRADOVATE_WS_URL = 'wss://demo.tradovateapi.com/v1/websocket';
 
 // Active in-memory session tokens & websocket listeners
@@ -20,80 +21,25 @@ const activeSyncSessions = new Map();
  * Authenticates trader credentials with Tradovate REST API
  */
 router.post('/auth', async (req, res) => {
-  const { name, password, appId, appVersion, cid, sec } = req.body;
-
-  if (!name || !password) {
-    return res.status(400).json({ success: false, error: 'Username and password are required.' });
-  }
+  const { name, password, appId, appVersion, cid, sec, env = 'LIVE' } = req.body || {};
 
   try {
-    const env = req.body.env || 'LIVE';
-    const restUrl = env === 'DEMO' ? 'https://demo.tradovateapi.com/v1' : 'https://live.tradovateapi.com/v1';
-
-    const response = await fetch(`${restUrl}/auth/accesstokenrequest`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name,
-        password,
-        appId: appId || 'GoodTraderApp',
-        appVersion: appVersion || '2.0.0',
-        cid: cid || 1,
-        sec: sec || 'secret-key-goodtrader'
-      })
+    const result = await authenticateTradovate({
+      name,
+      password,
+      appId,
+      appVersion,
+      cid,
+      sec,
+      env
     });
 
-    const data = await response.json();
-
-    if (data.errorText) {
-      return res.status(401).json({ success: false, error: data.errorText });
+    if (result.status === 200 && result.data?.userId && result.data?.accessToken) {
+      // Start background WebSocket Telemetry listener for this user
+      startTradovateWebSocketListener(result.data.userId, result.data.accessToken);
     }
 
-    const accessToken = data.accessToken;
-    const userId = data.userId;
-    const expirationTime = data.expirationTime;
-
-    // Discover sub-accounts
-    let accountsList = [];
-    try {
-      const accRes = await fetch(`${restUrl}/account/list`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      const accountsData = await accRes.json();
-      if (Array.isArray(accountsData)) {
-        accountsList = accountsData.map(acc => ({
-          id: acc.id,
-          name: acc.name,
-          accountType: acc.accountType || (env === 'DEMO' ? 'Demo' : 'Funded'),
-          active: acc.active !== false
-        }));
-      }
-    } catch (accErr) {
-      console.warn('Failed to query Tradovate sub-accounts:', accErr);
-    }
-
-    if (accountsList.length === 0) {
-      accountsList = [{ id: userId || 'primary', name: name, accountType: env === 'DEMO' ? 'Demo' : 'Live Funded', active: true }];
-    }
-
-    // Start background WebSocket Telemetry listener for this user
-    startTradovateWebSocketListener(userId, accessToken);
-
-    return res.json({
-      success: true,
-      accessToken,
-      userId,
-      expirationTime,
-      environment: env,
-      accounts: accountsList,
-      accountName: name,
-      message: 'Tradovate API authenticated successfully. Telemetry listener active.'
-    });
-
+    return res.status(result.status).json(result.data);
   } catch (err) {
     console.error('Tradovate Auth Error:', err);
     return res.status(500).json({ success: false, error: 'Failed to connect to Tradovate API server.' });
@@ -106,51 +52,11 @@ router.post('/auth', async (req, res) => {
  */
 router.get('/fills', async (req, res) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ success: false, error: 'Missing Authorization bearer token.' });
-  }
-
-  const token = authHeader.replace('Bearer ', '');
+  const env = req.query.env || 'LIVE';
 
   try {
-    const response = await fetch(`${TRADOVATE_REST_URL}/fill/list`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    const fills = await response.json();
-
-    if (!Array.isArray(fills)) {
-      return res.status(400).json({ success: false, error: 'Invalid response from Tradovate fill API.' });
-    }
-
-    // Format fills for GoodTrader Execution Matrix
-    const formattedLogs = fills.map((f, idx) => {
-      const isBuy = f.action === 'Buy';
-      const pnlNum = (f.price * (isBuy ? 1 : -1)) * (f.qty || 1); // Sample PnL calculation
-      const isWin = pnlNum >= 0;
-
-      return {
-        id: `TV-${f.id || (1000 + idx)}`,
-        time: f.timestamp ? new Date(f.timestamp).toLocaleTimeString() + ' NY' : 'NOW',
-        symbol: f.symbol || 'NQ1!',
-        side: isBuy ? 'BUY (LONG)' : 'SELL (SHORT)',
-        size: `${f.qty || 1.0} Lots`,
-        entry: (f.price || 18450).toFixed(2),
-        exit: ((f.price || 18450) + (isWin ? 20 : -20)).toFixed(2),
-        pnlNum: pnlNum,
-        pnl: `${pnlNum >= 0 ? '+' : '-'}$${Math.abs(pnlNum).toFixed(2)}`,
-        type: isWin ? 'FOLLOW_WIN' : 'FOLLOW_LOSS',
-        setup: 'Tradovate Live Socket Fill',
-        r: `${isWin ? '+' : ''}${(pnlNum / 350).toFixed(1)} R`
-      };
-    });
-
-    return res.json({ success: true, count: formattedLogs.length, fills: formattedLogs });
-
+    const result = await fetchTradovateFills({ token: authHeader, env });
+    return res.status(result.status).json(result.data);
   } catch (err) {
     console.error('Tradovate Fill Error:', err);
     return res.status(500).json({ success: false, error: 'Failed to fetch Tradovate fills.' });
@@ -158,7 +64,24 @@ router.get('/fills', async (req, res) => {
 });
 
 /**
- * 3. Real-Time WebSocket Connection Handler
+ * 3. GET /api/tradovate/balance
+ * Fetches cash balance snapshot for an authenticated account
+ */
+router.get('/balance', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  const env = req.query.env || 'LIVE';
+
+  try {
+    const result = await fetchTradovateCashBalance({ token: authHeader, env });
+    return res.status(result.status).json(result.data);
+  } catch (err) {
+    console.error('Tradovate Balance Error:', err);
+    return res.status(500).json({ success: false, error: 'Failed to fetch Tradovate cash balance.' });
+  }
+});
+
+/**
+ * 4. Real-Time WebSocket Connection Handler
  * Connects to Tradovate wss endpoint to listen for user order execution stream
  */
 function startTradovateWebSocketListener(userId, accessToken) {

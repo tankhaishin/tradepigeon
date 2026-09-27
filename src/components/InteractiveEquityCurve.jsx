@@ -1,17 +1,25 @@
 import React, { useState, useRef } from 'react';
 
 // Generates smooth cubic bezier SVG path from data points
-function getBezierPath(data, width, height, padding = 8) {
-  if (!data || data.length < 2) return { path: '', area: '', points: [] };
+function getBezierPath(rawData, width, height, padding = 10) {
+  if (!Array.isArray(rawData)) return { path: '', area: '', points: [] };
 
-  const minVal = Math.min(...data);
-  const maxVal = Math.max(...data);
+  // Sanitize data points: filter non-values and map to finite numbers
+  const sanitized = rawData
+    .filter(v => v !== null && v !== undefined && v !== '')
+    .map(v => (typeof v === 'number' ? v : Number(v)))
+    .filter(v => Number.isFinite(v));
+
+  if (sanitized.length < 2) return { path: '', area: '', points: [] };
+
+  const minVal = Math.min(...sanitized);
+  const maxVal = Math.max(...sanitized);
   const range = (maxVal - minVal) || 1;
 
-  const points = data.map((val, i) => {
-    const x = padding + (i / (data.length - 1)) * (width - padding * 2);
+  const points = sanitized.map((val, i) => {
+    const x = padding + (i / (sanitized.length - 1)) * (width - padding * 2);
     const y = height - padding - ((val - minVal) / range) * (height - padding * 2);
-    return { x, y, val, index: i + 1 };
+    return { x: Number.isFinite(x) ? x : 0, y: Number.isFinite(y) ? y : 0, val, index: i };
   });
 
   // Construct smooth cubic bezier path
@@ -33,20 +41,30 @@ function getBezierPath(data, width, height, padding = 8) {
   return { path: pathD, area: areaD, points };
 }
 
-export default function InteractiveEquityCurve({ data = [10, 25, 20, 35, 40, 55, 50, 75, 70, 95], color = "#58CC02", id = "chart" }) {
+export default function InteractiveEquityCurve({ 
+  data = [0, 25, 20, 35, 40, 55, 50, 75, 70, 95], 
+  color = "#58CC02", 
+  id = "chart",
+  formatValue 
+}) {
   const [hoverPoint, setHoverPoint] = useState(null);
   const svgRef = useRef(null);
 
-  const width = 340;
-  const height = 70;
-  const { path, area, points } = getBezierPath(data, width, height);
+  const width = 420;
+  const height = 85;
+  const sanitizedInput = Array.isArray(data)
+    ? data.filter(v => v !== null && v !== undefined && v !== '').map(v => (typeof v === 'number' ? v : Number(v))).filter(v => Number.isFinite(v))
+    : [];
+  const safeData = sanitizedInput.length >= 2 ? sanitizedInput : [0, 0];
+  const { path, area, points } = getBezierPath(safeData, width, height);
 
-  const isPositive = data[data.length - 1] >= data[0];
+  const isPositive = safeData[safeData.length - 1] >= (safeData[0] || 0);
   const strokeColor = isPositive ? color : "#FF4B4B";
 
   const handleMouseMove = (e) => {
     if (!svgRef.current || points.length === 0) return;
     const rect = svgRef.current.getBoundingClientRect();
+    if (!rect || rect.width <= 0) return;
     const mouseX = e.clientX - rect.left;
     const scaleX = width / rect.width;
     const chartX = mouseX * scaleX;
@@ -70,7 +88,7 @@ export default function InteractiveEquityCurve({ data = [10, 25, 20, 35, 40, 55,
 
   return (
     <div className="relative w-full group select-none">
-      <div className="h-16 w-full relative">
+      <div className="h-20 w-full relative">
         <svg
           ref={svgRef}
           viewBox={`0 0 ${width} ${height}`}
@@ -80,23 +98,25 @@ export default function InteractiveEquityCurve({ data = [10, 25, 20, 35, 40, 55,
         >
           <defs>
             <linearGradient id={`area-grad-${id}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={strokeColor} stopOpacity="0.4" />
+              <stop offset="0%" stopColor={strokeColor} stopOpacity="0.35" />
               <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
             </linearGradient>
           </defs>
 
           {/* Area Fill */}
-          <path d={area} fill={`url(#area-grad-${id})`} />
+          {area && <path d={area} fill={`url(#area-grad-${id})`} />}
 
           {/* Smooth Bezier Curve Line */}
-          <path
-            d={path}
-            fill="none"
-            stroke={strokeColor}
-            strokeWidth="3.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+          {path && (
+            <path
+              d={path}
+              fill="none"
+              stroke={strokeColor}
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
 
           {/* Interactive Hover Crosshair Line & Point Marker */}
           {hoverPoint && (
@@ -114,7 +134,7 @@ export default function InteractiveEquityCurve({ data = [10, 25, 20, 35, 40, 55,
                 cx={hoverPoint.x}
                 cy={hoverPoint.y}
                 r="6"
-                fill={strokeColor}
+                fill={hoverPoint.val >= (safeData[0] || 0) ? "#58CC02" : "#FF4B4B"}
                 stroke="#FFFFFF"
                 strokeWidth="2.5"
                 className="animate-pulse"
@@ -126,14 +146,21 @@ export default function InteractiveEquityCurve({ data = [10, 25, 20, 35, 40, 55,
         {/* Floating Tooltip Callout */}
         {hoverPoint && (
           <div
-            className="absolute -top-11 -translate-x-1/2 bg-[#182830] border-2 border-[#1CB0F6] px-2.5 py-1 rounded-xl shadow-2xl z-30 pointer-events-none flex items-center gap-2 whitespace-nowrap animate-fade-in"
+            className="absolute -top-11 -translate-x-1/2 bg-[#182830] border-2 border-[#1CB0F6] px-3 py-1 rounded-xl shadow-2xl z-30 pointer-events-none flex items-center gap-2 whitespace-nowrap animate-fade-in"
             style={{
-              left: `${(hoverPoint.x / width) * 100}%`,
+              left: `${Math.max(10, Math.min(90, (hoverPoint.x / width) * 100))}%`,
             }}
           >
-            <span className="text-[9px] font-black text-[#52656D] uppercase">Trade #{hoverPoint.index}</span>
-            <span className={`text-xs font-black ${strokeColor === "#58CC02" ? 'text-[#58CC02]' : 'text-rose-400'}`}>
-              {hoverPoint.val >= 0 ? `+$${(hoverPoint.val * 150).toLocaleString()}` : `-$${(Math.abs(hoverPoint.val) * 150).toLocaleString()}`}
+            <span className="text-[10px] font-black text-[#52656D] uppercase">
+              {hoverPoint.index === 0 ? 'Baseline' : `Trade #${hoverPoint.index}`}
+            </span>
+            <span className={`text-xs font-black ${hoverPoint.val >= (safeData[0] || 0) ? 'text-[#58CC02]' : 'text-rose-400'}`}>
+              {formatValue 
+                ? formatValue(hoverPoint.val, hoverPoint.index) 
+                : (hoverPoint.val >= 0 
+                    ? `+$${Math.round(hoverPoint.val).toLocaleString()}` 
+                    : `-$${Math.abs(Math.round(hoverPoint.val)).toLocaleString()}`
+                  )}
             </span>
           </div>
         )}

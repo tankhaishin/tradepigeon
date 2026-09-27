@@ -24,23 +24,24 @@ const AuthContext = createContext({
 });
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => loadStoredData('tradepigeon_google_user', null));
+  const [user, setUser] = useState(() => loadStoredData(STORAGE_KEYS.AUTH_USER, null));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !auth) {
-      // In offline / local mode, use existing stored local session
       setLoading(false);
       return;
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
+        const isGoogle = fbUser.providerData?.some(p => p.providerId === 'google.com');
         const formattedUser = {
           uid: fbUser.uid,
           name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
           email: fbUser.email || '',
-          picture: fbUser.photoURL || '/parrot_logo.png',
+          picture: fbUser.photoURL || null,
+          authProvider: isGoogle ? 'google' : 'password',
           authenticatedAt: new Date().toISOString()
         };
 
@@ -54,7 +55,8 @@ export function AuthProvider({ children }) {
                 uid: fbUser.uid,
                 email: fbUser.email || '',
                 displayName: fbUser.displayName || 'Trader',
-                photoURL: fbUser.photoURL || '/parrot_logo.png',
+                photoURL: fbUser.photoURL || null,
+                authProvider: formattedUser.authProvider,
                 plan: 'PRO_TRIAL',
                 createdAt: new Date().toISOString(),
                 lastLoginAt: new Date().toISOString()
@@ -68,11 +70,11 @@ export function AuthProvider({ children }) {
         }
 
         setUser(formattedUser);
-        saveStoredData('tradepigeon_google_user', formattedUser);
+        saveStoredData(STORAGE_KEYS.AUTH_USER, formattedUser);
         initCloudFirestoreSync(fbUser.uid);
       } else {
         setUser(null);
-        saveStoredData('tradepigeon_google_user', null);
+        saveStoredData(STORAGE_KEYS.AUTH_USER, null);
         initCloudFirestoreSync(null);
       }
       setLoading(false);
@@ -84,16 +86,16 @@ export function AuthProvider({ children }) {
   const signInWithGoogle = async () => {
     soundFx.playPop();
     if (!isFirebaseConfigured || !auth || !googleProvider) {
-      // Offline local mode fallback
       const guestUser = {
         uid: `local_${Date.now()}`,
         name: 'Local Trader',
         email: 'trader@local.dev',
-        picture: '/parrot_logo.png',
+        picture: null,
+        authProvider: 'guest',
         authenticatedAt: new Date().toISOString()
       };
       setUser(guestUser);
-      saveStoredData('tradepigeon_google_user', guestUser);
+      saveStoredData(STORAGE_KEYS.AUTH_USER, guestUser);
       soundFx.playSuccess();
       return guestUser;
     }
@@ -105,13 +107,13 @@ export function AuthProvider({ children }) {
         uid: fbUser.uid,
         name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
         email: fbUser.email || '',
-        picture: fbUser.photoURL || '/parrot_logo.png',
+        picture: fbUser.photoURL || null,
+        authProvider: 'google',
         authenticatedAt: new Date().toISOString()
       };
       soundFx.playSuccess();
       return formatted;
     } catch (popupErr) {
-      // If popup was blocked by mobile Safari or iframe, attempt redirect
       if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/cancelled-popup-request') {
         return await signInWithRedirect(auth, googleProvider);
       }
@@ -126,11 +128,12 @@ export function AuthProvider({ children }) {
         uid: `local_${Date.now()}`,
         name: email.split('@')[0],
         email: email,
-        picture: '/parrot_logo.png',
+        picture: null,
+        authProvider: 'guest',
         authenticatedAt: new Date().toISOString()
       };
       setUser(guestUser);
-      saveStoredData('tradepigeon_google_user', guestUser);
+      saveStoredData(STORAGE_KEYS.AUTH_USER, guestUser);
       soundFx.playSuccess();
       return guestUser;
     }
@@ -141,7 +144,8 @@ export function AuthProvider({ children }) {
       uid: fbUser.uid,
       name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
       email: fbUser.email || '',
-      picture: fbUser.photoURL || '/parrot_logo.png',
+      picture: fbUser.photoURL || null,
+      authProvider: 'password',
       authenticatedAt: new Date().toISOString()
     };
     soundFx.playSuccess();
@@ -155,11 +159,12 @@ export function AuthProvider({ children }) {
         uid: `local_${Date.now()}`,
         name: displayName || email.split('@')[0],
         email: email,
-        picture: '/parrot_logo.png',
+        picture: null,
+        authProvider: 'guest',
         authenticatedAt: new Date().toISOString()
       };
       setUser(guestUser);
-      saveStoredData('tradepigeon_google_user', guestUser);
+      saveStoredData(STORAGE_KEYS.AUTH_USER, guestUser);
       soundFx.playSuccess();
       return guestUser;
     }
@@ -173,7 +178,8 @@ export function AuthProvider({ children }) {
       uid: fbUser.uid,
       name: displayName || fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
       email: fbUser.email || '',
-      picture: fbUser.photoURL || '/parrot_logo.png',
+      picture: fbUser.photoURL || null,
+      authProvider: 'password',
       authenticatedAt: new Date().toISOString()
     };
     soundFx.playSuccess();
@@ -187,7 +193,7 @@ export function AuthProvider({ children }) {
       await signOut(auth);
     }
     setUser(null);
-    saveStoredData('tradepigeon_google_user', null);
+    saveStoredData(STORAGE_KEYS.AUTH_USER, null);
   };
 
   return (

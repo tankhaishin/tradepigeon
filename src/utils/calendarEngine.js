@@ -7,41 +7,59 @@ const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 /**
  * Dynamically computes a bulletproof month grid using native JS Date calculations.
  * @param {number} year - e.g. 2026
- * @param {number} monthIndex - 0-indexed (0 = Jan, 7 = Aug)
- * @returns {object} { monthName, startOffset, days, daysInMonth, isIntegrityVerified }
+ * @param {number} monthIndex - 0-indexed (0 = Jan, 11 = Dec)
+ * @returns {object} { monthName, year, monthIndex, startOffset, days, daysInMonth, isIntegrityVerified }
  */
 export function buildDynamicMonthData(year, monthIndex) {
-  const monthDate = new Date(year, monthIndex, 1);
+  const safeYear = Number(year) || new Date().getFullYear();
+  const safeMonth = Number(monthIndex);
+  const monthDate = new Date(safeYear, safeMonth, 1);
   const monthName = monthDate.toLocaleString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
   
   // Total days in target month
-  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const daysInMonth = new Date(safeYear, safeMonth + 1, 0).getDate();
   
   // Convert JS Sunday-first day (0=Sun, 1=Mon...6=Sat) to Monday-first (0=Mon...6=Sun)
   const firstDayJs = monthDate.getDay();
   const startOffset = (firstDayJs + 6) % 7;
 
+  const now = new Date();
+  const isCurrentMonth = (now.getFullYear() === safeYear && now.getMonth() === safeMonth);
+  const activeDate = now.getDate();
+
   const days = [];
 
   for (let date = 1; date <= daysInMonth; date++) {
-    const currentObj = new Date(year, monthIndex, date);
+    const currentObj = new Date(safeYear, safeMonth, date);
     const dayOfWeekIndex = (currentObj.getDay() + 6) % 7;
     const isWeekend = dayOfWeekIndex === 5 || dayOfWeekIndex === 6; // Saturday or Sunday
+    const isToday = isCurrentMonth && (date === activeDate);
+
+    let status = 'upcoming';
+    let pnl = '-';
+
+    if (isWeekend) {
+      status = 'weekend_rest';
+      pnl = 'MARKET CLOSED';
+    } else if (isToday) {
+      status = 'today';
+    }
 
     days.push({
       date,
       dayOfWeek: DAY_LETTERS[dayOfWeekIndex],
       dayName: DAY_LABELS[dayOfWeekIndex],
       isWeekend,
-      status: isWeekend ? 'weekend_rest' : 'upcoming',
-      pnl: isWeekend ? 'MARKET CLOSED' : '-'
+      status,
+      pnl
     });
   }
 
   const result = {
+    month: monthName,
     monthName,
-    year,
-    monthIndex,
+    year: safeYear,
+    monthIndex: safeMonth,
     startOffset,
     daysInMonth,
     days,
@@ -63,7 +81,7 @@ export function verifyCalendarIntegrity(monthData) {
     throw new Error('[Calendar Engine Error] Invalid month data structure passed to integrity auditor.');
   }
 
-  const { year, monthIndex, startOffset, days } = monthData;
+  const { year, monthIndex, days } = monthData;
 
   days.forEach((dayItem) => {
     const actualJsDate = new Date(year, monthIndex, dayItem.date);
@@ -73,13 +91,12 @@ export function verifyCalendarIntegrity(monthData) {
 
     // 1. Assert Day-of-Week Label Alignment
     if (dayItem.dayName && dayItem.dayName !== expectedDayLabel) {
-      console.error(`[Calendar Integrity Violation] Date ${dayItem.date} in ${monthData.monthName} labeled as ${dayItem.dayName}, expected ${expectedDayLabel}`);
       dayItem.dayName = expectedDayLabel;
       dayItem.dayOfWeek = DAY_LETTERS[expectedDayOfWeekIndex];
     }
 
     // 2. Assert Weekend Boundary Rules
-    if (isActualWeekend && dayItem.status !== 'win' && dayItem.status !== 'good_loss' && dayItem.status !== 'toxic_win' && dayItem.status !== 'double_failure') {
+    if (isActualWeekend && !['win', 'good_loss', 'toxic_win', 'double_failure', 'breakeven'].includes(dayItem.status)) {
       dayItem.isWeekend = true;
       if (dayItem.status === 'upcoming') {
         dayItem.status = 'weekend_rest';
@@ -92,74 +109,77 @@ export function verifyCalendarIntegrity(monthData) {
 }
 
 /**
+ * Generates or retrieves month data for any year and monthIndex, merging with any saved trade states.
+ */
+export function getMonthDataFor(year, monthIndex, cachedMonths = []) {
+  const dynamicRef = buildDynamicMonthData(year, monthIndex);
+  const cachedMatch = (Array.isArray(cachedMonths) ? cachedMonths : []).find(
+    m => (m.year === year && m.monthIndex === monthIndex) || (m.monthName === dynamicRef.monthName)
+  );
+
+  if (!cachedMatch || !Array.isArray(cachedMatch.days)) {
+    return dynamicRef;
+  }
+
+  // Merge cached custom trade statuses onto dynamically validated day structure
+  const now = new Date();
+  const isCurrentMonth = (now.getFullYear() === year && now.getMonth() === monthIndex);
+  const activeDate = now.getDate();
+
+  const repairedDays = dynamicRef.days.map((refDay, idx) => {
+    const existing = cachedMatch.days?.[idx] || {};
+    const isTodayDate = isCurrentMonth && (refDay.date === activeDate);
+    
+    let finalStatus = existing.status || refDay.status;
+    let finalPnl = existing.pnl || refDay.pnl;
+
+    if (!isTodayDate && finalStatus === 'today') {
+      finalStatus = refDay.isWeekend ? 'weekend_rest' : 'upcoming';
+      if (!finalPnl || finalPnl === '$0.00' || finalPnl === '-') {
+        finalPnl = refDay.isWeekend ? 'MARKET CLOSED' : '-';
+      }
+    }
+
+    if (isTodayDate && !['win', 'good_loss', 'toxic_win', 'double_failure', 'no_trade', 'holiday_freeze'].includes(finalStatus)) {
+      finalStatus = refDay.isWeekend ? 'weekend_rest' : 'today';
+      if (refDay.isWeekend) finalPnl = 'MARKET CLOSED';
+    }
+
+    return {
+      ...refDay,
+      status: finalStatus,
+      pnl: finalPnl,
+      count: existing.count || refDay.count
+    };
+  });
+
+  return {
+    ...dynamicRef,
+    days: repairedDays
+  };
+}
+
+/**
  * Sanitizes and repairs any cached calendar state against native Date truth.
  */
 export function auditAndSanitizeCalendarState(cachedMonths = []) {
   const now = new Date();
   const activeYear = now.getFullYear();
-  const activeMonthIdx = now.getMonth(); // 8 for September
-  const activeDate = now.getDate(); // 10
+  const activeMonthIdx = now.getMonth();
 
-  const defaultMonthsList = [
-    buildDynamicMonthData(activeYear, 6), // July 2026 (Idx 0)
-    buildDynamicMonthData(activeYear, 7), // August 2026 (Idx 1)
-    buildDynamicMonthData(activeYear, 8), // September 2026 (Idx 2)
-    buildDynamicMonthData(activeYear, 9), // October 2026 (Idx 3)
-  ];
+  // If no cache exists, initialize a window of 6 months around current date
+  if (!Array.isArray(cachedMonths) || cachedMonths.length === 0) {
+    const defaultWindow = [];
+    for (let offset = -2; offset <= 3; offset++) {
+      const d = new Date(activeYear, activeMonthIdx + offset, 1);
+      defaultWindow.push(buildDynamicMonthData(d.getFullYear(), d.getMonth()));
+    }
+    return defaultWindow;
+  }
 
-  const monthsToUse = (Array.isArray(cachedMonths) && cachedMonths.length > 0) ? cachedMonths : defaultMonthsList;
-
-  return monthsToUse.map((m) => {
-    let year = activeYear;
-    let monthIdx = 8; // Default September
-
-    if (m.monthName?.includes('JULY')) { year = activeYear; monthIdx = 6; }
-    else if (m.monthName?.includes('AUGUST')) { year = activeYear; monthIdx = 7; }
-    else if (m.monthName?.includes('SEPTEMBER')) { year = activeYear; monthIdx = 8; }
-    else if (m.monthName?.includes('OCTOBER')) { year = activeYear; monthIdx = 9; }
-
-    const dynamicRef = buildDynamicMonthData(year, monthIdx);
-
-    // Merge custom trade statuses onto dynamically validated day structure
-    const repairedDays = dynamicRef.days.map((refDay, idx) => {
-      const existing = m.days?.[idx] || {};
-      const isTodayDate = (monthIdx === activeMonthIdx && refDay.date === activeDate);
-      
-      let finalStatus = existing.status || refDay.status;
-      let finalPnl = existing.pnl || refDay.pnl;
-
-      // 1. Reset stale 'today' status on any day that is NOT the actual current date
-      if (!isTodayDate && finalStatus === 'today') {
-        finalStatus = refDay.isWeekend ? 'weekend_rest' : 'upcoming';
-        if (!finalPnl || finalPnl === '$0.00' || finalPnl === '-') {
-          finalPnl = refDay.isWeekend ? 'MARKET CLOSED' : '-';
-        }
-      }
-
-      // 2. Set 'today' status ONLY for the actual current date (and handle weekends correctly)
-      if (isTodayDate) {
-        if (refDay.isWeekend && finalStatus !== 'win' && finalStatus !== 'good_loss' && finalStatus !== 'toxic_win' && finalStatus !== 'double_failure' && finalStatus !== 'no_trade') {
-          finalStatus = 'weekend_rest';
-          finalPnl = 'MARKET CLOSED';
-        } else if (finalStatus !== 'win' && finalStatus !== 'good_loss' && finalStatus !== 'toxic_win' && finalStatus !== 'double_failure' && finalStatus !== 'no_trade' && finalStatus !== 'holiday_freeze') {
-          finalStatus = 'today';
-        }
-      }
-
-      return {
-        ...refDay,
-        status: finalStatus,
-        pnl: finalPnl,
-        count: existing.count || refDay.count
-      };
-    });
-
-    return {
-      ...m,
-      monthName: dynamicRef.monthName,
-      startOffset: dynamicRef.startOffset,
-      days: repairedDays,
-      isIntegrityVerified: true
-    };
+  return cachedMonths.map((m) => {
+    const year = m.year || activeYear;
+    const monthIdx = m.monthIndex !== undefined ? m.monthIndex : activeMonthIdx;
+    return getMonthDataFor(year, monthIdx, [m]);
   });
 }

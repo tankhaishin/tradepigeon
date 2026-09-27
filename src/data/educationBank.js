@@ -22,8 +22,8 @@ export const COURSE_MODULES = [
   },
   {
     id: 'mod_2',
-    title: 'Module 2: Trading Psychology & Prefrontal Cortex Control',
-    desc: 'Eliminate FOMO, revenge impulse trading, and hesitation through prefrontal cortex reset protocols.',
+    title: 'Module 2: Trading Psychology & Emotional Discipline',
+    desc: 'Eliminate FOMO, revenge trading, and execution hesitation through systematic cool-down routines.',
     icon: 'book',
     color: 'border-[#FF6B00]',
     badgeBg: 'bg-[#FF6B00]/15 text-[#FF6B00]',
@@ -118,7 +118,7 @@ export const INSTITUTIONAL_QUIZ_DATABASE = [
   },
   {
     id: 'q_4',
-    title: 'Neuroscience of Toxic Wins & Dopamine Spikes',
+    title: 'Psychology of Toxic Wins & Reinforcement Traps',
     category: 'TRADING PSYCHOLOGY',
     icon: 'book',
     readTime: '45 sec read',

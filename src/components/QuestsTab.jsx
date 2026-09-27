@@ -1,38 +1,99 @@
 import React, { useState, useEffect } from 'react';
-import { DuoChestIcon, DuoLightningIcon, DuoIceIcon, DuoLockIcon, DuoShieldIcon } from './DuoIcons';
+import { DuoChestIcon, DuoLightningIcon, DuoIceIcon, DuoShieldIcon } from './DuoIcons';
 import EducationalQuizNode from './EducationalQuizNode';
 import { CheckCircle2, Lock, Sparkles, Award } from 'lucide-react';
-import InteractiveParrotMascot from './InteractiveParrotMascot';
-import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS } from '../utils/storage';
+import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS, getAllStoredTrades, addDisciplinePoints } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 
+const DAILY_QUEST_IDS = [103, 104];
+
+const getInitialClaimedQuests = () => {
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const lastClaimDate = loadStoredData('tradepigeon_claimed_quests_date', '');
+  const claimed = loadStoredData('tradepigeon_claimed_quests', []);
+  const claimedList = Array.isArray(claimed) ? claimed : [];
+
+  if (lastClaimDate && lastClaimDate !== todayIso) {
+    // Rollover: clear daily quests (103, 104) while preserving milestone quests (101, 102)
+    const filtered = claimedList.filter(id => !DAILY_QUEST_IDS.includes(id));
+    saveStoredData('tradepigeon_claimed_quests', filtered);
+    saveStoredData('tradepigeon_claimed_quests_date', todayIso);
+    return filtered;
+  }
+  if (!lastClaimDate) {
+    saveStoredData('tradepigeon_claimed_quests_date', todayIso);
+  }
+  return claimedList;
+};
+
 export default function QuestsTab() {
-  const [claimedQuestIds, setClaimedQuestIds] = useState(() => loadStoredData('tradepigeon_claimed_quests', []));
+  const [claimedQuestIds, setClaimedQuestIds] = useState(getInitialClaimedQuests);
   const [completedSteps, setCompletedSteps] = useState(() => loadStoredData('tradepigeon_completed_steps', []));
+  const [debriefHistory, setDebriefHistory] = useState(() => loadStoredData('tradepigeon_debrief_history', []));
+  const [tradingStatus, setTradingStatus] = useState(() => loadStoredData('tradepigeon_trading_status', 'TRADING'));
+  const [completedDays, setCompletedDays] = useState(() => loadStoredData('tradepigeon_completed_days', []));
   const [userDp, setUserDp] = useState(() => loadStoredData('tradepigeon_user_dp', 0));
   const [userStats, setUserStats] = useState(() => loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS));
 
   useEffect(() => {
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const lastClaimDate = loadStoredData('tradepigeon_claimed_quests_date', '');
+    if (lastClaimDate && lastClaimDate !== todayIso) {
+      setClaimedQuestIds(prev => {
+        const filtered = prev.filter(id => !DAILY_QUEST_IDS.includes(id));
+        saveStoredData('tradepigeon_claimed_quests', filtered);
+        saveStoredData('tradepigeon_claimed_quests_date', todayIso);
+        return filtered;
+      });
+    }
+
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
       if (key === 'tradepigeon_claimed_quests') setClaimedQuestIds(value || []);
       if (key === 'tradepigeon_completed_steps') setCompletedSteps(value || []);
+      if (key === 'tradepigeon_debrief_history') setDebriefHistory(value || []);
+      if (key === 'tradepigeon_trading_status') setTradingStatus(value || 'TRADING');
+      if (key === 'tradepigeon_completed_days') setCompletedDays(value || []);
       if (key === 'tradepigeon_user_dp') setUserDp(Number(value) || 0);
       if (key === 'tradepigeon_user_stats') setUserStats(value || DEFAULT_USER_STATS);
+      if (
+        key === 'tradepigeon_tradelogs' ||
+        key === 'goodtrader_tradelogs' ||
+        key === 'trades_cleared' ||
+        (key && (key.startsWith('tradepigeon_session_trades') || key.startsWith('goodtrader_session_trades') || key.startsWith('day_')))
+      ) {
+        setUserStats(loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS));
+      }
     });
     return unsubscribe;
   }, []);
 
-  // Compute active weekly quest season (1-52 weeks rotation)
+  // Compute active weekly quest focus (1-52 weeks rotation)
   const currentWeekNumber = Math.ceil((new Date().getDate() + new Date().getDay()) / 7);
   const seasonalThemes = [
-    { title: 'SEASON 12: RISK FORTRESS DRILLS', badge: 'WEEKLY SEASONAL ROTATION', desc: 'Focus on 100% stop-loss discipline and drawdown preservation' },
-    { title: 'SEASON 13: PLAYBOOK PRECISION WEEK', badge: 'WEEKLY SEASONAL ROTATION', desc: 'Focus on binary entry checklist compliance' },
-    { title: 'SEASON 14: NEUROSCIENCE & TILT MASTERY', badge: 'WEEKLY SEASONAL ROTATION', desc: 'Focus on 30-minute post-loss prefrontal cortex resets' }
+    { title: 'WEEKLY FOCUS: RISK DISCIPLINE', badge: 'WEEKLY ROTATION', desc: 'Focus on 100% stop-loss discipline and drawdown preservation' },
+    { title: 'WEEKLY FOCUS: PLAYBOOK CHECKLISTS', badge: 'WEEKLY ROTATION', desc: 'Focus on binary entry checklist compliance before every execution' },
+    { title: 'WEEKLY FOCUS: EMOTIONAL COOL-DOWN', badge: 'WEEKLY ROTATION', desc: 'Focus on mandatory cool-downs after losses to prevent tilt and revenge trading' }
   ];
   const activeSeason = seasonalThemes[currentWeekNumber % seasonalThemes.length];
 
   const streakDays = userStats.streakDays || 0;
-  const tradesLogged = userStats.tradesLogged || 0;
+  const storedTrades = getAllStoredTrades();
+  const tradesLogged = Math.max(
+    userStats.tradesLogged || 0,
+    storedTrades.filter(t => t.followedRules !== false).length
+  );
+
+  // Resilient quest completion checks that persist across step resets
+  const hasCompletedAudit = completedSteps.includes(4) || 
+    (Array.isArray(debriefHistory) && debriefHistory.length > 0) || 
+    tradingStatus === 'DONE' || 
+    (Array.isArray(completedDays) && completedDays.length > 0);
+
+  const hasCompletedMindset = completedSteps.includes(1) || 
+    hasCompletedAudit || 
+    tradingStatus === 'DONE' || 
+    (Array.isArray(completedDays) && completedDays.length > 0) ||
+    completedSteps.length > 0;
 
   const quests = [
     {
@@ -60,9 +121,9 @@ export default function QuestsTab() {
       title: 'Complete Post-Session Audit',
       reward: '+200 DP',
       rewardVal: 200,
-      current: completedSteps.includes(4) ? 1 : 0,
+      current: hasCompletedAudit ? 1 : 0,
       target: 1,
-      completed: completedSteps.includes(4),
+      completed: hasCompletedAudit,
       icon: <DuoShieldIcon className="w-8 h-8" />
     },
     {
@@ -70,9 +131,9 @@ export default function QuestsTab() {
       title: 'Complete Pre-Market Mindset Check',
       reward: '+150 DP',
       rewardVal: 150,
-      current: completedSteps.includes(1) ? 1 : 0,
+      current: hasCompletedMindset ? 1 : 0,
       target: 1,
-      completed: completedSteps.includes(1),
+      completed: hasCompletedMindset,
       icon: <DuoLightningIcon className="w-8 h-8" />
     },
   ];
@@ -80,20 +141,18 @@ export default function QuestsTab() {
   const handleClaimReward = (quest) => {
     if (!claimedQuestIds.includes(quest.id)) {
       soundFx.playLevelUp();
+      const todayIso = new Date().toISOString().slice(0, 10);
       const updatedClaimed = [...claimedQuestIds, quest.id];
       setClaimedQuestIds(updatedClaimed);
       saveStoredData('tradepigeon_claimed_quests', updatedClaimed);
+      saveStoredData('tradepigeon_claimed_quests_date', todayIso);
 
-      const newDp = userDp + quest.rewardVal;
+      const newDp = addDisciplinePoints(quest.rewardVal);
       setUserDp(newDp);
-      saveStoredData('tradepigeon_user_dp', newDp);
-
-      const updatedStats = {
-        ...userStats,
+      setUserStats(prev => ({
+        ...prev,
         disciplinePoints: newDp
-      };
-      setUserStats(updatedStats);
-      saveStoredData('tradepigeon_user_stats', updatedStats);
+      }));
 
       window.dispatchEvent(new CustomEvent('tradepigeon_claim_reward', { detail: { questId: quest.id, rewardVal: quest.rewardVal } }));
     }
@@ -188,11 +247,17 @@ export default function QuestsTab() {
         onQuizComplete={() => {
           soundFx.playSuccess();
           const currentStats = loadStoredData(STORAGE_KEYS.USER_STATS, DEFAULT_USER_STATS);
+          const currentDp = typeof currentStats.disciplinePoints === 'number'
+            ? currentStats.disciplinePoints
+            : (loadStoredData('tradepigeon_user_dp', 0));
+          const newDp = currentDp + 50;
           const updatedStats = {
             ...currentStats,
-            disciplinePoints: (currentStats.disciplinePoints || 3400) + 50
+            disciplinePoints: newDp
           };
           saveStoredData(STORAGE_KEYS.USER_STATS, updatedStats);
+          saveStoredData('tradepigeon_user_dp', newDp);
+          setUserDp(newDp);
         }} 
       />
 

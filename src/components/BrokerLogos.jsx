@@ -15,12 +15,7 @@ export function NinjaTraderLogo({ className = "w-5 h-5" }) {
   return <img src="/images/brokers/ninjatrader.png" alt="NinjaTrader Official Logo" className={`${className} object-contain`} />;
 }
 
-// 4. TradeLocker Real Official Logo PNG
-export function TradeLockerLogo({ className = "w-5 h-5" }) {
-  return <img src="/images/brokers/tradelocker.png" alt="TradeLocker Official Logo" className={`${className} object-contain`} />;
-}
-
-// 5. Universal CSV Logo
+// 4. Universal CSV Logo
 export function CsvLogo({ className = "w-5 h-5" }) {
   return <img src="/images/brokers/csv.svg" alt="Universal CSV Logo" className={`${className} object-contain`} />;
 }

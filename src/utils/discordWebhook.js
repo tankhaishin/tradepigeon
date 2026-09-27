@@ -1,6 +1,7 @@
-// TradePigeon 2.0 — Discord Webhook & Real-Time Event Dispatcher Engine
+const DEFAULT_DISCORD_WEBHOOK = import.meta.env?.VITE_DISCORD_WEBHOOK_URL || '';
 
-const DEFAULT_DISCORD_WEBHOOK = import.meta.env.VITE_DISCORD_WEBHOOK_URL || 'https://discord.com/api/webhooks/1545026133425258582/imLEdPgYxqkew82A0HQA-mCiNk4UeApf31u3bbTNMVibLMRjiLn_-wJ67oFmDam_5htO';
+let lastDispatchTimestamp = 0;
+const MIN_DISPATCH_INTERVAL_MS = 1500;
 
 /**
  * Sends a rich Discord Embed notification to your admin Discord channel
@@ -13,14 +14,45 @@ export async function sendDiscordWebhookMessage({
   fields = [],
   footerText = 'TradePigeon 2.0 Real-Time Telemetry'
 }) {
-  if (!webhookUrl) {
-    console.warn('[Discord Webhook]: No VITE_DISCORD_WEBHOOK_URL specified in environment. Logged locally:', { title, description, fields });
+  // Network offline safety check
+  if (typeof navigator !== 'undefined' && 'onLine' in navigator && !navigator.onLine) {
     return false;
   }
 
+  // 1. Primary: Secure backend proxy dispatch (keeps webhook token strictly on the server)
+  if (typeof window !== 'undefined' && (!webhookUrl || webhookUrl === DEFAULT_DISCORD_WEBHOOK)) {
+    try {
+      const proxyRes = await fetch('/api/webhooks/discord/dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description, color, fields, footerText })
+      });
+      if (proxyRes.ok) {
+        return true;
+      }
+    } catch (_) {
+      // Fall through to direct dispatch if backend proxy is offline
+    }
+  }
+
+  if (!webhookUrl) {
+    if (import.meta.env?.DEV) {
+      console.log('[Discord Webhook (Local Dev)]:', { title, description, fields });
+    }
+    return false;
+  }
+
+  // Rate-limiting throttle to prevent Discord HTTP 429
+  const now = Date.now();
+  const timeSinceLast = now - lastDispatchTimestamp;
+  if (timeSinceLast < MIN_DISPATCH_INTERVAL_MS) {
+    await new Promise((resolve) => setTimeout(resolve, MIN_DISPATCH_INTERVAL_MS - timeSinceLast));
+  }
+  lastDispatchTimestamp = Date.now();
+
   const payload = {
     username: 'TradePigeon Bot',
-    avatar_url: 'https://tradepigeon.io/parrot_logo.png',
+    avatar_url: 'https://tradepigeon.com/favicon.svg',
     embeds: [
       {
         title: title,
@@ -45,14 +77,17 @@ export async function sendDiscordWebhookMessage({
     });
 
     if (response.ok) {
-      console.log('[Discord Webhook]: Successfully dispatched alert:', title);
       return true;
+    } else if (response.status === 429) {
+      console.warn('[Discord Webhook]: Rate limited (429). Backing off.');
+      lastDispatchTimestamp = Date.now() + 5000;
+      return false;
     } else {
-      console.error('[Discord Webhook Error]: Received status', response.status);
+      console.warn('[Discord Webhook Notice]: Received status', response.status);
       return false;
     }
   } catch (error) {
-    console.error('[Discord Webhook Exception]: Failed to send notification:', error);
+    console.warn('[Discord Webhook Notice]: Failed to send notification:', error?.message || error);
     return false;
   }
 }
@@ -60,26 +95,44 @@ export async function sendDiscordWebhookMessage({
 /**
  * Specifically dispatches trader feedback & bug reports submitted from SupportFeedbackModal
  */
-export async function sendDiscordFeedbackAlert({ type, rating, message, email }) {
+export async function sendDiscordFeedbackAlert({ type, rating, message, email, diagnosticSnapshot = null }) {
   const typeColorMap = {
-    BUG: 0xFF4B4B,    // Red for Bugs
+    BUG: 0xFF4B4B,     // Red for Bugs
     FEATURE: 0x1CB0F6, // Blue for Feature Ideas
-    GENERAL: 0xFF6B00  // Orange for General Feedback
+    GENERAL: 0xFF6B00, // Orange for General Feedback
+    ACCOUNT: 0xCE82FF  // Purple for Billing/Account
   };
 
   const stars = '⭐'.repeat(rating || 5);
   const color = typeColorMap[type] || 0x1CB0F6;
 
+  const fields = [
+    { name: 'Category', value: type, inline: true },
+    { name: 'Rating', value: stars, inline: true },
+    { name: 'Trader Email', value: email || 'Anonymous / Unspecified', inline: true }
+  ];
+
+  if (diagnosticSnapshot) {
+    fields.push({
+      name: 'System Telemetry',
+      value: `App: v${diagnosticSnapshot.appVersion || '2.1.0'} | Screen: ${diagnosticSnapshot.screenResolution || 'N/A'}\nStorage: ${diagnosticSnapshot.storageQuota?.usedKb || 0} KB (${diagnosticSnapshot.storageQuota?.itemsCount || 0} keys)`,
+      inline: false
+    });
+    if (diagnosticSnapshot.recentErrorsCount > 0) {
+      fields.push({
+        name: 'Recent Errors',
+        value: `Total: ${diagnosticSnapshot.recentErrorsCount} | Last: ${diagnosticSnapshot.recentErrors?.[0]?.message?.slice(0, 100) || 'None'}`,
+        inline: false
+      });
+    }
+  }
+
   return sendDiscordWebhookMessage({
-    title: `📩 New Trader ${type === 'BUG' ? 'Bug Report' : type === 'FEATURE' ? 'Feature Idea' : 'Feedback'}`,
+    title: `📩 New Trader ${type === 'BUG' ? 'Bug Report' : type === 'FEATURE' ? 'Feature Idea' : type === 'ACCOUNT' ? 'Account Inquiry' : 'Feedback'}`,
     description: message || 'No message content provided.',
     color: color,
-    fields: [
-      { name: 'Category', value: type, inline: true },
-      { name: 'Rating', value: stars, inline: true },
-      { name: 'Trader Email', value: email || 'Anonymous / Unspecified', inline: true }
-    ],
-    footerText: 'TradePigeon 2.0 Support Engine'
+    fields: fields,
+    footerText: 'TradePigeon Institutional Support Desk'
   });
 }
 
@@ -122,7 +175,7 @@ export async function sendDiscordSignupAlert({ username, strategy, experience, e
  * Dispatches community milestone alerts when a trader hits a major streak or leaderboard win
  */
 export async function sendDiscordLeaderboardMilestoneAlert({ username, streak, dp, league }) {
-  const communityWebhookUrl = import.meta.env.VITE_DISCORD_COMMUNITY_WEBHOOK_URL || DEFAULT_DISCORD_WEBHOOK;
+  const communityWebhookUrl = import.meta.env?.VITE_DISCORD_COMMUNITY_WEBHOOK_URL || DEFAULT_DISCORD_WEBHOOK;
   return sendDiscordWebhookMessage({
     webhookUrl: communityWebhookUrl,
     title: `🔥 Streak Milestone Unlocked: ${streak} Days!`,
@@ -134,25 +187,5 @@ export async function sendDiscordLeaderboardMilestoneAlert({ username, streak, d
       { name: 'League Rank', value: `🏆 ${league || 'Diamond League'}`, inline: true }
     ],
     footerText: 'TradePigeon 2.0 Community Discipline Feed'
-  });
-}
-
-/**
- * Dispatches a 1-tap user scorecard share to Discord
- */
-export async function sendDiscordScorecardShare({ username, winRate, disciplineScore, netPnl, streak }) {
-  const communityWebhookUrl = import.meta.env.VITE_DISCORD_COMMUNITY_WEBHOOK_URL || DEFAULT_DISCORD_WEBHOOK;
-  return sendDiscordWebhookMessage({
-    webhookUrl: communityWebhookUrl,
-    title: `📊 Daily Playbook Scorecard — ${username || 'Trader'}`,
-    description: `Verified execution telemetry scorecard from TradePigeon 2.0.`,
-    color: 0x1CB0F6, // TradePigeon Blue
-    fields: [
-      { name: 'Discipline Score', value: `🎯 ${disciplineScore || 98}%`, inline: true },
-      { name: 'Win Rate', value: `📈 ${winRate || '68%'}`, inline: true },
-      { name: 'Session Net P&L', value: `💰 ${netPnl || '+$1,450.00'}`, inline: true },
-      { name: 'Streak Guard', value: `🔥 ${streak || 7} Days`, inline: true }
-    ],
-    footerText: 'TradePigeon Verified Telemetry Audit'
   });
 }
