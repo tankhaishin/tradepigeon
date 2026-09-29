@@ -3,6 +3,7 @@ import {
   ShieldCheck, Zap, ArrowRight, CheckCircle2, Flame, Heart, Gem, Trophy, Star, 
   Sparkles, Lock, BarChart3, ChevronRight, Play, Check, Globe, Bell, Mail, X
 } from 'lucide-react';
+import InteractiveParrotMascot from './InteractiveParrotMascot';
 import LegalModal from './LegalModal';
 import { TradovateLogo, NinjaTraderLogo, CsvLogo } from './BrokerLogos';
 import { Duo3dShieldBadge, Duo3dFlameBadge, Duo3dChartBadge, Duo3dZapBadge, Duo3dLockBadge, Duo3dBellBadge, Duo3dCheckBadge } from './GamifiedFeatureBadges';
@@ -22,7 +23,44 @@ export default function LandingPage({ onGetStarted, onLogin }) {
   const [billingCycle, setBillingCycle] = useState('MONTHLY'); // Default: $9.99 / month
   const [activeRoadmapIndex, setActiveRoadmapIndex] = useState(0);
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
-  const [heroCardMode, setHeroCardMode] = useState('DISCIPLINED'); // 'DISCIPLINED' | 'TOXIC'
+
+  // DYNAMIC INTERACTIVE MASCOT REACTIVE STATE (Respectful Trading Companion Tone)
+  const mascotQuotes = [
+    { pose: 'welcoming', text: '"Welcome back, my friend! Ready to execute your strategy today?"' },
+    { pose: 'celebrating', text: '"Outstanding discipline! Sticking to your plan is how you protect your edge."' },
+    { pose: 'shielded', text: '"You respected your stop loss—that is a great trade in my book. Capital preserved!"' },
+    { pose: 'anxious', text: '"Patience, my friend. The market always offers another setup. Let\'s wait for yours."' },
+    { pose: 'revenge', text: '"Take a breather, my friend. Stepping away right now protects your account for tomorrow."' },
+    { pose: 'zen', text: '"Process first, profits follow. Stay calm and trade your playbook!"' },
+    { pose: 'thinking', text: '"What gets measured gets managed. Document every fill with proof."' },
+    { pose: 'trophy', text: '"Long-term consistency is built one disciplined session at a time."' }
+  ];
+  const [quoteIndex, setQuoteIndex] = useState(0);
+  const [activeMascotPose, setActiveMascotPose] = useState('welcoming');
+  const [speechText, setSpeechText] = useState(mascotQuotes[0].text);
+
+  const handleMascotClick = () => {
+    soundFx.playPop();
+    let nextIndex;
+    do {
+      nextIndex = Math.floor(Math.random() * mascotQuotes.length);
+    } while (nextIndex === quoteIndex && mascotQuotes.length > 1);
+
+    setQuoteIndex(nextIndex);
+    setActiveMascotPose(mascotQuotes[nextIndex].pose);
+    setSpeechText(mascotQuotes[nextIndex].text);
+  };
+
+  const handleExecutionTypeHover = (pose, speech) => {
+    soundFx.playPop();
+    setActiveMascotPose(pose);
+    setSpeechText(speech);
+  };
+
+  const handleExecutionTypeLeave = () => {
+    setActiveMascotPose(mascotQuotes[quoteIndex].pose);
+    setSpeechText(mascotQuotes[quoteIndex].text);
+  };
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, legacyKey, value }) => {
@@ -32,11 +70,6 @@ export default function LandingPage({ onGetStarted, onLogin }) {
     });
     return unsubscribe;
   }, []);
-
-  const toggleHeroCard = () => {
-    soundFx.playPop();
-    setHeroCardMode(prev => prev === 'DISCIPLINED' ? 'TOXIC' : 'DISCIPLINED');
-  };
 
   const handleStart = (userObj = loggedInUser) => {
     soundFx.playSuccess();
@@ -130,131 +163,22 @@ export default function LandingPage({ onGetStarted, onLogin }) {
       {/* 2. HERO SECTION: MASCOT + DUOLINGO HIGH-IMPACT HEADLINE */}
       <main className="w-full max-w-7xl mx-auto px-6 py-10 md:py-16 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center flex-1 relative z-10">
         
-        {/* Left Hero Graphic: Tactile Duolingo 3D Live Discipline Card */}
-        <div className="lg:col-span-6 flex flex-col items-center justify-center relative w-full">
-          <div className="w-full max-w-md mx-auto">
-            {/* DUOLINGO 3D TACTILE HERO CARD */}
-            <div className={`p-6 sm:p-7 rounded-3xl border-2 border-b-[8px] transition-all duration-300 shadow-2xl relative text-left select-none ${
-              heroCardMode === 'DISCIPLINED'
-                ? 'bg-[#0D1D16] border-[#58CC02] border-b-[#3C8901] shadow-[0_12px_40px_rgba(88,204,2,0.25)]'
-                : 'bg-[#221606] border-[#FFC800] border-b-[#C29600] shadow-[0_12px_40px_rgba(255,200,0,0.25)]'
-            }`}>
-              {/* Top Meta Status Strip */}
-              <div className="flex items-center justify-between gap-2 pb-4 border-b border-white/10">
-                <div className="flex items-center gap-2">
-                  <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-xl font-mono border ${
-                    heroCardMode === 'DISCIPLINED'
-                      ? 'bg-[#58CC02]/20 text-[#58CC02] border-[#58CC02]/40'
-                      : 'bg-[#FFC800]/20 text-[#FFC800] border-[#FFC800]/40'
-                  }`}>
-                    {heroCardMode === 'DISCIPLINED' ? 'A+ GRADE EXECUTION' : 'C- GRADE ALERT'}
-                  </span>
-                  <span className="text-[10px] font-black text-slate-300 tracking-wider">
-                    {heroCardMode === 'DISCIPLINED' ? '14-DAY STREAK 🔥' : 'TILT RISK ⚠'}
-                  </span>
-                </div>
-                <span className={`text-xs font-black font-mono ${heroCardMode === 'DISCIPLINED' ? 'text-[#58CC02]' : 'text-[#FFC800]'}`}>
-                  {heroCardMode === 'DISCIPLINED' ? '+100 DP' : '-50 DP'}
-                </span>
-              </div>
+        {/* Left Hero Graphic: Clean, Lightweight Mascot Stage */}
+        <div className="lg:col-span-6 flex flex-col items-center justify-center relative">
+          {/* Speech Bubble */}
+          <div className="mb-4 bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] rounded-3xl p-4 max-w-sm text-center shadow-2xl relative animate-fade-in">
+            <p className="text-xs sm:text-sm font-black text-slate-200 leading-relaxed italic">
+              {speechText}
+            </p>
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0D1635] border-r-2 border-b-2 border-[#1C2A4E] rotate-45"></div>
+          </div>
 
-              {/* Main Card Trade Details */}
-              <div className="py-5 space-y-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0 shadow-md">
-                      {heroCardMode === 'DISCIPLINED' ? (
-                        <DuoDisciplinedWinIcon className="w-9 h-9 drop-shadow-md" />
-                      ) : (
-                        <DuoToxicWinIcon className="w-9 h-9 drop-shadow-md" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="text-xs font-black uppercase tracking-wider text-slate-400">
-                        {heroCardMode === 'DISCIPLINED' ? 'Breakout Playbook' : 'Impulse FOMO Entry'}
-                      </div>
-                      <h3 className="text-xl sm:text-2xl font-black text-white leading-tight">
-                        ES Mini &bull; {heroCardMode === 'DISCIPLINED' ? '+$650.00' : '+$825.00'}
-                      </h3>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className={`text-xs font-black px-2.5 py-1 rounded-xl block ${
-                      heroCardMode === 'DISCIPLINED' ? 'bg-[#58CC02] text-white' : 'bg-[#FFC800] text-slate-950'
-                    }`}>
-                      {heroCardMode === 'DISCIPLINED' ? '+3.25 R' : 'UNPLANNED'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Checklist Rules / Audit */}
-                <div className="space-y-2.5 pt-1">
-                  {heroCardMode === 'DISCIPLINED' ? (
-                    <>
-                      <div className="flex items-center gap-2.5 text-xs font-bold text-emerald-200">
-                        <div className="w-5 h-5 rounded-lg bg-[#58CC02] text-white flex items-center justify-center shrink-0">
-                          <Check size={12} strokeWidth={3} />
-                        </div>
-                        <span>Entry strictly confirmed on strategy criteria</span>
-                      </div>
-                      <div className="flex items-center gap-2.5 text-xs font-bold text-emerald-200">
-                        <div className="w-5 h-5 rounded-lg bg-[#58CC02] text-white flex items-center justify-center shrink-0">
-                          <Check size={12} strokeWidth={3} />
-                        </div>
-                        <span>Stop loss respected ($200 defined risk)</span>
-                      </div>
-                      <div className="flex items-center gap-2.5 text-xs font-bold text-emerald-200">
-                        <div className="w-5 h-5 rounded-lg bg-[#58CC02] text-white flex items-center justify-center shrink-0">
-                          <Check size={12} strokeWidth={3} />
-                        </div>
-                        <span>Exited at target with zero emotional interference</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-2.5 text-xs font-bold text-amber-200">
-                        <div className="w-5 h-5 rounded-lg bg-[#FFC800] text-slate-950 flex items-center justify-center shrink-0">
-                          <X size={12} strokeWidth={3} />
-                        </div>
-                        <span>Sized 4x over calibrated max daily risk</span>
-                      </div>
-                      <div className="flex items-center gap-2.5 text-xs font-bold text-amber-200">
-                        <div className="w-5 h-5 rounded-lg bg-[#FFC800] text-slate-950 flex items-center justify-center shrink-0">
-                          <X size={12} strokeWidth={3} />
-                        </div>
-                        <span>Widened stop loss during adverse excursion</span>
-                      </div>
-                      <div className="flex items-center gap-2.5 text-xs font-bold text-amber-200">
-                        <div className="w-5 h-5 rounded-lg bg-[#FFC800] text-slate-950 flex items-center justify-center shrink-0">
-                          <X size={12} strokeWidth={3} />
-                        </div>
-                        <span>Lucky win validates destructive habits</span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Bottom Tactile Switch Action */}
-              <div className="pt-3 border-t border-white/10">
-                <button
-                  type="button"
-                  onClick={toggleHeroCard}
-                  className={`w-full py-3 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-y-0.5 border-b-4 ${
-                    heroCardMode === 'DISCIPLINED'
-                      ? 'bg-[#FFC800] text-slate-950 border-[#D9AA00] hover:bg-[#FFD21A]'
-                      : 'bg-[#58CC02] text-white border-[#3C8901] hover:bg-[#61E002]'
-                  }`}
-                >
-                  <Sparkles size={14} />
-                  <span>
-                    {heroCardMode === 'DISCIPLINED' 
-                      ? 'Tap to Compare: The Toxic Win Trap →' 
-                      : 'Tap to View: Disciplined Execution →'}
-                  </span>
-                </button>
-              </div>
-            </div>
+          <div 
+            onClick={handleMascotClick} 
+            className="relative z-10 cursor-pointer transition-transform hover:scale-105 active:scale-95"
+            title="Click pigeon to change pose!"
+          >
+            <InteractiveParrotMascot pose={activeMascotPose} className="w-72 h-72 sm:w-96 sm:h-96 filter drop-shadow-2xl" />
           </div>
         </div>
 
@@ -463,7 +387,11 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                     onClick={() => {
                       soundFx.playPop();
                       setActiveRoadmapIndex(itemIndex);
+                      setActiveMascotPose(item.pose);
+                      setSpeechText(item.speech);
                     }}
+                    onMouseEnter={() => handleExecutionTypeHover(item.pose, item.speech)}
+                    onMouseLeave={handleExecutionTypeLeave}
                     className={`p-5 rounded-3xl border-2 ${item.color} ${item.border} border-b-8 ${item.bottom} ${item.textColor} transition-all cursor-pointer flex flex-col justify-between space-y-4 text-left shadow-xl active:translate-y-1 ${
                       isActive 
                         ? 'scale-105 ring-4 ring-white shadow-[0_0_35px_rgba(255,255,255,0.45)] z-20' 
@@ -503,7 +431,11 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                     onClick={() => {
                       soundFx.playPop();
                       setActiveRoadmapIndex(itemIndex);
+                      setActiveMascotPose(item.pose);
+                      setSpeechText(item.speech);
                     }}
+                    onMouseEnter={() => handleExecutionTypeHover(item.pose, item.speech)}
+                    onMouseLeave={handleExecutionTypeLeave}
                     className={`p-5 rounded-3xl border-2 ${item.color} ${item.border} border-b-8 ${item.bottom} ${item.textColor} transition-all cursor-pointer flex flex-col justify-between space-y-4 text-left shadow-xl active:translate-y-1 ${
                       isActive 
                         ? 'scale-105 ring-4 ring-white shadow-[0_0_35px_rgba(255,255,255,0.45)] z-20' 
