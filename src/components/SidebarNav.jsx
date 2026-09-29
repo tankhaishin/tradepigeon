@@ -93,11 +93,11 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
             className="flex items-center justify-center xl:justify-start gap-3 px-1 xl:px-2 cursor-pointer hover:opacity-80 transition-opacity"
             title="TradePigeon — Click to view Landing Page"
           >
-            <div className="w-12 h-12 rounded-2xl bg-[#0D1635] overflow-hidden border-2 border-[#FF6B00] border-b-4 border-b-[#C2410C] flex items-center justify-center shrink-0 shadow-md mx-auto xl:mx-0 p-1">
+            <div className="w-12 h-12 rounded-2xl bg-[#0D1635] overflow-hidden border-2 border-[#FF6B00] border-b-4 border-b-[#C2410C] flex items-center justify-center shrink-0 shadow-md mx-auto xl:mx-0">
               <img 
                 src="/parrot_logo.png" 
                 alt="TradePigeon Logo" 
-                className="w-full h-full object-contain" 
+                className="w-full h-full object-cover" 
                 onError={(e) => { e.currentTarget.src = '/favicon.svg'; }}
               />
             </div>

@@ -109,8 +109,8 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
 
         {/* Brand Header */}
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#070C1E] border-2 border-[#FF6B00] border-b-4 border-b-[#C2410C] flex items-center justify-center shadow-lg shrink-0 p-1.5">
-            <img src="/parrot_logo.png" alt="TradePigeon" className="w-8 h-8 object-contain rounded-xl" onError={(e) => { e.currentTarget.src = '/favicon.svg'; }} />
+          <div className="w-12 h-12 rounded-2xl bg-[#070C1E] overflow-hidden border-2 border-[#FF6B00] border-b-4 border-b-[#C2410C] flex items-center justify-center shadow-lg shrink-0">
+            <img src="/parrot_logo.png" alt="TradePigeon" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = '/favicon.svg'; }} />
           </div>
           <div>
             <h3 className="text-xl font-black text-white tracking-tight">

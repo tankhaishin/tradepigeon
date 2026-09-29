@@ -115,11 +115,11 @@ export default function LandingPage({ onGetStarted, onLogin }) {
         
         {/* Duolingo 3D Tactile Logo Mark */}
         <div className="flex items-center gap-3.5 cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-          <div className="w-11 h-11 rounded-2xl bg-[#0D1635] overflow-hidden border-2 border-[#FF6B00] border-b-4 border-b-[#C2410C] flex items-center justify-center shrink-0 shadow-lg group-hover:scale-105 transition-transform p-1">
+          <div className="w-11 h-11 rounded-2xl bg-[#0D1635] overflow-hidden border-2 border-[#FF6B00] border-b-4 border-b-[#C2410C] flex items-center justify-center shrink-0 shadow-lg group-hover:scale-105 transition-transform">
             <img 
               src="/parrot_logo.png" 
               alt="TradePigeon Logo" 
-              className="w-full h-full object-contain" 
+              className="w-full h-full object-cover" 
               onError={(e) => { e.currentTarget.src = '/favicon.svg'; }}
             />
           </div>
@@ -751,11 +751,11 @@ export default function LandingPage({ onGetStarted, onLogin }) {
         <div className="max-w-7xl mx-auto px-6 space-y-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-[#1C2A4E] pb-6">
             <div className="flex items-center gap-3 cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-              <div className="w-8 h-8 rounded-xl bg-[#0D1635] overflow-hidden border border-[#FF6B00] border-b-3 border-b-[#C2410C] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform p-0.5">
+              <div className="w-8 h-8 rounded-xl bg-[#0D1635] overflow-hidden border border-[#FF6B00] border-b-3 border-b-[#C2410C] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
                 <img 
                   src="/parrot_logo.png" 
                   alt="TradePigeon Logo" 
-                  className="w-full h-full object-contain" 
+                  className="w-full h-full object-cover" 
                   onError={(e) => { e.currentTarget.src = '/favicon.svg'; }}
                 />
               </div>
