@@ -784,7 +784,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
             >
               <DuoTrophyIcon className="w-4 h-4 shrink-0 text-amber-400" />
               <span className="text-xs font-black uppercase tracking-wider truncate">
-                {tradingStatus === 'DONE' ? 'Resume' : 'Finish Session'}
+                {tradingStatus === 'DONE' ? 'Resume' : 'Finish day'}
               </span>
             </button>
 
@@ -807,7 +807,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
             >
               <DuoPalmtreeIcon className="w-4 h-4 shrink-0 text-[#00F0FF]" />
               <span className="text-xs font-black uppercase tracking-wider truncate">
-                {tradingStatus === 'VACATION' ? 'Cancel Rest' : 'Take Rest Day'}
+                {tradingStatus === 'VACATION' ? 'Cancel rest' : 'Rest day'}
               </span>
             </button>
           </div>
@@ -894,14 +894,14 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
           <div className="p-3.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] space-y-2.5 shadow-md text-left mt-3">
             
 
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
                 <Sparkles size={14} className="text-[#1CB0F6]" />
                 <span className="text-[10px] font-black uppercase text-white tracking-wider">
                   TODAY'S TRADES ({sessionTrades.length})
                 </span>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5 [&_button]:whitespace-nowrap">
                 {selectedTradeIds.length >= 2 && (
                   <button
                     onClick={handleMergeSelectedTrades}
@@ -943,7 +943,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                   title="Log a setup that presented but you hesitated or missed"
                 >
                   <AlertCircle size={10} />
-                  <span>+ Missed trade</span>
+                  <span>Missed trade</span>
                 </button>
 
                 <button
@@ -954,7 +954,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                   className="text-[9px] font-black px-2.5 py-1 rounded-lg bg-[#142127] hover:bg-[#20323D] border border-[#20323D] text-slate-300 hover:text-white cursor-pointer transition-all flex items-center gap-1"
                 >
                   <Plus size={10} />
-                  <span>+ Add trade</span>
+                  <span>Add trade</span>
                 </button>
 
                 {sessionTrades.length > 0 && (

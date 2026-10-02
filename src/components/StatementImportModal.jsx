@@ -120,12 +120,12 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
         {/* 1. Account + timezone of the file */}
         <div className="space-y-2">
           <label className="text-xs font-black text-slate-300 block">Account</label>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <select value={account} onChange={(e) => pickAccount(e.target.value)} className="flex-1 min-w-0 p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-bold text-sm outline-none focus:border-[#1CB0F6]">
               {accounts.map(a => <option key={a.name} value={a.name}>{a.name}</option>)}
               <option value="__new">+ New account</option>
             </select>
-            <select value={timeZone} onChange={(e) => setTimeZone(e.target.value)} title="Time zone of the times in your file" className="w-40 p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-bold text-xs outline-none focus:border-[#1CB0F6]">
+            <select value={timeZone} onChange={(e) => setTimeZone(e.target.value)} title="Time zone of the times in your file" className="w-full sm:w-40 p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-bold text-xs outline-none focus:border-[#1CB0F6]">
               {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz.split('/').pop().replace('_', ' ')} time</option>)}
             </select>
           </div>
@@ -144,7 +144,7 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
         >
           <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={(e) => { readFile(e.target.files?.[0]); e.target.value = ''; }} />
           <Upload size={24} className="text-[#1CB0F6]" />
-          <div className="text-sm font-black text-white">{fileName || 'Drop your CSV here'}</div>
+          <div className="text-sm font-black text-white">{fileName || 'Choose or drop your CSV'}</div>
           <div className="text-[11px] font-bold text-[#7A8E99]">
             Tradovate · NinjaTrader 8 · <button type="button" onClick={(e) => { e.stopPropagation(); downloadTemplate(); }} className="underline hover:text-white inline-flex items-center gap-1"><Download size={10} />template</button>
           </div>

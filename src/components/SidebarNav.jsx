@@ -353,7 +353,7 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
           { id: 'learn', label: 'LEARN', icon: <DuoHomeIcon className="w-6 h-6" /> },
           { id: 'calendar', label: 'CALENDAR', icon: <DuoCalendarIcon className="w-6 h-6" /> },
           { id: 'setups', label: 'PLAYBOOK', icon: <DuoBookIcon className="w-6 h-6" /> },
-          { id: 'status', label: 'COCKPIT', icon: <DuoShieldIcon className="w-6 h-6" /> },
+          { id: 'status', label: 'TODAY', icon: <DuoShieldIcon className="w-6 h-6" /> },
           { id: 'profile', label: 'PROFILE', icon: <DuoProfileIcon className="w-6 h-6" /> }
         ].map((item) => {
           const isActive = activeTab === item.id;
