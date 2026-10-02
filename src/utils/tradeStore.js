@@ -151,6 +151,30 @@ export function restoreTrades(trades) {
   emit();
 }
 
+/**
+ * Makes the stored trades for one session date equal `list` (for screens that edit a day's list as a whole).
+ * New trades are added, changed ones updated, and trades of that date missing from the list are deleted (tombstoned).
+ */
+export function setDayTrades(isoDate, list) {
+  const map = readMap();
+  const byId = new Map(list.filter(t => t?.id).map(t => [t.id, t]));
+  const toAdd = [], toUpdate = [], toDelete = [];
+  for (const [id, t] of byId) {
+    const cur = map[id];
+    if (!cur) toAdd.push({ date: isoDate, ...t });
+    else {
+      // Screens hand back normalized trades; compare against the normalized stored copy, ignoring timestamps.
+      const curN = normalizeTrade(cur);
+      if (Object.keys(t).some(k => k !== 'updatedAt' && k !== 'createdAt' && JSON.stringify(t[k]) !== JSON.stringify(curN[k]))) toUpdate.push(t);
+    }
+  }
+  for (const t of Object.values(map)) if (t.date === isoDate && !byId.has(t.id)) toDelete.push(t.id);
+  if (toAdd.length) addTrades(toAdd, { source: 'manual' });
+  toUpdate.forEach(t => updateTrade(t.id, t));
+  if (toDelete.length) deleteTrades(toDelete);
+  return { added: toAdd.length, updated: toUpdate.length, deleted: toDelete.length };
+}
+
 // ---------- import history ----------
 
 export const getImportHistory = () => readJson(IMPORTS_KEY, []);
@@ -206,6 +230,13 @@ export function initTradeCloudSync(uid) {
     const tombs = readJson(TOMBSTONES_KEY, {});
     const cloudIds = new Set();
     let changed = false;
+
+    // A doc removed outright (e.g. in the console) after we've synced counts as a delete.
+    if (!firstSnapshot) {
+      snap.docChanges().filter(c => c.type === 'removed').forEach(c => {
+        if (map[c.doc.id]) { delete map[c.doc.id]; tombs[c.doc.id] = Date.now(); changed = true; }
+      });
+    }
 
     snap.docs.forEach(d => {
       const remote = d.data();

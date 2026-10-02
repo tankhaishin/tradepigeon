@@ -6,6 +6,7 @@ import {
 import { DuoCalendarIcon, DuoShieldIcon, DuoLightningIcon, DuoGemIcon, DuoTrophyIcon, DuoDisciplinedWinIcon, DuoDisciplinedLossIcon, DuoDisciplinedBeIcon, DuoToxicWinIcon, DuoToxicBeIcon, DuoDoubleFailureIcon, DuoMissedTradeIcon } from './DuoIcons';
 import { Duo3dCheckBadge, Duo3dZenBadge } from './GamifiedFeatureBadges';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS, deleteStoredTrade } from '../utils/storage';
+import { getTrades, getTradesForDate, onTradesChange, deleteTrades } from '../utils/tradeStore';
 import { auditAndSanitizeCalendarState, getMonthDataFor } from '../utils/calendarEngine';
 import { soundFx } from '../utils/audioEngine';
 import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl } from '../utils/financialMath';
@@ -61,7 +62,8 @@ export default function CalendarTab() {
         setUserStats(value);
       }
     });
-    return () => unsubscribe();
+    const offTrades = onTradesChange(() => setTradesRevision(r => r + 1));
+    return () => { unsubscribe(); offTrades(); };
   }, []);
 
   const formatDayPnl = (pnlVal) => {
@@ -85,29 +87,7 @@ export default function CalendarTab() {
     const padDate = String(activeModalDay.date).padStart(2, '0');
     const isoDate = `${year}-${padMonth}-${padDate}`;
 
-    const now = new Date();
-    const isCurrentMonthAndYear = (year === now.getFullYear()) && (monthIdx === now.getMonth());
-
-    const isoTrades = loadStoredData(`tradepigeon_session_trades_day_${isoDate}`, null);
-    if (Array.isArray(isoTrades) && isoTrades.length > 0) return isoTrades;
-
-    const generalDay = loadStoredData(`day_${isoDate}`, null);
-    if (Array.isArray(generalDay?.trades) && generalDay.trades.length > 0) return generalDay.trades;
-
-    if (isCurrentMonthAndYear) {
-      const numTrades = loadStoredData(`tradepigeon_session_trades_day_${activeModalDay.date}`, null);
-      if (Array.isArray(numTrades) && numTrades.length > 0) return numTrades;
-      if (activeModalDay.date === now.getDate()) {
-        const todaySessionTrades = loadStoredData('tradepigeon_session_trades', null);
-        if (Array.isArray(todaySessionTrades) && todaySessionTrades.length > 0) return todaySessionTrades;
-      }
-    }
-
-    const allTradeLogs = loadStoredData('tradepigeon_tradelogs', []);
-    const matchingLogs = allTradeLogs.filter(t => t && t.date === isoDate);
-    if (matchingLogs.length > 0) return matchingLogs;
-
-    return [];
+    return getTradesForDate(isoDate);
   }, [activeModalDay, rawMonth, tradesRevision]);
 
   // Modal Escape Key Dismissal
@@ -181,41 +161,15 @@ export default function CalendarTab() {
     let disciplinedDays = 0;
     let totalTradeDays = 0;
 
-    const now = new Date();
-    const isCurrentMonthAndYear = (year === now.getFullYear()) && (monthIdx === now.getMonth());
+    const tradesByDate = {};
+    for (const t of getTrades()) (tradesByDate[t.date] ||= []).push(t);
 
     const days = (rawMonth.days || []).map(day => {
       const padMonth = String(monthIdx + 1).padStart(2, '0');
       const padDate = String(day.date).padStart(2, '0');
       const isoDate = `${year}-${padMonth}-${padDate}`;
 
-      // Check session trades for this day
-      const sessionTradesIso = loadStoredData(`tradepigeon_session_trades_day_${isoDate}`, null);
-      const sessionTradesGeneral = loadStoredData(`day_${isoDate}`, null);
-      const sessionTradesNum = isCurrentMonthAndYear 
-        ? loadStoredData(`tradepigeon_session_trades_day_${day.date}`, null) 
-        : null;
-
-      let resolvedTrades = (Array.isArray(sessionTradesIso) && sessionTradesIso.length > 0)
-        ? sessionTradesIso
-        : (sessionTradesGeneral?.trades && sessionTradesGeneral.trades.length > 0)
-        ? sessionTradesGeneral.trades
-        : (Array.isArray(sessionTradesNum) && sessionTradesNum.length > 0)
-        ? sessionTradesNum
-        : [];
-
-      if (resolvedTrades.length === 0) {
-        const globalLogs = loadStoredData('tradepigeon_tradelogs', []);
-        const dayLogs = globalLogs.filter(t => t && t.date === isoDate);
-        if (dayLogs.length > 0) resolvedTrades = dayLogs;
-      }
-
-      if (resolvedTrades.length === 0 && isCurrentMonthAndYear && day.date === now.getDate()) {
-        const todayActive = loadStoredData('tradepigeon_session_trades', null) || loadStoredData('goodtrader_session_trades', null);
-        if (Array.isArray(todayActive) && todayActive.length > 0) {
-          resolvedTrades = todayActive;
-        }
-      }
+      const resolvedTrades = tradesByDate[isoDate] || [];
 
       if (resolvedTrades && resolvedTrades.length > 0) {
         const dayPnl = sumTradesPnl(resolvedTrades);
@@ -973,7 +927,7 @@ export default function CalendarTab() {
                                 e.stopPropagation();
                                 if (t.id) {
                                   soundFx.playPop();
-                                  deleteStoredTrade(t.id);
+                                  deleteTrades([t.id]);
                                   setTradesRevision(r => r + 1);
                                 }
                               }}

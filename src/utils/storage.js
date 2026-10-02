@@ -3,6 +3,11 @@ import { db, auth, isFirebaseConfigured } from '../config/firebase.js';
 import { doc, setDoc, onSnapshot, collection, writeBatch, deleteDoc, getDocs } from 'firebase/firestore';
 import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple } from './financialMath.js';
 
+// Legacy per-day trade keys. Trades now live in tradeStore.js; these are only read once for migration.
+const isLegacyTradeKey = (k = '') =>
+  k === 'tradepigeon_tradelogs' || k === 'goodtrader_tradelogs' || k.startsWith('tradepigeon_session_trades') ||
+  k.startsWith('goodtrader_session_trades') || k.startsWith('day_');
+
 const STORAGE_KEYS = {
   AUTH_USER: 'tradepigeon_auth_user',
   USER_STATS: 'tradepigeon_user_stats',
@@ -348,7 +353,7 @@ export const saveStoredData = (key, value) => {
   }
 
   // 2. Dual-tier Cloud Firestore write when user is authenticated
-  if (typeof window !== 'undefined' && isFirebaseConfigured && db && auth?.currentUser?.uid) {
+  if (typeof window !== 'undefined' && isFirebaseConfigured && db && auth?.currentUser?.uid && !isLegacyTradeKey(canonicalKey)) {
     const uid = auth.currentUser.uid;
     if (pendingCloudWrites.has(canonicalKey)) {
       clearTimeout(pendingCloudWrites.get(canonicalKey));
@@ -509,27 +514,13 @@ export const initCloudFirestoreSync = (uid) => {
       console.warn('[Firestore Sync Listener Notice]:', snapErr.message);
     });
 
-    // 2. Subcollection listener for discrete trades (Multi-device synchronicity without 1MB limit)
-    const tradesColRef = collection(db, 'users', uid, 'trades');
-    tradesUnsubscribe = onSnapshot(tradesColRef, (tradeSnapshot) => {
-      if (tradeSnapshot.empty) return;
-      const cloudTrades = [];
-      tradeSnapshot.forEach(docSnap => {
-        cloudTrades.push(docSnap.data());
-      });
-      if (cloudTrades.length > 0) {
-        mergeCloudTradesIntoLocal(cloudTrades);
-      }
-    }, (tradeErr) => {
-      console.warn('[Firestore Trades Subcollection Notice]:', tradeErr.message);
-    });
+    // Trades sync lives in tradeStore.initTradeCloudSync (tombstone-aware).
 
     // Automatic Migration: Migrate local keys to Cloud Firestore if user has existing local journal data
     setTimeout(async () => {
       const keysToMigrate = [
         STORAGE_KEYS.USER_STATS,
         STORAGE_KEYS.CALENDAR_DATA,
-        STORAGE_KEYS.TRADE_HISTORY,
         'tradepigeon_accounts_data',
         'tradepigeon_playbook_setups',
         'tradepigeon_baskets_list',
@@ -841,20 +832,15 @@ export const factoryResetCleanSlate = async ({ keepBrokerAccounts = true } = {})
     ? (safeGetItem('tradepigeon_accounts_data') || safeGetItem('goodtrader_accounts_data')) 
     : null;
 
+  // 0. Delete every trade through the trade store: tombstones propagate to the cloud and all devices.
+  const tradeStore = await import('./tradeStore.js');
+  tradeStore.deleteTrades(tradeStore.getTrades().map(t => t.id));
+  localStorage.removeItem('tradepigeon_import_history');
+
   // 1. If Firebase is active and user is logged in, wipe subcollection trades & cloud journal
   if (isFirebaseConfigured && db && auth?.currentUser?.uid) {
     const uid = auth.currentUser.uid;
     try {
-      // Clear trades subcollection documents in batches
-      const tradesColRef = collection(db, 'users', uid, 'trades');
-      const tradeSnap = await getDocs(tradesColRef);
-      if (!tradeSnap.empty) {
-        const batch = writeBatch(db);
-        tradeSnap.forEach(docSnap => {
-          batch.delete(docSnap.ref);
-        });
-        await batch.commit();
-      }
 
       // Reset cloud journal metadata
       const metaDocRef = doc(db, 'users', uid, 'journal', 'tradepigeon_tradelogs');
@@ -1456,9 +1442,9 @@ export const restoreStoredTrade = (trade) => {
   }
 };
 
-export const exportTradesCsv = () => {
+export const exportTradesCsv = async () => {
   if (typeof window === 'undefined') return { success: false, error: 'No window context' };
-  const uniqueTrades = getAllStoredTrades();
+  const uniqueTrades = (await import('./tradeStore.js')).getTrades();
 
   if (uniqueTrades.length === 0) {
     return { success: false, error: 'No trades found in your journal to export.' };

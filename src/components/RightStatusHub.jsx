@@ -8,6 +8,7 @@ import BrokerConnectModal from './BrokerConnectModal';
 import LivePositionsCard from './cockpit/LivePositionsCard';
 import ConfirmModal from './ConfirmModal';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS, deleteStoredTrade, deleteMultipleStoredTrades, restoreStoredTrade, saveSessionTrades, loadSessionTrades, addDisciplinePoints } from '../utils/storage';
+import { getTradesForDate, setDayTrades, restoreTrades, onTradesChange, todaySessionDate } from '../utils/tradeStore';
 import { auditAndSanitizeCalendarState, buildDynamicMonthData } from '../utils/calendarEngine';
 import { soundFx } from '../utils/audioEngine';
 import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl } from '../utils/financialMath';
@@ -37,6 +38,8 @@ export function getHesitationIcon(id, size = 13) {
       return <AlertCircle size={size} className="text-amber-400 shrink-0" />;
   }
 }
+
+const prettyDate = (iso) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
 export default function RightStatusHub({ isExpanded = false, onToggleExpand, isMobileOpen = false, onCloseMobile, isInPage = false, onOpenCalendarTab }) {
   const [internalExpanded, setInternalExpanded] = useState(isExpanded);
@@ -69,7 +72,9 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
   const currentDay = loadStoredData('tradepigeon_current_day', 1);
-  const [activeAuditDay, setActiveAuditDay] = useState(currentDay);
+  // Session date (YYYY-MM-DD) being viewed; defaults to today's CME session.
+  const [activeAuditDay, setActiveAuditDay] = useState(() => todaySessionDate());
+  const isAuditToday = activeAuditDay === todaySessionDate();
   const [selectedBasketFilter, setSelectedBasketFilter] = useState('ALL');
   const [selectedTradeIds, setSelectedTradeIds] = useState([]);
   const [userStats, setUserStats] = useState(() => loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS));
@@ -85,7 +90,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     return completedSteps.includes(4) || hasDebrief;
   }, [completedSteps]);
 
-  const [sessionTrades, setSessionTrades] = useState(() => loadSessionTrades(currentDay));
+  const [sessionTrades, setSessionTrades] = useState(() => getTradesForDate(todaySessionDate()));
   const [openPositions, setOpenPositions] = useState(() => loadStoredData('tradepigeon_open_positions', []));
   const [confirmConfig, setConfirmConfig] = useState({
     isOpen: false,
@@ -106,21 +111,11 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      const now = new Date();
-      const todayIso = now.toISOString().slice(0, 10);
-      const todayDom = now.getDate();
-      const isTodayActive = activeAuditDay === currentDay || activeAuditDay === todayDom || String(activeAuditDay) === todayIso;
-
       if (key === 'tradepigeon_stealth_mode') {
         setIsStealthMode(Boolean(value));
       }
       if (key === 'trades_cleared') {
-        setSessionTrades([]);
         setOpenPositions([]);
-      } else if (key === `tradepigeon_session_trades_day_${activeAuditDay}`) {
-        setSessionTrades(value || []);
-      } else if (isTodayActive && (key === `tradepigeon_session_trades_day_${todayIso}` || key === `tradepigeon_session_trades_day_${todayDom}` || key === 'tradepigeon_session_trades' || key === 'goodtrader_session_trades')) {
-        setSessionTrades(value || []);
       }
 
       if (key === 'tradepigeon_open_positions') {
@@ -143,9 +138,10 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   }, [activeAuditDay, currentDay]);
 
   useEffect(() => {
-    const loaded = loadSessionTrades(activeAuditDay);
-    setSessionTrades(loaded);
+    const load = () => setSessionTrades(getTradesForDate(activeAuditDay));
+    load();
     setSelectedTradeIds([]);
+    return onTradesChange(load);
   }, [activeAuditDay]);
 
   const primaryAccountName = connectedAccounts[0]?.name || connectedAccounts[0]?.id || 'Primary Account';
@@ -164,7 +160,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   };
 
   const persistSessionTrades = (tradesList) => {
-    saveSessionTrades(tradesList, activeAuditDay);
+    setDayTrades(activeAuditDay, tradesList);
   };
 
   const handleVerifyTrade = (tradeId, newType) => {
@@ -244,7 +240,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     setSessionTrades(updated);
     setSelectedTradeIds(selectedTradeIds.filter(id => id !== tradeId));
     persistSessionTrades(updated);
-    deleteStoredTrade(tradeId);
   };
 
   const handleDeleteSelectedTrades = () => {
@@ -254,7 +249,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     setDeletedTradesBackup({ trades: tradesToDelete, timestamp: Date.now() });
     const remaining = sessionTrades.filter(t => !selectedTradeIds.includes(t.id));
     setSessionTrades(remaining);
-    deleteMultipleStoredTrades(selectedTradeIds);
     setSelectedTradeIds([]);
     persistSessionTrades(remaining);
   };
@@ -264,8 +258,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     soundFx.playSuccess();
     const restored = [...deletedTradesBackup.trades, ...sessionTrades];
     setSessionTrades(restored);
-    persistSessionTrades(restored);
-    deletedTradesBackup.trades.forEach(t => restoreStoredTrade(t));
+    restoreTrades(deletedTradesBackup.trades);
     setDeletedTradesBackup(null);
   };
 
@@ -372,104 +365,10 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     return false;
   };
 
-  const handleSyncLiveBrokerTelemetry = async () => {
-    soundFx.playSuccess();
-    
-    // Fetch stored connected accounts
-    const storedAccounts = loadStoredData('tradepigeon_accounts_data', []);
-    if (!storedAccounts || storedAccounts.length === 0) {
-      setIsBrokerModalOpen(true);
-      return;
-    }
-
-    // Identify target accounts based on current filter selection
-    const targetAccounts = (selectedBasketFilter === 'ALL')
-      ? storedAccounts
-      : storedAccounts.filter(a => matchesAccountFilter(a.name || a.id, selectedBasketFilter));
-
-    const accountsToProcess = targetAccounts.length > 0 ? targetAccounts : storedAccounts;
-    let newTradesAdded = [];
-    let discoveredOpenPositions = [];
-
-    // 1. Check for real live fills if account has accessToken
-    for (const acc of accountsToProcess) {
-      if (acc.accessToken) {
-        try {
-          const res = await fetch(`/api/tradovate?action=fills&env=${acc.environment || 'LIVE'}`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${acc.accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          if (res.status === 401) {
-            acc.status = 'EXPIRED';
-            acc.tokenExpired = true;
-          } else if (res.ok) {
-            const data = await res.json();
-            const targetAccount = acc.name || acc.accountNumber || 'Tradovate Live';
-            if (data.success && Array.isArray(data.fills) && data.fills.length > 0) {
-              for (const realFill of data.fills) {
-                const fillExists = sessionTrades.some(t => 
-                  t.id === realFill.id || 
-                  (t.time === realFill.time && t.pnl === realFill.pnl && t.account === targetAccount)
-                );
-                if (!fillExists) {
-                  newTradesAdded.push({
-                    ...realFill,
-                    account: targetAccount
-                  });
-                }
-              }
-            }
-            if (data.success && Array.isArray(data.openPositions)) {
-              for (const openPos of data.openPositions) {
-                discoveredOpenPositions.push({
-                  ...openPos,
-                  account: targetAccount
-                });
-              }
-            }
-          }
-        } catch (syncErr) {
-          console.warn(`Failed live sync for account ${acc.name}:`, syncErr);
-        }
-      }
-    }
-
-    const updatedAccounts = storedAccounts.map(acc => {
-      const isTarget = accountsToProcess.some(t => t.id === acc.id || t.accountNumber === acc.accountNumber || t.name === acc.name);
-      if (!isTarget) return acc;
-      if (acc.tokenExpired || acc.status === 'EXPIRED') {
-        return { ...acc, status: 'EXPIRED', lastSync: 'Auth Required', tokenExpired: true };
-      }
-      return { ...acc, status: 'SYNCED (LIVE)' };
-    });
-
-    saveStoredData('tradepigeon_accounts_data', updatedAccounts);
-    setConnectedAccounts(updatedAccounts);
-
-    saveStoredData('tradepigeon_open_positions', discoveredOpenPositions);
-    setOpenPositions(discoveredOpenPositions);
-
-    if (newTradesAdded.length > 0) {
-      const now = new Date();
-      const todayIso = now.toISOString().slice(0, 10);
-      const todayDom = now.getDate();
-      const updatedTrades = [...newTradesAdded, ...sessionTrades];
-      setSessionTrades(updatedTrades);
-      saveStoredData(`tradepigeon_session_trades_day_${activeAuditDay}`, updatedTrades);
-      if (activeAuditDay === currentDay) {
-        saveStoredData(`tradepigeon_session_trades_day_${todayIso}`, updatedTrades);
-        saveStoredData(`tradepigeon_session_trades_day_${todayDom}`, updatedTrades);
-        saveStoredData('tradepigeon_session_trades', updatedTrades);
-      }
-      try {
-        const existingLogs = loadStoredData('tradepigeon_tradelogs', []);
-        saveStoredData('tradepigeon_tradelogs', [...newTradesAdded, ...existingLogs]);
-      } catch {}
-    }
-    setLastAutoSyncedTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+  // Live broker auto-sync is paused until verified against a real Tradovate account; trades come in via file import.
+  const handleSyncLiveBrokerTelemetry = () => {
+    soundFx.playPop();
+    window.dispatchEvent(new CustomEvent('tradepigeon_open_import'));
   };
 
   const getDynamicSyncButtonLabel = () => {
@@ -544,14 +443,14 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     soundFx.playLevelUp();
     const verified = sessionTrades.map(t => ({ ...t, verified: true }));
     setSessionTrades(verified);
-    saveSessionTrades(verified, activeAuditDay);
+    persistSessionTrades(verified);
 
     const winCount = verified.filter(t => t.type === 'win').length;
     const goodLossCount = verified.filter(t => t.type === 'good_loss' || t.type === 'breakeven').length;
     const toxicWinCount = verified.filter(t => t.type === 'toxic_win' || t.type === 'toxic_be').length;
     const doubleFailureCount = verified.filter(t => t.type === 'double_failure').length;
 
-    saveStoredData(`tradepigeon_trade_counts_day_${activeAuditDay}`, {
+    saveStoredData(`tradepigeon_trade_counts_day_${currentDay}`, {
       winCount,
       goodLossCount,
       toxicWinCount,
@@ -566,9 +465,10 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     saveStoredData('tradepigeon_trading_status', 'DONE');
 
     const completedDays = loadStoredData('tradepigeon_completed_days', []);
-    if (!completedDays.includes(activeAuditDay)) {
-      saveStoredData('tradepigeon_completed_days', [...completedDays, activeAuditDay]);
+    if (isAuditToday && !completedDays.includes(currentDay)) {
+      saveStoredData('tradepigeon_completed_days', [...completedDays, currentDay]);
     }
+    if (isAuditToday) saveStoredData(`tradepigeon_lesson_day_date_${currentDay}`, activeAuditDay);
   };
 
   const setTradingStatus = (newStatus) => {
@@ -642,8 +542,9 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     const targetMonth = monthsData[safeMIndex];
     if (!targetMonth || !Array.isArray(targetMonth.days)) return;
 
-    const todayDom = new Date().getDate();
-    const targetDateNum = activeAuditDay === currentDay ? todayDom : activeAuditDay;
+    const [ay, am, ad] = activeAuditDay.split('-').map(Number);
+    if (targetMonth.year !== ay || targetMonth.monthIndex !== am - 1) return;
+    const targetDateNum = ad;
     const dayIdx = targetMonth.days.findIndex(d => d.date === targetDateNum);
     if (dayIdx === -1) return;
 
@@ -916,30 +817,30 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
         {/* SECTION 2: DYNAMIC SESSION COCKPIT PANEL (DRIVEN BY TRADING STATUS) */}
         
         {/* STATE 0: PAST DAY AUDIT / REPAIR MODE (WHEN USER CLICKS A PAST DAY ON HEATMAP) */}
-        {activeAuditDay < currentDay && (
+        {activeAuditDay < todaySessionDate() && (
           <div className="p-3.5 rounded-2xl bg-[#182830] border-2 border-[#00F0FF]/40 space-y-2.5 shadow-md text-left mt-3 animate-fade-in">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
                 <Calendar size={14} className="text-[#00F0FF]" />
                 <span className="text-[10px] font-black uppercase text-[#00F0FF] tracking-wider">
-                  PAST SESSION AUDIT (DAY {activeAuditDay})
+                  {prettyDate(activeAuditDay)}
                 </span>
               </div>
               <button
                 onClick={() => {
                   soundFx.playPop();
-                  setActiveAuditDay(currentDay);
+                  setActiveAuditDay(todaySessionDate());
                 }}
                 className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-[#142127] hover:bg-[#20323D] border border-[#00F0FF]/30 text-[#00F0FF] cursor-pointer transition-all flex items-center gap-1"
               >
                 <RotateCcw size={10} />
-                <span>Return to Today (Day {currentDay})</span>
+                <span>Back to today</span>
               </button>
             </div>
 
             {/* STREAK REPAIR PROMPT FOR MISSED SESSION */}
             <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-between text-xs">
-              <span className="font-black text-amber-300 text-[10px]">Missed Session (Day {activeAuditDay})</span>
+              <span className="font-black text-amber-300 text-[10px]">Missed session</span>
               <button
                 onClick={handleRepairStreak}
                 className="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] uppercase border border-amber-400 cursor-pointer shadow-sm active:scale-95 transition-all"
@@ -952,7 +853,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
             <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
               {sessionTrades.length === 0 ? (
                 <div className="p-2 rounded-xl bg-[#142127] border border-[#20323D] text-center text-[10px] font-bold text-slate-400">
-                  No trades recorded for Day {activeAuditDay}.
+                  No trades on this day.
                 </div>
               ) : (
                 sessionTrades.map((trade) => {
@@ -990,7 +891,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
         )}
 
         {/* STATE 1: TRADING MODE -> TODAY'S TRADES & FILL CLASSIFIER */}
-        {tradingStatus === 'TRADING' && activeAuditDay === currentDay && (
+        {tradingStatus === 'TRADING' && isAuditToday && (
           <div className="p-3.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] space-y-2.5 shadow-md text-left mt-3">
             
             {connectedAccounts.length > 0 && (
@@ -1542,7 +1443,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
         )}
 
         {/* STATE 2: DONE TODAY MODE -> DEDICATED DEBRIEF JOURNAL & LOCK COCKPIT */}
-        {(tradingStatus === 'DONE' || tradingStatus === 'DONE_PENDING') && activeAuditDay === currentDay && (
+        {(tradingStatus === 'DONE' || tradingStatus === 'DONE_PENDING') && isAuditToday && (
           <div className="p-3.5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 space-y-3 shadow-md text-left mt-3 animate-fade-in">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
@@ -1715,7 +1616,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                   onClick={() => {
                     setSelectedDay(idx);
                     const dayNum = item.date;
-                    setActiveAuditDay(dayNum);
+                    setActiveAuditDay(`${currentMonthData.year}-${String(currentMonthData.monthIndex + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`);
                     const el = document.getElementById(`day-node-${dayNum}`);
                     if (el) {
                       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1860,7 +1761,8 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       {isDebriefModalOpen && (
         <AiDebriefModal
           isOpen={isDebriefModalOpen}
-          currentDay={activeAuditDay}
+          currentDay={currentDay}
+          auditDate={activeAuditDay}
           onClose={() => setIsDebriefModalOpen(false)}
           onFinish={() => {
             setIsDebriefModalOpen(false);
@@ -1880,8 +1782,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
         isOpen={isManualModalOpen} 
         onClose={() => setIsManualModalOpen(false)} 
         onTradeAdded={(newTrade) => {
-          const updated = [...sessionTrades, newTrade];
-          setSessionTrades(updated);
+          // The trade store emits a change event; the list refreshes itself.
           triggerHubToast(`Logged ${newTrade.symbol} execution to audit!`);
         }}
       />

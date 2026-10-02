@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { isProActive, startCheckout, openBillingPortal } from '../utils/proStatus';
+import { getTrades, onTradesChange, setDayTrades, todaySessionDate } from '../utils/tradeStore';
 import { computeSubscriptionEntitlement } from '../utils/subscriptionEngine';
 import { User, Flame, Gem, Heart, Calendar, ShieldCheck, Award, TrendingUp, CheckCircle2, AlertCircle, Cpu, RefreshCw, BarChart3, Activity, Sparkles, Trash2, RotateCcw, ShieldAlert, CheckSquare, Square, X, Download, Upload, FileText, Check, LogOut, CreditCard, Mail, ExternalLink, AlertTriangle, Volume2, VolumeX, HardDrive, Database } from 'lucide-react';
 import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoProfileIcon, DuoTrophyIcon } from './DuoIcons';
@@ -164,38 +165,8 @@ export default function ProfileTab() {
 
   const handleWipeTodayTrades = () => {
     soundFx.playPop();
-    const now = new Date();
-    const todayIso = now.toISOString().slice(0, 10);
-    const todayDom = String(now.getDate());
-
-    const targetTodayKeys = new Set([
-      'tradepigeon_session_trades',
-      'goodtrader_session_trades',
-      `tradepigeon_session_trades_day_${todayIso}`,
-      `goodtrader_session_trades_day_${todayIso}`,
-      `tradepigeon_session_trades_day_${todayDom}`,
-      `goodtrader_session_trades_day_${todayDom}`,
-      `day_${todayIso}`,
-    ]);
-
-    targetTodayKeys.forEach(key => {
-      safeRemoveItem(key);
-    });
-
-    // Also clean today's date from tradepigeon_tradelogs and goodtrader_tradelogs
-    ['tradepigeon_tradelogs', 'goodtrader_tradelogs'].forEach(storageKey => {
-      try {
-        const logs = loadStoredData(storageKey, []);
-        if (Array.isArray(logs)) {
-          const filtered = logs.filter(t => t?.date !== todayIso);
-          saveStoredData(storageKey, filtered);
-        }
-      } catch (_) {}
-    });
-
-    window.dispatchEvent(new CustomEvent('tradepigeon-storage-update', { detail: { key: 'trades_cleared', value: Date.now() } }));
-    window.dispatchEvent(new CustomEvent('goodtrader-storage-update', { detail: { key: 'trades_cleared', value: Date.now() } }));
-    triggerToast("Today's session trades wiped clean.");
+    setDayTrades(todaySessionDate(), []);
+    triggerToast("Today's trades cleared.");
   };
 
   const handleExecuteFactoryReset = async () => {
@@ -204,9 +175,9 @@ export default function ProfileTab() {
     await factoryResetCleanSlate({ keepBrokerAccounts: keepBrokersOnReset });
   };
 
-  const handleExportCsv = () => {
+  const handleExportCsv = async () => {
     soundFx.playSuccess();
-    const res = exportTradesCsv();
+    const res = await exportTradesCsv();
     if (res && res.success === false) {
       triggerToast(res.error || 'No trades found to export.');
     } else {
@@ -263,7 +234,8 @@ export default function ProfileTab() {
   // Live User Stats, Discipline Points, and Stored Trades from Storage (with reactive state)
   const [userStats, setUserStats] = useState(() => loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS));
   const [userDp, setUserDp] = useState(() => loadStoredData('tradepigeon_user_dp', 0));
-  const [storedTrades, setStoredTrades] = useState(() => getAllStoredTrades());
+  const [storedTrades, setStoredTrades] = useState(() => getTrades());
+  useEffect(() => onTradesChange(() => setStoredTrades(getTrades())), []);
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, legacyKey, value }) => {
@@ -284,14 +256,6 @@ export default function ProfileTab() {
       }
       if (key === 'tradepigeon_user_dp') {
         setUserDp(Number(value) || 0);
-      }
-      if (
-        key === 'tradepigeon_tradelogs' ||
-        key === 'goodtrader_tradelogs' ||
-        key === 'trades_cleared' ||
-        (key && (key.startsWith('tradepigeon_session_trades') || key.startsWith('goodtrader_session_trades') || key.startsWith('day_')))
-      ) {
-        setStoredTrades(getAllStoredTrades());
       }
     });
     return () => unsubscribe();

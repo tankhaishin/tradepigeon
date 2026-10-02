@@ -1,307 +1,191 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Upload, X, CheckCircle2, AlertTriangle, FileText, ArrowRight, Layers } from 'lucide-react';
-import { parseTradeFile } from '../utils/tradeParser';
-import { loadStoredData, saveStoredData, DEFAULT_USER_STATS } from '../utils/storage';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Upload, X, AlertTriangle, ArrowRight, Undo2, Download } from 'lucide-react';
+import { importTradesFile, TEMPLATE_CSV } from '../utils/importFormats';
+import { addTrades, getTrades, recordImport, getImportHistory, undoImport } from '../utils/tradeStore';
+import { loadStoredData, saveStoredData } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
-import { formatFinancialCurrency, sumTradesPnl, parseFinancialNumber } from '../utils/financialMath';
+import { formatFinancialCurrency } from '../utils/financialMath';
+
+const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York';
+const TIMEZONES = [...new Set([browserTz, 'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'Europe/London', 'Europe/Berlin', 'Asia/Singapore', 'Asia/Kuala_Lumpur', 'Australia/Sydney'])];
+
+// One source per account: file-import accounts only. Synced accounts never take files (prevents double counting).
+const fileAccounts = () => loadStoredData('tradepigeon_accounts_data', []).filter(a => a.source !== 'sync');
 
 export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
+  const accounts = useMemo(() => (isOpen ? fileAccounts() : []), [isOpen]);
+  const [account, setAccount] = useState('');
+  const [newAccount, setNewAccount] = useState('');
+  const [timeZone, setTimeZone] = useState(browserTz);
+  const [fileName, setFileName] = useState('');
+  const [fileText, setFileText] = useState('');
   const [dragOver, setDragOver] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [fileContent, setFileContent] = useState('');
-  const [parsedTrades, setParsedTrades] = useState([]);
-  const [accountName, setAccountName] = useState('Broker Account');
-  const [errorMsg, setErrorMsg] = useState('');
-  const [isImporting, setIsImporting] = useState(false);
+  const [showSkipped, setShowSkipped] = useState(false);
+  const [history, setHistory] = useState(() => getImportHistory());
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen) return;
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    setHistory(getImportHistory());
+    const first = fileAccounts()[0];
+    setAccount(first ? first.name : '__new');
+    if (first?.timeZone) setTimeZone(first.timeZone);
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
+
+  const accountName = (account === '__new' ? newAccount : account).trim();
+
+  // Re-parse whenever file, account or timezone changes (ids depend on the account).
+  const result = useMemo(() => {
+    if (!fileText || !accountName) return null;
+    const r = importTradesFile(fileText, { account: accountName, timeZone });
+    const existing = new Set(getTrades().map(t => t.id));
+    const fresh = r.trades.filter(t => !existing.has(t.id));
+    return { ...r, fresh, already: r.trades.length - fresh.length };
+  }, [fileText, accountName, timeZone]);
 
   if (!isOpen) return null;
 
-  const handleFile = (file) => {
+  const readFile = (file) => {
     if (!file) return;
-    setErrorMsg('');
-    setSelectedFile(file);
-
+    setFileName(file.name);
+    setShowSkipped(false);
     const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target.result;
-        setFileContent(text);
-        const trades = parseTradeFile(text, file.name);
-        if (!trades || trades.length === 0) {
-          setErrorMsg('No valid trades found in this file. Please ensure it is a valid broker statement.');
-          setParsedTrades([]);
-          return;
-        }
-        setParsedTrades(trades);
-
-        // Detect default account name
-        const detectedAcc = trades.find(t => t.account && t.account !== 'CSV Import')?.account;
-        if (detectedAcc) {
-          setAccountName(detectedAcc);
-        } else {
-          const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_\s-]/g, ' ').trim();
-          setAccountName(cleanName ? `CSV-${cleanName.slice(0, 16)}` : 'Broker Account');
-        }
-      } catch (err) {
-        setErrorMsg(err.message || 'Failed to parse trade statement.');
-        setParsedTrades([]);
-      }
-    };
+    reader.onload = (e) => setFileText(String(e.target.result || ''));
     reader.readAsText(file);
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(false);
-    if (e.dataTransfer?.files?.[0]) {
-      handleFile(e.dataTransfer.files[0]);
-    }
+  const pickAccount = (value) => {
+    setAccount(value);
+    const acc = accounts.find(a => a.name === value);
+    if (acc?.timeZone) setTimeZone(acc.timeZone);
   };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(true);
-  };
+  const handleImport = () => {
+    if (!result?.fresh.length) return;
+    const importId = `IMP-${Date.now()}`;
+    const { added, duplicates, previouslyDeleted } = addTrades(result.fresh, { source: 'file', importId });
+    recordImport({ importId, fileName, account: accountName, format: result.formatName, added: added.length, duplicates: duplicates + result.already, previouslyDeleted, rejected: result.rejected.length });
 
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(false);
-  };
+    // Register / update the account (file-sourced, remembers its timezone).
+    const all = loadStoredData('tradepigeon_accounts_data', []);
+    const i = all.findIndex(a => a.name === accountName);
+    const acc = { ...(i >= 0 ? all[i] : { id: `ACC-${Date.now()}`, name: accountName, accountNumber: accountName, broker: result.formatName, isActive: true }), source: 'file', timeZone, status: 'Imported', lastImportAt: Date.now() };
+    if (i >= 0) all[i] = acc; else all.push(acc);
+    saveStoredData('tradepigeon_accounts_data', all);
 
-  const totalPnL = sumTradesPnl(parsedTrades);
-  const winCount = parsedTrades.filter(t => (t.pnlNum !== undefined ? t.pnlNum : 0) >= 0).length;
-  const lossCount = parsedTrades.length - winCount;
-
-  const handleCommitImport = () => {
-    if (parsedTrades.length === 0) return;
-    setIsImporting(true);
     soundFx.playSuccess();
-
-    try {
-      const currentDay = loadStoredData('tradepigeon_current_day', 1);
-      const sessionKey = `tradepigeon_session_trades_day_${currentDay}`;
-      const existingSessionTrades = loadStoredData(sessionKey, []);
-
-      // Assign the specified account name to all trades
-      const normalizedTrades = parsedTrades.map((t, idx) => ({
-        ...t,
-        id: t.id || `CSV-${Date.now()}-${idx}`,
-        account: accountName.trim() || t.account || 'Broker Account',
-        confirmed: true
-      }));
-
-      // Deduplicate by signature against global history
-      const existingHistory = loadStoredData('tradepigeon_tradelogs', []);
-      const seenHistory = new Set(existingHistory.map(t => `${t.date}_${t.account}_${t.symbol}_${t.pnlNum}_${t.time}`));
-      const newTrades = normalizedTrades.filter(t => !seenHistory.has(`${t.date}_${t.account}_${t.symbol}_${t.pnlNum}_${t.time}`));
-
-      // Only merge trades for TODAY into today's open session trades
-      const todayIso = new Date().toISOString().slice(0, 10);
-      const todayTrades = newTrades.filter(t => !t.date || t.date === todayIso);
-      if (todayTrades.length > 0) {
-        const seenToday = new Set(existingSessionTrades.map(t => `${t.date}_${t.account}_${t.symbol}_${t.pnlNum}_${t.time}`));
-        const uniqueTodayTrades = todayTrades.filter(t => !seenToday.has(`${t.date}_${t.account}_${t.symbol}_${t.pnlNum}_${t.time}`));
-        if (uniqueTodayTrades.length > 0) {
-          saveStoredData(sessionKey, [...uniqueTodayTrades, ...existingSessionTrades]);
-        }
-      }
-
-      // Also index trades by their explicit ISO dates for the CalendarTab
-      const dateGroups = {};
-      newTrades.forEach(t => {
-        if (t.date) {
-          dateGroups[t.date] = dateGroups[t.date] || [];
-          dateGroups[t.date].push(t);
-        }
-      });
-      Object.entries(dateGroups).forEach(([isoDate, tradesForDate]) => {
-        const isoKey = `tradepigeon_session_trades_day_${isoDate}`;
-        const existingIsoTrades = loadStoredData(isoKey, []);
-        saveStoredData(isoKey, [...tradesForDate, ...existingIsoTrades]);
-      });
-
-      // Also append to global trade history
-      saveStoredData('tradepigeon_tradelogs', [...newTrades, ...existingHistory]);
-
-      // Also register or update the account in tradepigeon_accounts_data
-      const currentAccounts = loadStoredData('tradepigeon_accounts_data', []);
-      const existingAccIndex = currentAccounts.findIndex(a => 
-        (a.name && a.name.toLowerCase() === accountName.trim().toLowerCase()) ||
-        (a.accountNumber && a.accountNumber.toLowerCase() === accountName.trim().toLowerCase())
-      );
-
-      // Calculate PnL strictly from genuine newly-imported trades to prevent double-counting previously recorded trades
-      const actualNewPnL = sumTradesPnl(newTrades);
-
-      let updatedAccounts = [...currentAccounts];
-      if (existingAccIndex >= 0) {
-        const currentPnl = parseFinancialNumber(updatedAccounts[existingAccIndex].pnl, 0);
-        const newPnl = currentPnl + actualNewPnL;
-        updatedAccounts[existingAccIndex] = {
-          ...updatedAccounts[existingAccIndex],
-          pnl: formatFinancialCurrency(newPnl, { showPlus: true }),
-          status: 'Active',
-          lastSync: 'Just now'
-        };
-      } else {
-        updatedAccounts.push({
-          id: `ACC-${Date.now()}`,
-          name: accountName.trim(),
-          accountNumber: accountName.trim(),
-          broker: 'Statement Import',
-          pnl: formatFinancialCurrency(actualNewPnL, { showPlus: true }),
-          status: 'Active',
-          type: 'MANUAL_IMPORT',
-          lastSync: 'Just now',
-          isActive: true
-        });
-      }
-      saveStoredData('tradepigeon_accounts_data', updatedAccounts);
-
-      // Increment tradesLogged in userStats for QuestsTab
-      if (newTrades.length > 0) {
-        const currentStats = loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS);
-        const updatedStats = {
-          ...currentStats,
-          tradesLogged: (currentStats.tradesLogged || 0) + newTrades.length
-        };
-        saveStoredData('tradepigeon_user_stats', updatedStats);
-      }
-
-      if (onSuccess) {
-        onSuccess(newTrades.length, accountName.trim());
-      }
-
-      onClose();
-    } catch (err) {
-      setErrorMsg('Error saving imported trades: ' + err.message);
-    } finally {
-      setIsImporting(false);
-    }
+    setHistory(getImportHistory());
+    setFileText('');
+    setFileName('');
+    onSuccess?.(added.length, accountName);
   };
+
+  const handleUndo = (importId) => {
+    soundFx.playPop();
+    undoImport(importId);
+    setHistory(getImportHistory());
+  };
+
+  const downloadTemplate = () => {
+    const url = URL.createObjectURL(new Blob([TEMPLATE_CSV], { type: 'text/csv' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = 'tradepigeon-template.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const pnl = result ? result.fresh.reduce((s, t) => s + t.pnlNum, 0) : 0;
+  const isGross = result?.fresh?.some(t => t.pnlIsGross);
+  const recent = history.filter(h => !h.undone).slice(0, 5);
 
   return (
-    <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-      <div className="duo-card max-w-lg w-full p-5 sm:p-6 space-y-5 border-2 border-[#1CB0F6] relative shadow-2xl max-h-[90vh] overflow-y-auto">
-        <button 
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-xl bg-[#20323D] text-slate-400 hover:text-white cursor-pointer font-black text-xs transition-colors"
-          title="Close Modal"
-        >
+    <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="duo-card max-w-lg w-full p-6 space-y-5 border-2 border-[#1CB0F6] relative shadow-2xl max-h-[90vh] overflow-y-auto">
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-xl bg-[#20323D] text-slate-400 hover:text-white cursor-pointer" aria-label="Close">
           <X size={16} />
         </button>
 
-        <div className="space-y-1">
-          <span className="text-[10px] font-black uppercase tracking-wider text-[#1CB0F6]">IMPORT</span>
-          <h3 className="text-2xl font-black text-white">Import Statement</h3>
+        <h3 className="text-2xl font-black text-white">Import trades</h3>
+
+        {/* 1. Account + timezone of the file */}
+        <div className="space-y-2">
+          <label className="text-xs font-black text-slate-300 block">Account</label>
+          <div className="flex gap-2">
+            <select value={account} onChange={(e) => pickAccount(e.target.value)} className="flex-1 min-w-0 p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-bold text-sm outline-none focus:border-[#1CB0F6]">
+              {accounts.map(a => <option key={a.name} value={a.name}>{a.name}</option>)}
+              <option value="__new">+ New account</option>
+            </select>
+            <select value={timeZone} onChange={(e) => setTimeZone(e.target.value)} title="Time zone of the times in your file" className="w-40 p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-bold text-xs outline-none focus:border-[#1CB0F6]">
+              {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz.split('/').pop().replace('_', ' ')} time</option>)}
+            </select>
+          </div>
+          {account === '__new' && (
+            <input autoFocus value={newAccount} onChange={(e) => setNewAccount(e.target.value)} placeholder="Name, e.g. Apex 50K #1" className="w-full p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-bold text-sm outline-none focus:border-[#1CB0F6]" />
+          )}
         </div>
 
-        {/* Contained Drag-and-Drop Zone */}
+        {/* 2. File */}
         <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => { e.preventDefault(); setDragOver(false); readFile(e.dataTransfer?.files?.[0]); }}
           onClick={() => fileInputRef.current?.click()}
-          className={`p-6 rounded-3xl border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center space-y-3 ${
-            dragOver 
-              ? 'border-[#1CB0F6] bg-[#1CB0F6]/10 scale-[1.01]' 
-              : 'border-[#1CB0F6]/40 bg-[#142127] hover:border-[#1CB0F6]'
-          }`}
+          className={`p-6 rounded-3xl border-2 border-dashed cursor-pointer flex flex-col items-center gap-2 transition-all ${dragOver ? 'border-[#1CB0F6] bg-[#1CB0F6]/10' : 'border-[#1CB0F6]/40 bg-[#142127] hover:border-[#1CB0F6]'}`}
         >
-          <input 
-            ref={fileInputRef}
-            type="file" 
-            accept=".csv,.html,.htm,.txt"
-            onChange={(e) => handleFile(e.target.files?.[0])}
-            className="hidden" 
-          />
-          <div className="w-12 h-12 rounded-2xl bg-[#1CB0F6]/15 border border-[#1CB0F6]/30 text-[#1CB0F6] flex items-center justify-center">
-            <Upload size={24} />
-          </div>
-          <div className="text-center">
-            <div className="text-sm font-black text-white">
-              {selectedFile ? selectedFile.name : 'Drop file here or browse'}
-            </div>
-            <div className="text-[10px] font-bold text-[#52656D] mt-0.5">
-              {selectedFile ? `${(selectedFile.size / 1024).toFixed(1)} KB statement file` : 'Supports CSV, HTML, or TXT'}
-            </div>
+          <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={(e) => { readFile(e.target.files?.[0]); e.target.value = ''; }} />
+          <Upload size={24} className="text-[#1CB0F6]" />
+          <div className="text-sm font-black text-white">{fileName || 'Drop your CSV here'}</div>
+          <div className="text-[11px] font-bold text-[#7A8E99]">
+            Tradovate · NinjaTrader 8 · <button type="button" onClick={(e) => { e.stopPropagation(); downloadTemplate(); }} className="underline hover:text-white inline-flex items-center gap-1"><Download size={10} />template</button>
           </div>
         </div>
 
-        {errorMsg && (
-          <div className="p-3.5 rounded-2xl bg-rose-500/10 border-2 border-rose-500/30 text-rose-400 text-xs font-bold flex items-center gap-2.5">
-            <AlertTriangle size={18} className="shrink-0 text-rose-400" />
-            <span>{errorMsg}</span>
+        {/* 3. What will happen */}
+        {result?.error && (
+          <div className="p-3.5 rounded-2xl bg-rose-500/10 border-2 border-rose-500/30 text-rose-300 text-xs font-bold flex gap-2.5">
+            <AlertTriangle size={18} className="shrink-0" /><span>{result.error}</span>
+          </div>
+        )}
+        {result && !result.error && (
+          <div className="p-4 rounded-2xl bg-[#182830] border-2 border-[#2B3D47] space-y-2 text-sm">
+            <div className="flex justify-between font-black text-white">
+              <span>{result.fresh.length} new {result.fresh.length === 1 ? 'trade' : 'trades'}</span>
+              <span className={pnl >= 0 ? 'text-[#58CC02]' : 'text-rose-400'}>{formatFinancialCurrency(pnl, { showPlus: true })}{isGross ? ' before fees' : ''}</span>
+            </div>
+            {result.already > 0 && <div className="text-xs font-bold text-[#7A8E99]">{result.already} already in your journal</div>}
+            {result.rejected.length > 0 && (
+              <div className="text-xs font-bold text-amber-300">
+                <button type="button" onClick={() => setShowSkipped(!showSkipped)} className="underline">{result.rejected.length} {result.rejected.length === 1 ? 'row' : 'rows'} skipped</button>
+                {showSkipped && <ul className="mt-1 space-y-0.5 text-amber-200/80">{result.rejected.slice(0, 20).map(r => <li key={r.line}>Row {r.line}: {r.reason}</li>)}</ul>}
+              </div>
+            )}
+            <div className="text-[11px] font-bold text-[#52656D]">{result.formatName}</div>
           </div>
         )}
 
-        {/* Parsed Preview Card */}
-        {parsedTrades.length > 0 && (
-          <div className="p-4 rounded-2xl bg-[#182830] border-2 border-[#2B3D47] space-y-3">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-slate-400">Parsed Trades:</span>
-              <span className="font-black text-white">{parsedTrades.length} fills ({winCount}W / {lossCount}L)</span>
-            </div>
+        <button
+          type="button"
+          onClick={handleImport}
+          disabled={!result?.fresh?.length}
+          className={`w-full py-3.5 text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 ${result?.fresh?.length ? 'duo-btn-blue cursor-pointer' : 'bg-[#20323D] text-[#52656D] border-2 border-[#37464F] cursor-not-allowed opacity-60 rounded-2xl'}`}
+        >
+          Import <ArrowRight size={14} />
+        </button>
 
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-slate-400">Total Net PnL:</span>
-              <span className={`font-black ${totalPnL >= 0 ? 'text-[#58CC02]' : 'text-rose-400'}`}>
-                {formatFinancialCurrency(totalPnL)}
-              </span>
-            </div>
-
-            <div className="space-y-1 pt-1">
-              <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                Assign to Account Name:
-              </label>
-              <input
-                type="text"
-                value={accountName}
-                onChange={(e) => setAccountName(e.target.value)}
-                placeholder="e.g. Apex 50k #1, Tradovate Live"
-                className="w-full p-2.5 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs outline-none focus:border-[#1CB0F6]"
-              />
-            </div>
+        {/* Import history with undo */}
+        {recent.length > 0 && (
+          <div className="space-y-2 pt-2 border-t border-[#20323D]">
+            <div className="text-xs font-black text-slate-400">Recent imports</div>
+            {recent.map(h => (
+              <div key={h.importId} className="flex items-center justify-between gap-3 text-xs font-bold text-slate-300">
+                <span className="truncate">{h.account} · {h.added} trades · {new Date(h.at).toLocaleDateString()}</span>
+                <button onClick={() => handleUndo(h.importId)} className="flex items-center gap-1 text-[#1CB0F6] hover:text-white shrink-0 cursor-pointer"><Undo2 size={12} />Undo</button>
+              </div>
+            ))}
           </div>
         )}
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-3 pt-1">
-          <button
-            type="button"
-            onClick={onClose}
-            className="duo-btn-dark flex-1 py-3 text-xs font-black uppercase tracking-wider cursor-pointer"
-          >
-            Cancel
-          </button>
-
-          <button
-            type="button"
-            onClick={handleCommitImport}
-            disabled={parsedTrades.length === 0 || isImporting}
-            className={`flex-1 py-3 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all ${
-              parsedTrades.length > 0 && !isImporting
-                ? 'duo-btn-blue cursor-pointer'
-                : 'bg-[#20323D] text-[#52656D] border-2 border-[#37464F] cursor-not-allowed opacity-50'
-            }`}
-          >
-            <span>{isImporting ? 'Importing...' : 'Import to Journal'}</span>
-            <ArrowRight size={14} />
-          </button>
-        </div>
       </div>
     </div>
   );

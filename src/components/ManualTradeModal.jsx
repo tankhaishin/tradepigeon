@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { addTrades, todaySessionDate } from '../utils/tradeStore';
 import { 
   PlusCircle, X, ShieldAlert, DollarSign, Tag, TrendingUp, TrendingDown, 
   Clock, Calendar, Image as ImageIcon, Zap, Sliders, Check, AlertTriangle, 
@@ -43,7 +44,7 @@ export default function ManualTradeModal({ isOpen, onClose, onTradeAdded }) {
   const [notes, setNotes] = useState('');
   const [chartUrl, setChartUrl] = useState('');
   const [contracts, setContracts] = useState('2');
-  const [tradeDate, setTradeDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [tradeDate, setTradeDate] = useState(() => todaySessionDate());
   const [time, setTime] = useState(() => {
     const now = new Date();
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -233,8 +234,7 @@ export default function ManualTradeModal({ isOpen, onClose, onTradeAdded }) {
       'Double Failure': 'double_failure'
     };
 
-    const todayIso = new Date().toISOString().split('T')[0];
-    const currentDay = loadStoredData('tradepigeon_current_day', 1);
+    const todayIso = todaySessionDate();
 
     let finalR = formatRMultiple(finalPnlValue, 350, 1);
     if (rMultiple && String(rMultiple).trim() !== '') {
@@ -276,36 +276,7 @@ export default function ManualTradeModal({ isOpen, onClose, onTradeAdded }) {
       confirmed: true
     };
 
-    // 1. Save to stored trade logs
-    const existingTrades = loadStoredData(STORAGE_KEYS.TRADE_HISTORY, []);
-    const updatedTrades = [newTrade, ...existingTrades];
-    saveStoredData(STORAGE_KEYS.TRADE_HISTORY, updatedTrades);
-
-    // 2. Also append to session trades for immediate reactive visibility in Calendar & Hub
-    const effectiveDate = tradeDate || todayIso;
-    if (effectiveDate === todayIso) {
-      const sessionKey = `tradepigeon_session_trades_day_${currentDay}`;
-      const existingSessionTrades = loadStoredData(sessionKey, []);
-      saveStoredData(sessionKey, [newTrade, ...existingSessionTrades]);
-
-      const sessionIsoKey = `tradepigeon_session_trades_day_${todayIso}`;
-      const existingIsoTrades = loadStoredData(sessionIsoKey, []);
-      saveStoredData(sessionIsoKey, [newTrade, ...existingIsoTrades]);
-
-      const activeSessionTrades = loadStoredData('tradepigeon_session_trades', []);
-      saveStoredData('tradepigeon_session_trades', [newTrade, ...activeSessionTrades]);
-    } else {
-      const targetIsoKey = `tradepigeon_session_trades_day_${effectiveDate}`;
-      const existingIsoTrades = loadStoredData(targetIsoKey, []);
-      saveStoredData(targetIsoKey, [newTrade, ...existingIsoTrades]);
-
-      const generalDayKey = `day_${effectiveDate}`;
-      const existingGeneralDay = loadStoredData(generalDayKey, { trades: [] });
-      saveStoredData(generalDayKey, {
-        ...existingGeneralDay,
-        trades: [newTrade, ...(existingGeneralDay?.trades || [])]
-      });
-    }
+    addTrades([newTrade], { source: 'manual' });
 
     // 3. Increment tradesLogged counter
     const currentStats = loadStoredData('tradepigeon_user_stats', {});

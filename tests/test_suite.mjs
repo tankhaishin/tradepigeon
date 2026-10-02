@@ -539,7 +539,7 @@ globalThis.localStorage = {
   removeItem(k) { delete resetStore[k]; }
 };
 
-factoryResetCleanSlate({ keepBrokerAccounts: true });
+await factoryResetCleanSlate({ keepBrokerAccounts: true });
 
 console.assert(!resetStore['day_2026-08-15'], 'day_2026-08-15 scrubbed');
 console.assert(!resetStore['day_2026-09-20'], 'day_2026-09-20 scrubbed');

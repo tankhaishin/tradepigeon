@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { refreshProStatus } from '../utils/proStatus';
+import { initTradeCloudSync } from '../utils/tradeStore';
 import { 
   onAuthStateChanged, 
   signInWithPopup, 
@@ -73,6 +74,7 @@ export function AuthProvider({ children }) {
         setUser(formattedUser);
         saveStoredData(STORAGE_KEYS.AUTH_USER, formattedUser);
         initCloudFirestoreSync(fbUser.uid);
+        initTradeCloudSync(fbUser.uid);
         refreshProStatus();
       } else {
         setUser(null);
@@ -80,6 +82,7 @@ export function AuthProvider({ children }) {
         saveStoredData('tradepigeon_is_pro', false);
         saveStoredData('tradepigeon_subscription_state', null);
         initCloudFirestoreSync(null);
+        initTradeCloudSync(null);
       }
       setLoading(false);
     });

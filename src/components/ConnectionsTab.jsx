@@ -8,6 +8,7 @@ import { DuoShieldIcon, DuoLightningIcon, DuoTrophyIcon, DuoStarIcon } from './D
 import { TradovateLogo, NinjaTraderLogo, MetaTrader5Logo, CsvLogo } from './BrokerLogos';
 import BrokerConnectModal from './BrokerConnectModal';
 import StatementImportModal from './StatementImportModal';
+import { getTradesForDate, todaySessionDate } from '../utils/tradeStore';
 import ConfirmModal from './ConfirmModal';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
@@ -199,92 +200,16 @@ export default function ConnectionsTab() {
     });
   };
 
-  // Sync fills
-  const handleSyncAllFills = async () => {
-    setIsSyncing(true);
+  // Live broker auto-sync is paused until verified against a real Tradovate account; trades come in via file import.
+  const handleSyncAllFills = () => {
     soundFx.playPop();
-
-    let fetchedCount = 0;
-    let hasTokenExpired = false;
-    try {
-      const activeTradovateAcc = accounts.find(a => a.platformId === 'tradovate' && a.accessToken);
-      if (activeTradovateAcc?.accessToken) {
-        const envParam = activeTradovateAcc.environment ? `&env=${activeTradovateAcc.environment}` : '';
-        const res = await fetch(`/api/tradovate?action=fills${envParam}`, {
-          headers: { 'Authorization': `Bearer ${activeTradovateAcc.accessToken}` }
-        });
-        if (res.status === 401) {
-          hasTokenExpired = true;
-          activeTradovateAcc.tokenExpired = true;
-          activeTradovateAcc.status = 'EXPIRED';
-        } else if (res.ok) {
-          const data = await res.json();
-          if (data.success && Array.isArray(data.fills) && data.fills.length > 0) {
-            const currentDay = loadStoredData('tradepigeon_current_day', 1);
-            const sessionKey = `tradepigeon_session_trades_day_${currentDay}`;
-            const existingTrades = loadStoredData(sessionKey, []);
-            const existingHistory = loadStoredData('tradepigeon_tradelogs', []);
-            const todayIso = new Date().toISOString().slice(0, 10);
-            const sessionIsoKey = `tradepigeon_session_trades_day_${todayIso}`;
-            const existingIsoTrades = loadStoredData(sessionIsoKey, []);
-
-            const isDuplicate = (list, fill) => list.some(t => 
-              (fill.id && t.id === fill.id) ||
-              (t.time === fill.time && t.pnl === fill.pnl && t.symbol === fill.symbol && (fill.account && t.account ? t.account === fill.account : true))
-            );
-
-            const newFills = data.fills.filter(f => !isDuplicate(existingTrades, f));
-            fetchedCount = newFills.length;
-
-            if (fetchedCount > 0) {
-              saveStoredData(sessionKey, [...newFills, ...existingTrades]);
-              saveStoredData(sessionIsoKey, [...newFills, ...existingIsoTrades]);
-              saveStoredData('tradepigeon_tradelogs', [...newFills, ...existingHistory]);
-
-              const currentStats = loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS);
-              const updatedStats = {
-                ...currentStats,
-                tradesLogged: (currentStats.tradesLogged || 0) + fetchedCount
-              };
-              saveStoredData('tradepigeon_user_stats', updatedStats);
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('[Sync Notice]: API sync handled with local cache:', err);
-    }
-
-    // Refresh last sync timestamp and status on connected accounts
-    const nowTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const refreshed = accounts.map(a => {
-      if (a.tokenExpired || (hasTokenExpired && a.platformId === 'tradovate')) {
-        return { ...a, status: 'EXPIRED', lastSync: 'Auth Required', tokenExpired: true };
-      }
-      return { ...a, lastSync: `${nowTimeStr} NY` };
-    });
-    setAccounts(refreshed);
-    saveStoredData('tradepigeon_accounts_data', refreshed);
-
-    setIsSyncing(false);
-    if (hasTokenExpired) {
-      soundFx.playMistake?.();
-      setToastMsg('Broker token expired. Please reconnect your account.');
-    } else {
-      soundFx.playSuccess();
-      setToastMsg(fetchedCount > 0 
-        ? `Synced ${fetchedCount} execution fill${fetchedCount === 1 ? '' : 's'} from your broker!` 
-        : 'All connected accounts synced with latest market fills!');
-    }
-    setTimeout(() => setToastMsg(''), 3500);
+    setIsImportModalOpen(true);
   };
 
   // Total active accounts & combined stats
   const totalActiveAccounts = accounts.filter(a => a.isActive !== false).length;
-  const combinedDayPnl = accounts.reduce((sum, a) => {
-    const val = a.pnlNum !== undefined ? a.pnlNum : parseFinancialNumber(a.pnl, 0);
-    return sum + val;
-  }, 0);
+  // Derived from today's trades (never from a stored running total, which drifts).
+  const combinedDayPnl = getTradesForDate(todaySessionDate()).reduce((sum, t) => sum + (t.pnlNum || 0), 0);
 
   const getPlatformLogo = (platformId = '') => {
     const lower = String(platformId || '').toLowerCase();
@@ -616,7 +541,7 @@ export default function ConnectionsTab() {
                         {conn.accounts.map((acc, idx) => {
                           const isActive = acc.isActive !== false;
                           const isLead = acc.isLead || idx === 0;
-                          const rawPnl = acc.pnlNum !== undefined ? acc.pnlNum : parseFinancialNumber(acc.pnl, 0);
+                          const rawPnl = getTradesForDate(todaySessionDate()).filter(t => t.account === acc.name).reduce((s, t) => s + (t.pnlNum || 0), 0);
                           const isEditing = editingAccountId === acc.id;
 
                           return (

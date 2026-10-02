@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getTradesForDate, todaySessionDate } from '../utils/tradeStore';
 import { Sparkles, AlertTriangle, AlertCircle, ShieldCheck, CheckCircle2, ChevronRight, Award, X, Crown, Lock } from 'lucide-react';
 import { Duo3dZenBadge, Duo3dPulseBadge, Duo3dCrosshairBadge, Duo3dRocketBadge } from './GamifiedFeatureBadges';
 import { loadStoredData, saveStoredData } from '../utils/storage';
@@ -9,7 +10,7 @@ import { isProActive } from '../utils/proStatus';
 import { generateIntelligentSessionDebrief } from '../utils/aiDebriefEngine';
 import { generateAiDebriefWithGemini } from '../utils/geminiAiEngine';
 
-export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, onSaveSession, onFinish, currentDay = 1 }) {
+export default function AiDebriefModal({ auditDate, isOpen = true, onClose, selectedMood, onSaveSession, onFinish, currentDay = 1 }) {
   const [emotion, setEmotion] = useState('disciplined');
   const [followedPlan, setFollowedPlan] = useState(true);
   const [followedRules, setFollowedRules] = useState(true);
@@ -35,15 +36,7 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
     setFollowedRules(isCompliant);
   };
 
-  const getDayTrades = () => {
-    const dayNum = currentDay || loadStoredData('tradepigeon_current_day', 1);
-    const todayObj = new Date();
-    const todayIso = todayObj.toISOString().split('T')[0];
-    return loadStoredData(`tradepigeon_session_trades_day_${dayNum}`, null)
-      || loadStoredData(`tradepigeon_session_trades_day_${todayIso}`, null)
-      || loadStoredData(`tradepigeon_session_trades_day_${todayObj.getDate()}`, null)
-      || loadStoredData('tradepigeon_session_trades', []);
-  };
+  const getDayTrades = () => getTradesForDate(auditDate || todaySessionDate());
 
   const dayTrades = getDayTrades();
   const hasRecordedViolations = Array.isArray(dayTrades) && dayTrades.some(t => {

@@ -8,6 +8,7 @@ import RealTimeCompanionToast from './components/RealTimeCompanionToast';
 import NetworkStatusBanner from './components/NetworkStatusBanner';
 import LandingPage from './components/LandingPage';
 import ProPaywallModal from './components/ProPaywallModal';
+import StatementImportModal from './components/StatementImportModal';
 import { refreshProStatus } from './utils/proStatus';
 import ConfettiBurst from './components/ConfettiBurst';
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
@@ -222,6 +223,14 @@ export default function App() {
   const [latestTradeAlert, setLatestTradeAlert] = useState(null);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+
+  // Any screen can open the single trade importer.
+  useEffect(() => {
+    const open = () => setIsImportOpen(true);
+    window.addEventListener('tradepigeon_open_import', open);
+    return () => window.removeEventListener('tradepigeon_open_import', open);
+  }, []);
   const [paywallFeature, setPaywallFeature] = useState('');
 
   // Global listener for paywall triggers across all tabs and modals
@@ -503,6 +512,10 @@ export default function App() {
         isOpen={isManualTradeOpen} 
         onClose={() => setIsManualTradeOpen(false)} 
       />
+
+      <ErrorBoundary>
+        <StatementImportModal isOpen={isImportOpen} onClose={() => setIsImportOpen(false)} onSuccess={() => setIsImportOpen(false)} />
+      </ErrorBoundary>
 
       {/* 9. PRO PAYWALL MODAL */}
       <ErrorBoundary>

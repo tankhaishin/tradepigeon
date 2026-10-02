@@ -5,6 +5,7 @@ import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoLockIcon, DuoIceIcon,
 import { Duo3dChartBadge, Duo3dPulseBadge, Duo3dBellBadge, Duo3dZenBadge, Duo3dCheckBadge } from './GamifiedFeatureBadges';
 import { COURSE_MODULES } from '../data/educationBank';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, sanitizeAccountBasketData, STORAGE_KEYS, DEFAULT_USER_STATS, addDisciplinePoints } from '../utils/storage';
+import { getTradesForDate, onTradesChange, todaySessionDate } from '../utils/tradeStore';
 import { soundFx } from '../utils/audioEngine';
 import { parseFinancialNumber, formatFinancialCurrency, sumTradesPnl } from '../utils/financialMath';
 
@@ -27,18 +28,13 @@ export default function CenterPath() {
   const [userStats, setUserStats] = useState(() => loadStoredData(STORAGE_KEYS.USER_STATS, DEFAULT_USER_STATS));
   const [isVacationActive, setIsVacationActive] = useState(() => loadStoredData('tradepigeon_vacation_active', false));
   const [showDetailsState, setShowDetailsState] = useState({});
-  const [sessionTrades, setSessionTrades] = useState(() => loadStoredData(`tradepigeon_session_trades_day_${currentDay}`, []));
+  const [sessionTrades, setSessionTrades] = useState(() => getTradesForDate(todaySessionDate()));
+  useEffect(() => onTradesChange(() => setSessionTrades(getTradesForDate(todaySessionDate()))), []);
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
   const [isSyncingFills, setIsSyncingFills] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
-      if (key === `tradepigeon_session_trades_day_${currentDay}`) {
-        setSessionTrades(value || []);
-      }
-      if (key === 'trades_cleared') {
-        setSessionTrades([]);
-      }
       if (key === 'tradepigeon_completed_steps') {
         setCompletedSteps(value || []);
       }
@@ -736,21 +732,9 @@ export default function CenterPath() {
 
                       {/* 2. PROCESS-FIRST BEHAVIORAL MATRIX (VIBRANT ONLY FOR CATEGORIES WITH TRADES TAKEN) */}
                       {(() => {
-                        let dayTrades = loadStoredData(`tradepigeon_session_trades_day_${dayNum}`, []);
-                        if (!Array.isArray(dayTrades) || dayTrades.length === 0) {
-                          if (dayNum === currentDay) {
-                            dayTrades = loadStoredData('tradepigeon_session_trades', []);
-                          }
-                        }
-                        if (!Array.isArray(dayTrades) || dayTrades.length === 0) {
-                          const allLogs = loadStoredData('tradepigeon_tradelogs', []);
-                          if (Array.isArray(allLogs) && allLogs.length > 0) {
-                            const matching = allLogs.filter(t => t?.dayNum === dayNum || t?.day === dayNum);
-                            if (matching.length > 0) {
-                              dayTrades = matching;
-                            }
-                          }
-                        }
+                        // Each lesson day remembers the session date it was completed on.
+                        const lessonDate = dayNum === currentDay ? todaySessionDate() : loadStoredData(`tradepigeon_lesson_day_date_${dayNum}`, null);
+                        let dayTrades = lessonDate ? getTradesForDate(lessonDate) : [];
                         if (!Array.isArray(dayTrades)) dayTrades = [];
 
                         const savedCounts = loadStoredData(`tradepigeon_trade_counts_day_${dayNum}`, { winCount: 0, goodLossCount: 0, toxicWinCount: 0, doubleFailureCount: 0 });

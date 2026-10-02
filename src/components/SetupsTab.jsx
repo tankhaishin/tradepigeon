@@ -33,6 +33,7 @@ import {
   calculateSessionMetrics
 } from '../utils/tradeParser';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, buildDefaultPlaybooks, getAllStoredTrades, deleteStoredTrade, updateStoredTrade, restoreStoredTrade } from '../utils/storage';
+import { getTrades, onTradesChange, updateTrade, deleteTrades, restoreTrades } from '../utils/tradeStore';
 import { soundFx } from '../utils/audioEngine';
 import { parseFinancialNumber, formatFinancialCurrency, sumTradesPnl } from '../utils/financialMath';
 import { compressImage } from '../utils/imageCompressor';
@@ -47,11 +48,8 @@ export default function SetupsTab() {
   const [playbookSetups, setPlaybookSetups] = useState(() => loadStoredData('tradepigeon_playbook_setups', buildDefaultPlaybooks()));
 
   // LIVE TRADE EXECUTIONS LOG TABLE DATA (Consolidates session trades, imports, and manual entries)
-  const [tradeLogs, setTradeLogs] = useState(() => {
-    const all = getAllStoredTrades();
-    if (all.length > 0) return all;
-    return loadStoredData('tradepigeon_tradelogs', []);
-  });
+  const [tradeLogs, setTradeLogs] = useState(() => getTrades());
+  useEffect(() => onTradesChange(() => setTradeLogs(getTrades())), []);
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
@@ -60,9 +58,6 @@ export default function SetupsTab() {
       }
       if (key === 'tradepigeon_playbook_setups') {
         setPlaybookSetups(value);
-      }
-      if (key && (key.startsWith('tradepigeon_session_trades') || key.startsWith('goodtrader_session_trades') || key === 'tradepigeon_tradelogs' || key === 'goodtrader_tradelogs' || key.startsWith('day_') || key === 'trades_cleared')) {
-        setTradeLogs(getAllStoredTrades());
       }
     });
     return () => unsubscribe();
@@ -108,7 +103,7 @@ export default function SetupsTab() {
   const handleSelectExecutionTag = (tradeId, tagType) => {
     const updated = tradeLogs.map(t => t.id === tradeId ? { ...t, type: tagType } : t);
     setTradeLogs(updated);
-    updateStoredTrade(tradeId, { type: tagType });
+    updateTrade(tradeId, { type: tagType });
     soundFx.playSuccess();
     setTaggingTrade(null);
   };
@@ -119,7 +114,7 @@ export default function SetupsTab() {
     const url = chartUrlInput.trim();
     const updated = tradeLogs.map(t => t.id === attachingChartTrade.id ? { ...t, chartUrl: url } : t);
     setTradeLogs(updated);
-    updateStoredTrade(attachingChartTrade.id, { chartUrl: url });
+    updateTrade(attachingChartTrade.id, { chartUrl: url });
     soundFx.playSuccess();
     setAttachingChartTrade(null);
     setChartUrlInput('');
@@ -129,13 +124,13 @@ export default function SetupsTab() {
     setDeletedTradeBackup(logToDelete);
     const updated = tradeLogs.filter(t => t.id !== logToDelete.id);
     setTradeLogs(updated);
-    deleteStoredTrade(logToDelete.id);
+    deleteTrades([logToDelete.id]);
     soundFx.playPop();
   };
 
   const handleUndoDelete = () => {
     if (!deletedTradeBackup) return;
-    restoreStoredTrade(deletedTradeBackup);
+    restoreTrades([deletedTradeBackup]);
     setTradeLogs([deletedTradeBackup, ...tradeLogs]);
     setDeletedTradeBackup(null);
     soundFx.playSuccess();
@@ -573,7 +568,7 @@ export default function SetupsTab() {
     if (files && files.length > 0) {
       const file = files[0];
       if (file.name.endsWith('.csv') || file.name.endsWith('.html') || file.name.endsWith('.txt')) {
-        setIsCsvModalOpen(true);
+        window.dispatchEvent(new CustomEvent('tradepigeon_open_import'));
         setUploadedFileName(file.name);
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -634,7 +629,7 @@ export default function SetupsTab() {
           </button>
 
           <button 
-            onClick={() => setIsCsvModalOpen(true)}
+            onClick={() => window.dispatchEvent(new CustomEvent('tradepigeon_open_import'))}
             className="duo-btn-green px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
           >
             <DuoFileSheetIcon className="w-4 h-4 shrink-0" />
@@ -1025,133 +1020,8 @@ export default function SetupsTab() {
         )}
       </div>
 
-      {/* FULLY FUNCTIONAL REAL CSV UPLOAD MODAL */}
-      {isCsvModalOpen && (
-        <div 
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setIsCsvModalOpen(false);
-              setUploadedFileName('');
-              setImportSuccess(false);
-            }
-          }}
-          className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in"
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="duo-card max-w-lg w-full p-6 space-y-5 border-2 border-[#1CB0F6] relative"
-          >
-            <button 
-              onClick={() => {
-                setIsCsvModalOpen(false);
-                setUploadedFileName('');
-                setImportSuccess(false);
-              }}
-              className="absolute top-4 right-4 p-2 rounded-xl bg-[#20323D] text-slate-400 hover:text-white cursor-pointer font-black text-xs"
-              title="Close CSV Import"
-            >
-              <X size={16} />
-            </button>
 
-            <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#1CB0F6]">MANUAL TRADE LOG IMPORT</span>
-              <h3 className="text-2xl font-black text-white">Import Trade CSV File</h3>
-              <p className="text-xs font-bold text-[#52656D]">Upload exported trade fills from NinjaTrader, Tradovate, Rithmic, or FTMO</p>
-            </div>
-
-            {/* REAL INPUT FILE FIELD */}
-            <label className="p-8 rounded-3xl border-2 border-dashed border-[#1CB0F6]/50 bg-[#142127] flex flex-col items-center justify-center space-y-3 cursor-pointer hover:border-[#1CB0F6] transition-all relative block">
-              <input 
-                type="file" 
-                accept=".csv,.html,.htm,.txt"
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if (file) {
-                    setUploadedFileName(file.name);
-                    setParseError('');
-                    setImportSuccess(false);
-
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                      setUploadedFileContent(event.target.result);
-                    };
-                    reader.readAsText(file);
-                  }
-                }}
-                className="hidden" 
-              />
-              <Upload size={36} className="text-[#1CB0F6]" />
-              <div className="text-center">
-                <div className="text-sm font-black text-white">
-                  {uploadedFileName ? uploadedFileName : "Click to Browse or Drag & Drop CSV / HTML Statement"}
-                </div>
-                <div className="text-[10px] font-bold text-[#52656D] mt-0.5">
-                  {uploadedFileName ? "File Loaded! Click Import Fills to process." : "Supports MT4/MT5 HTML Reports, Tradovate, Rithmic, NinjaTrader CSV files"}
-                </div>
-              </div>
-            </label>
-
-            {parseError && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-bold flex items-center gap-2">
-                <AlertTriangle size={16} />
-                <span>{parseError}</span>
-              </div>
-            )}
-
-            {importSuccess && (
-              <div className="p-3 rounded-xl bg-[#58CC02]/20 border border-[#58CC02] text-[#58CC02] text-xs font-black text-center flex items-center justify-center gap-2">
-                <CheckCircle2 size={16} />
-                <span>Successfully Parsed {importCount} Trade Fills from {uploadedFileName}!</span>
-              </div>
-            )}
-
-            <button 
-              disabled={!uploadedFileName || !uploadedFileContent}
-              onClick={() => {
-                try {
-                  const parsedFills = parseTradeFile(uploadedFileContent, uploadedFileName);
-                  if (parsedFills && parsedFills.length > 0) {
-                    const combined = [...parsedFills, ...tradeLogs];
-                    setTradeLogs(combined);
-                    saveStoredData('tradepigeon_tradelogs', combined);
-
-                    // Also index trades by their explicit ISO dates for CalendarTab
-                    const dateGroups = {};
-                    parsedFills.forEach(t => {
-                      if (t && t.date) {
-                        dateGroups[t.date] = dateGroups[t.date] || [];
-                        dateGroups[t.date].push(t);
-                      }
-                    });
-                    Object.entries(dateGroups).forEach(([isoDate, tradesForDate]) => {
-                      const isoKey = `tradepigeon_session_trades_day_${isoDate}`;
-                      const existingIsoTrades = loadStoredData(isoKey, []);
-                      saveStoredData(isoKey, [...tradesForDate, ...existingIsoTrades]);
-                    });
-
-                    setImportCount(parsedFills.length);
-                    setImportSuccess(true);
-                    setParseError('');
-                    setTimeout(() => {
-                      setIsCsvModalOpen(false);
-                      setUploadedFileName('');
-                      setUploadedFileContent(null);
-                      setImportSuccess(false);
-                    }, 1400);
-                  }
-                } catch (err) {
-                  setParseError(err.message || 'Failed to parse file.');
-                }
-              }}
-              className={`w-full py-3.5 text-xs font-black uppercase tracking-wider transition-all ${
-                uploadedFileName && uploadedFileContent ? 'duo-btn-blue cursor-pointer' : 'bg-[#20323D] text-[#52656D] border-2 border-[#37464F] cursor-not-allowed'
-              }`}
-            >
-              {uploadedFileName ? "Import Fills into Analytics Engine" : "Select CSV / Statement File First"}
-            </button>
-          </div>
-        </div>
-      )}
+      
 
       {/* REAL BROKER API CONNECT MODAL */}
       <BrokerConnectModal 
@@ -1159,7 +1029,7 @@ export default function SetupsTab() {
         onClose={() => setIsBrokerModalOpen(false)}
         onAccountAdded={() => {
           soundFx.playSuccess();
-          setTradeLogs(getAllStoredTrades());
+          setTradeLogs(getTrades());
         }}
       />
 
@@ -1417,7 +1287,7 @@ export default function SetupsTab() {
               <button
                 onClick={() => {
                   soundFx.playPop();
-                  setIsCsvModalOpen(true);
+                  window.dispatchEvent(new CustomEvent('tradepigeon_open_import'));
                 }}
                 className="duo-btn-blue px-5 py-2.5 text-xs uppercase tracking-wider inline-flex items-center gap-2 cursor-pointer shadow-md"
               >

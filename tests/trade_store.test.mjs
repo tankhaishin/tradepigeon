@@ -48,3 +48,16 @@ console.assert(events > 0, 'change events fire');
 let threw = false; try { S.addTrades([{ symbol: 'NQ' }]); } catch { threw = true; }
 console.assert(threw, 'trades without id are rejected');
 console.log('✓ trade store: ids, session dates, duplicates, tombstones, undo');
+
+// setDayTrades: edit a whole day as a list
+const day = '2026-09-23';
+const d1 = { ...mk({ exitPrice: 1 }), date: day }, d2 = { ...mk({ exitPrice: 2 }), date: day };
+S.addTrades([d1, d2]);
+let res = S.setDayTrades(day, [{ ...d1, type: 'toxic_win' }, { id: 'MAN-1', symbol: 'MES', pnlNum: 5 }]);
+console.assert(res.added === 1 && res.updated === 1 && res.deleted === 1, `setDayTrades counts ${JSON.stringify(res)}`);
+const dayList = S.getTradesForDate(day);
+console.assert(dayList.length === 2 && dayList.find(t => t.id === d1.id).type === 'toxic_win' && dayList.find(t => t.id === 'MAN-1'), 'day list now matches');
+console.assert(S.addTrades([d2]).previouslyDeleted === 1, 'trade removed from the day stays deleted');
+res = S.setDayTrades(day, S.getTradesForDate(day));
+console.assert(res.added === 0 && res.updated === 0 && res.deleted === 0, 'no-op when unchanged');
+console.log('✓ setDayTrades');
