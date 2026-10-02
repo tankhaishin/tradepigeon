@@ -153,7 +153,7 @@ export default function ProPaywallModal({
             </div>
             <div className="text-xs">
               <span className="font-black text-white">Import your trades:</span>{' '}
-              <span className="text-slate-300">Tradovate & NinjaTrader files or any CSV, with undo. No more typing.</span>
+              <span className="text-slate-300">From Tradovate, NinjaTrader or any CSV, with undo. No more typing.</span>
             </div>
           </div>
 
