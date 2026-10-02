@@ -9,6 +9,7 @@ import NetworkStatusBanner from './components/NetworkStatusBanner';
 import LandingPage from './components/LandingPage';
 import ProPaywallModal from './components/ProPaywallModal';
 import StatementImportModal from './components/StatementImportModal';
+import ComingSoon from './components/ComingSoon';
 import { refreshProStatus } from './utils/proStatus';
 import ConfettiBurst from './components/ConfettiBurst';
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
@@ -59,9 +60,6 @@ const lazyWithRetry = (componentImport) =>
 const CalendarTab = lazyWithRetry(() => import('./components/CalendarTab'));
 const SetupsTab = lazyWithRetry(() => import('./components/SetupsTab'));
 const ConnectionsTab = lazyWithRetry(() => import('./components/ConnectionsTab'));
-const LeaderboardTab = lazyWithRetry(() => import('./components/LeaderboardTab'));
-const QuestsTab = lazyWithRetry(() => import('./components/QuestsTab'));
-const ShopTab = lazyWithRetry(() => import('./components/ShopTab'));
 const ProfileTab = lazyWithRetry(() => import('./components/ProfileTab'));
 
 const TabLoadingFallback = () => (
@@ -455,9 +453,9 @@ export default function App() {
           {(activeTab === 'learn' || activeTab === 'path') && <CenterPath />}
           {activeTab === 'setups' && <SetupsTab />}
           {activeTab === 'connections' && <ConnectionsTab />}
-          {activeTab === 'leaderboard' && <LeaderboardTab />}
-          {activeTab === 'quests' && <QuestsTab />}
-          {activeTab === 'shop' && <ShopTab />}
+          {activeTab === 'leaderboard' && <ComingSoon title="Leaderboard" line="Compete on discipline with real traders. We'll open it once there are enough of you." />}
+          {activeTab === 'quests' && <ComingSoon title="Quests" line="Daily discipline challenges with rewards." />}
+          {activeTab === 'shop' && <ComingSoon title="Shop" line="Spend the points you earn for discipline." />}
           {activeTab === 'profile' && <ProfileTab />}
           {activeTab === 'status' && (
             <main className="flex-1 min-h-screen lg:pl-28 xl:pl-80 bg-[#070C1E] p-4 sm:p-6 lg:p-8 text-white space-y-8 pb-24 lg:pb-10 max-w-5xl mx-auto overflow-y-auto custom-scrollbar">

@@ -371,12 +371,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     window.dispatchEvent(new CustomEvent('tradepigeon_open_import'));
   };
 
-  const getDynamicSyncButtonLabel = () => {
-    if (selectedBasketFilter === 'ALL') {
-      return 'Sync Fills';
-    }
-    return `Sync ${selectedBasketFilter}`;
-  };
+  const getDynamicSyncButtonLabel = () => 'Import trades';
 
   const filteredTrades = sessionTrades.filter(t => matchesAccountFilter(t.account, selectedBasketFilter));
   const filteredOpenPositions = openPositions.filter(p => matchesAccountFilter(p.account, selectedBasketFilter));
@@ -765,7 +760,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                     ? 'Rest Day Active' 
                     : tradingStatus === 'DONE' || tradingStatus === 'DONE_PENDING' 
                     ? 'Session Complete' 
-                    : 'Trading Live'}
+                    : 'In session'}
                 </span>
               </div>
             </div>
@@ -894,22 +889,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
         {tradingStatus === 'TRADING' && isAuditToday && (
           <div className="p-3.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] space-y-2.5 shadow-md text-left mt-3">
             
-            {connectedAccounts.length > 0 && (
-              <div className="p-2 rounded-xl bg-[#58CC02]/10 border border-[#58CC02]/30 flex items-center justify-between text-xs animate-fade-in">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#58CC02] opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#58CC02]"></span>
-                  </span>
-                  <span className="text-[9px] font-black uppercase text-[#58CC02] tracking-wider">
-                    LIVE SYNC ACTIVE ({connectedAccounts.length})
-                  </span>
-                </div>
-                <span className="text-[9px] font-mono text-slate-400">
-                  {lastAutoSyncedTime ? `Last Sync: ${lastAutoSyncedTime}` : 'Auto-Sync Active'}
-                </span>
-              </div>
-            )}
 
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
@@ -1018,26 +997,16 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 </div>
 
                 <div className="flex items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      soundFx.playPop();
-                      setIsBrokerModalOpen(true);
-                    }}
-                    className="text-[9px] font-black text-[#1CB0F6] hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus size={10} />
-                    <span>Connect</span>
-                  </button>
+
 
                   <button
                     type="button"
                     onClick={handleSyncLiveBrokerTelemetry}
                     className="text-[9px] font-black text-[#58CC02] hover:underline flex items-center gap-1 cursor-pointer"
-                    title="Poll latest execution fills"
+                    title="Import trades from a file"
                   >
-                    <RefreshCw size={9} />
-                    <span>Sync Fills</span>
+                    <Plus size={9} />
+                    <span>Import</span>
                   </button>
                 </div>
               </div>
@@ -1075,7 +1044,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                     const accPnl = sumTradesPnl(accTrades);
                     const formattedAccPnl = accTrades.length > 0
                       ? formatFinancialCurrency(accPnl, { showPlus: true })
-                      : (acc.balance || '$50,000');
+                      : '—';
 
                     return (
                       <div
@@ -1094,7 +1063,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                           }}
                           className="flex items-center gap-2 text-left cursor-pointer"
                         >
-                          <div className="w-2 h-2 rounded-full bg-[#58CC02] animate-pulse shrink-0" />
                           <div>
                             <div className="text-[10px] font-black text-white leading-tight truncate max-w-[120px]">
                               {acc.name || acc.accountNumber || 'Account'}
@@ -1103,7 +1071,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                               <span className={accTrades.length > 0 ? (accPnl >= 0 ? 'text-[#58CC02]' : 'text-rose-400') : 'text-slate-400'}>
                                 {formattedAccPnl}
                               </span>
-                              <span>• {acc.broker ? acc.broker.split(' ')[0] : 'Live'}</span>
+                              <span>• {acc.source === 'file' ? 'Imported' : (acc.broker ? acc.broker.split(' ')[0] : '')}</span>
                             </div>
                           </div>
                         </button>
@@ -1135,24 +1103,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                   })}
                 </div>
               ) : (
-                /* Empty State: No Accounts Connected */
-                <div className="p-2.5 rounded-xl bg-[#142127] border border-[#20323D] flex items-center justify-between gap-2 animate-fade-in">
-                  <div className="text-xs font-black text-white flex items-center gap-1.5">
-                    <Activity size={13} className="text-[#1CB0F6]" />
-                    <span>No Broker Connected</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      soundFx.playPop();
-                      setIsBrokerModalOpen(true);
-                    }}
-                    className="duo-btn-blue px-2.5 py-1 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
-                  >
-                    <Zap size={11} />
-                    <span>Connect</span>
-                  </button>
-                </div>
+                null
               )}
             </div>
 

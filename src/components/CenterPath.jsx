@@ -490,10 +490,10 @@ export default function CenterPath() {
                   </div>
                   <div className="min-w-0">
                     <h4 className="text-xs sm:text-sm font-black text-white leading-tight">
-                      Connect your broker to auto-sync trades.
+                      Bring in your trades.
                     </h4>
                     <p className="text-[10px] font-bold text-slate-400 truncate mt-0.5">
-                      Tradovate, NinjaTrader, or Prop Firms
+                      Tradovate or NinjaTrader file
                     </p>
                   </div>
                 </div>
@@ -502,29 +502,25 @@ export default function CenterPath() {
                   type="button"
                   onClick={() => {
                     soundFx.playPop();
-                    setIsBrokerModalOpen(true);
+                    window.dispatchEvent(new CustomEvent('tradepigeon_open_import'));
                   }}
                   className="px-4 py-2 rounded-2xl bg-[#58CC02] hover:bg-[#46A302] border-2 border-[#46A302] border-b-4 border-b-[#388202] text-white text-xs font-black uppercase tracking-wider shrink-0 cursor-pointer transition-all active:translate-y-0.5 shadow-md flex items-center gap-1.5"
                 >
                   <Plus size={12} strokeWidth={3} />
-                  <span>Connect</span>
+                  <span>Import</span>
                 </button>
               </div>
             ) : (
               /* Connected State: Clean, Reassuring, Alive */
               <div className="p-3 sm:p-3.5 rounded-3xl bg-[#142127] border-2 border-[#58CC02]/40 border-b-4 border-b-[#388202] flex items-center justify-between gap-3 shadow-md">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="relative flex h-2.5 w-2.5 shrink-0 ml-1">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#58CC02] opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#58CC02]"></span>
-                  </span>
                   <div className="min-w-0 flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-black text-white whitespace-nowrap">
-                      {accountsCount === 1 ? `${primaryBroker} Connected` : `${accountsCount} Accounts Live`}
+                      {accountsCount === 1 ? primaryBroker : `${accountsCount} accounts`}
                     </span>
                     <span className="text-slate-600 font-black">•</span>
                     <span className="text-[11px] font-bold text-slate-300 whitespace-nowrap">
-                      {todayTradesCount} {todayTradesCount === 1 ? 'Fill' : 'Fills'} Today
+                      {todayTradesCount} {todayTradesCount === 1 ? 'trade' : 'trades'} today
                     </span>
                     {todayTradesCount > 0 && (
                       <>
@@ -539,12 +535,11 @@ export default function CenterPath() {
 
                 <button
                   type="button"
-                  onClick={handleSyncFills}
-                  disabled={isSyncingFills}
+                  onClick={() => { soundFx.playPop(); window.dispatchEvent(new CustomEvent('tradepigeon_open_import')); }}
                   className="px-3 py-1.5 rounded-xl bg-[#58CC02] hover:bg-[#46A302] border border-[#388202] border-b-2 border-b-[#2E6B02] text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all active:translate-y-0.5 shrink-0 shadow-sm"
                 >
-                  <RefreshCw size={11} className={isSyncingFills ? 'animate-spin' : ''} />
-                  <span>{isSyncingFills ? 'Syncing...' : 'Sync Fills'}</span>
+                  <Plus size={11} strokeWidth={3} />
+                  <span>Import</span>
                 </button>
               </div>
             )}

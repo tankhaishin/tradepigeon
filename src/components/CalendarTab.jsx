@@ -298,7 +298,7 @@ export default function CalendarTab() {
           <DuoCalendarIcon className="w-9 h-9 shrink-0" />
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex flex-wrap items-center gap-3">
             <span>Performance Calendar</span>
-            <span className="text-[#58CC02] text-xl sm:text-2xl font-black">{currentMonth.totalPnl}</span>
+            <span className={`${String(currentMonth.totalPnl).startsWith("-") ? "text-rose-400" : "text-[#58CC02]"} text-xl sm:text-2xl font-black`}>{currentMonth.totalPnl}</span>
           </h1>
         </div>
 

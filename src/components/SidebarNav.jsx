@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isFirebaseConfigured } from '../config/firebase';
 import { Eye, EyeOff, LifeBuoy, LogOut, Volume2, VolumeX, User, Crown } from 'lucide-react';
 import { DuoHomeIcon, DuoShieldIcon, DuoChestIcon, DuoShopIcon, DuoProfileIcon, DuoTrophyIcon, DuoCalendarIcon, DuoLightningIcon, DuoBookIcon } from './DuoIcons';
 import SupportFeedbackModal from './SupportFeedbackModal';
@@ -104,7 +105,7 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
   return (
     <>
       {/* DESKTOP LEFT SIDEBAR (Icon-only Rail on lg:, Full Expanded on xl:) */}
-      <aside className="hidden lg:flex w-20 xl:w-72 h-screen fixed left-0 top-0 bg-[#070C1E] border-r-2 border-[#1C2A4E] flex-col justify-between p-3 xl:p-6 z-40 transition-all duration-300">
+      <aside className="hidden lg:flex w-20 xl:w-72 h-screen fixed left-0 top-0 bg-[#070C1E] border-r-2 border-[#1C2A4E] flex-col justify-between gap-4 p-3 xl:p-6 z-40 overflow-y-auto custom-scrollbar transition-all duration-300">
         <div className="space-y-6">
           {/* Brand Logo Header */}
           <div 
@@ -231,12 +232,9 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
           <div className="pt-2 border-t border-[#1C2A4E] space-y-2">
             {activeUser ? (
               <>
-                <div className="hidden xl:flex items-center justify-between px-2.5 py-1 rounded-xl bg-[#58CC02]/10 border border-[#58CC02]/25 text-[10px] font-black text-[#58CC02]">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#58CC02] animate-pulse" />
-                    <span>Cloud Synced</span>
-                  </span>
-                  <span className="text-[9px] uppercase tracking-wider text-slate-400 font-mono">Live</span>
+                <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#58CC02]/10 border border-[#58CC02]/25 text-[10px] font-black text-[#58CC02]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#58CC02]" />
+                  <span>{isFirebaseConfigured && user ? 'Backed up to your account' : 'Saved on this device'}</span>
                 </div>
 
                 <div 
