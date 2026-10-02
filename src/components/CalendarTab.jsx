@@ -6,7 +6,18 @@ import {
 import { DuoCalendarIcon, DuoShieldIcon, DuoLightningIcon, DuoGemIcon, DuoTrophyIcon, DuoDisciplinedWinIcon, DuoDisciplinedLossIcon, DuoDisciplinedBeIcon, DuoToxicWinIcon, DuoToxicBeIcon, DuoDoubleFailureIcon, DuoMissedTradeIcon } from './DuoIcons';
 import { Duo3dCheckBadge, Duo3dZenBadge } from './GamifiedFeatureBadges';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS, deleteStoredTrade } from '../utils/storage';
-import { getTrades, getTradesForDate, onTradesChange, deleteTrades } from '../utils/tradeStore';
+import { getTrades, getTradesForDate, onTradesChange, deleteTrades, updateTrade } from '../utils/tradeStore';
+import HabitHeadline from './HabitHeadline';
+import { validLabelIds } from '../utils/habitInsights';
+
+const LABEL_OPTIONS = [
+  { id: 'win', label: 'Disciplined Win', color: 'bg-[#58CC02] border-[#388202] text-white' },
+  { id: 'good_loss', label: 'Disciplined Loss', color: 'bg-[#1CB0F6] border-[#147BB0] text-white' },
+  { id: 'breakeven', label: 'Disciplined BE', color: 'bg-[#CE82FF] border-[#9D28EC] text-white' },
+  { id: 'toxic_win', label: 'Toxic Win', color: 'bg-[#FFC800] border-[#8A6B00] text-slate-950', breaksRule: true },
+  { id: 'toxic_be', label: 'Toxic BE', color: 'bg-[#00F0FF] border-[#00B3BF] text-slate-950', breaksRule: true },
+  { id: 'double_failure', label: 'Double Failure', color: 'bg-[#FF4B4B] border-[#C62828] text-white', breaksRule: true }
+];
 import { auditAndSanitizeCalendarState, getMonthDataFor } from '../utils/calendarEngine';
 import { soundFx } from '../utils/audioEngine';
 import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl } from '../utils/financialMath';
@@ -65,6 +76,11 @@ export default function CalendarTab() {
     const offTrades = onTradesChange(() => setTradesRevision(r => r + 1));
     return () => { unsubscribe(); offTrades(); };
   }, []);
+
+  const monthKey = `${activeYear}-${String(activeMonth + 1).padStart(2, '0')}`;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const monthTradesForHeadline = useMemo(() => getTrades().filter(t => String(t.date).startsWith(monthKey)), [monthKey, tradesRevision]);
+  const firstUnlabeled = monthTradesForHeadline.find(t => t.needsLabel && t.type !== 'missed_trade');
 
   const formatDayPnl = (pnlVal) => {
     const pnlStr = String(pnlVal || '');
@@ -289,6 +305,12 @@ export default function CalendarTab() {
     });
   };
 
+  // Open the day of a trade (used by the "needs a label" nudge).
+  const openDayModal = (trade) => {
+    const d = currentMonth.days.find(x => x.date === Number(String(trade.date).slice(8, 10)));
+    if (d) setActiveModalDay(d);
+  };
+
   return (
     <main className="flex-1 min-h-screen lg:pl-28 xl:pl-80 xl:pr-8 bg-[#070C1E] p-4 sm:p-6 lg:p-8 text-white space-y-6 pb-24 lg:pb-10 max-w-full overflow-hidden">
       
@@ -304,29 +326,7 @@ export default function CalendarTab() {
 
         {/* Action & Month Controls */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Risk Basket Filter Bar */}
-          <div className="flex items-center gap-1.5 bg-[#182830] p-1.5 rounded-2xl border-2 border-[#20323D] border-b-4 border-b-[#142127]">
-            <span className="text-[10px] font-black uppercase text-[#77909D] px-2 shrink-0">BASKET:</span>
-            {['ALL', ...basketsList.map(b => b.name)].map((basketName) => {
-              const isSelected = selectedBasketFilter === basketName;
-              return (
-                <button
-                  key={basketName}
-                  onClick={() => {
-                    setSelectedBasketFilter(basketName);
-                    soundFx.playPop();
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-[#1CB0F6] text-white shadow-md'
-                      : 'text-[#77909D] hover:text-white'
-                  }`}
-                >
-                  {basketName === 'ALL' ? 'ALL BASKETS' : basketName}
-                </button>
-              );
-            })}
-          </div>
+
 
           <div className="flex items-center gap-1.5 bg-[#182830] p-1.5 rounded-2xl border-2 border-[#20323D] border-b-4 border-b-[#142127]">
             <button
@@ -349,6 +349,8 @@ export default function CalendarTab() {
           </div>
         </div>
       </div>
+
+      <HabitHeadline trades={monthTradesForHeadline} prefix={`${new Date(activeYear, activeMonth, 1).toLocaleString('en-US', { month: 'long' })}:`} onLabelClick={firstUnlabeled ? () => openDayModal(firstUnlabeled) : undefined} />
 
       {/* 2. FULL-SCREEN 7-COLUMN MONTHLY CALENDAR GRID WITH WEEKLY TOTALS */}
       <div className="duo-card p-4 sm:p-6 space-y-4 border-2 border-[#20323D] bg-[#142127]">
@@ -896,7 +898,7 @@ export default function CalendarTab() {
                       const classification = classifyTradeExecution(t, numericLossLimit);
 
                       return (
-                        <div key={t.id || idx} className="p-2.5 rounded-xl bg-[#142127] border border-[#20323D] flex items-center justify-between text-xs group/trade">
+                        <div key={t.id || idx} className="p-2.5 rounded-xl bg-[#142127] border border-[#20323D] flex flex-wrap items-center justify-between gap-y-2 text-xs group/trade">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${t.side === 'LONG' || t.direction === 'LONG' ? 'bg-[#58CC02]/20 text-[#58CC02]' : 'bg-rose-500/20 text-rose-400'}`}>
                               {t.side || t.direction || 'TRADE'}
@@ -937,6 +939,20 @@ export default function CalendarTab() {
                               <Trash2 size={13} />
                             </button>
                           </div>
+                          {/* Label this trade (the 7 execution labels; missed trades excluded) */}
+                          {t.type !== 'missed_trade' && (
+                            <div className="w-full grid grid-cols-2 gap-1">
+                              {LABEL_OPTIONS.filter(o => validLabelIds(t.pnlNum).includes(o.id)).map(o => {
+                                const on = !t.needsLabel && t.type === o.id;
+                                return (
+                                  <button key={o.id} type="button" onClick={(e) => { e.stopPropagation(); soundFx.playPop(); updateTrade(t.id, { type: o.id, executionType: o.label, followedRules: !o.breaksRule }); }}
+                                    className={`py-1 rounded-lg text-[9px] font-black border truncate cursor-pointer ${on ? o.color : 'bg-[#182830] border-[#20323D] text-slate-400 hover:text-white'}`}>
+                                    {o.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       );
                     })}

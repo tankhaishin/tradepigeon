@@ -8,7 +8,9 @@ import BrokerConnectModal from './BrokerConnectModal';
 import LivePositionsCard from './cockpit/LivePositionsCard';
 import ConfirmModal from './ConfirmModal';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS, deleteStoredTrade, deleteMultipleStoredTrades, restoreStoredTrade, saveSessionTrades, loadSessionTrades, addDisciplinePoints } from '../utils/storage';
-import { getTradesForDate, setDayTrades, restoreTrades, onTradesChange, todaySessionDate } from '../utils/tradeStore';
+import { getTrades, getTradesForDate, setDayTrades, restoreTrades, onTradesChange, todaySessionDate } from '../utils/tradeStore';
+import HabitHeadline from './HabitHeadline';
+import { validLabelIds } from '../utils/habitInsights';
 import { auditAndSanitizeCalendarState, buildDynamicMonthData } from '../utils/calendarEngine';
 import { soundFx } from '../utils/audioEngine';
 import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl } from '../utils/financialMath';
@@ -75,6 +77,8 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   // Session date (YYYY-MM-DD) being viewed; defaults to today's CME session.
   const [activeAuditDay, setActiveAuditDay] = useState(() => todaySessionDate());
   const isAuditToday = activeAuditDay === todaySessionDate();
+  const [monthTrades, setMonthTrades] = useState(() => getTrades().filter(t => String(t.date).slice(0, 7) === todaySessionDate().slice(0, 7)));
+  useEffect(() => onTradesChange(() => setMonthTrades(getTrades().filter(t => String(t.date).slice(0, 7) === todaySessionDate().slice(0, 7)))), []);
   const [selectedBasketFilter, setSelectedBasketFilter] = useState('ALL');
   const [selectedTradeIds, setSelectedTradeIds] = useState([]);
   const [userStats, setUserStats] = useState(() => loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS));
@@ -300,11 +304,12 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     persistSessionTrades(updated);
   };
 
-  const playbooksList = ['Breakout & Retest', 'Trend Continuation', 'Liquidity Sweep', 'Custom Setup'];
+  // The user's own playbooks (from onboarding / Playbook tab), plus "No setup".
+  const playbooksList = [...loadStoredData('tradepigeon_playbook_setups', []).map(p => p?.name).filter(Boolean), 'No setup'];
 
   const handleCycleTradePlaybook = (tradeId, currentPlaybook) => {
     soundFx.playPop();
-    const currentIdx = playbooksList.indexOf(currentPlaybook || 'Breakout & Retest');
+    const currentIdx = playbooksList.indexOf(currentPlaybook);
     const nextPlaybook = playbooksList[(currentIdx + 1) % playbooksList.length];
     const updated = sessionTrades.map(t => t.id === tradeId ? { ...t, playbook: nextPlaybook } : t);
     setSessionTrades(updated);
@@ -895,6 +900,8 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
           <div className="p-3.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] space-y-2.5 shadow-md text-left mt-3">
             
 
+            <HabitHeadline trades={monthTrades} prefix="This month:" />
+
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
                 <Sparkles size={14} className="text-[#1CB0F6]" />
@@ -926,13 +933,12 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                     soundFx.playPop();
                     const newMissed = {
                       id: 'm_' + Date.now(),
-                      symbol: 'NQ1!',
+                      symbol: sessionTrades.find(t => t.symbol && t.type !== 'missed_trade')?.symbol || 'Missed',
                       side: 'MISSED',
                       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                       pnl: '$0.00 (Hesitated)',
                       rMultiple: '0.0R',
                       type: 'missed_trade',
-                      playbook: 'Breakout & Retest',
                       account: primaryAccountName,
                       verified: true
                     };
@@ -1223,17 +1229,21 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                             <span className="bg-[#182830] px-1.5 py-0.5 rounded border border-[#20323D] text-[#00F0FF] font-black shrink-0">
                               {trade.account || primaryAccountName}
                             </span>
-                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-wider shrink-0 ${classification.badgeBg}`}>
-                              {classification.shortLabel}
-                            </span>
+                            {trade.needsLabel ? (
+                              <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-wider shrink-0 bg-amber-500/20 text-amber-300 border border-amber-500/40">Needs a label</span>
+                            ) : (
+                              <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-wider shrink-0 ${classification.badgeBg}`}>
+                                {classification.shortLabel}
+                              </span>
+                            )}
                           </div>
                           <button
                             type="button"
                             onClick={() => handleCycleTradePlaybook(trade.id, trade.playbook)}
                             className="bg-[#182830] hover:bg-[#20323D] text-[#1CB0F6] border border-[#20323D] hover:border-[#1CB0F6] px-2 py-0.5 rounded text-[9px] font-black cursor-pointer transition-all flex items-center gap-1 shrink-0 truncate max-w-[130px]"
-                            title="Click to cycle strategy playbook (Zero popups)"
+                            title="Tap to choose the setup from your playbook"
                           >
-                            <span className="truncate">{trade.playbook || 'Breakout & Retest'}</span>
+                            <span className="truncate">{trade.playbook || 'Pick setup'}</span>
                           </button>
                         </div>
 
@@ -1353,7 +1363,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                         ) : (
                           /* UNCONFIRMED / SELECTION STATE - 6 EXECUTED TYPES ONLY */
                           <div className="space-y-1.5 pt-1">
-                            <div className="grid grid-cols-3 gap-1">
+                            <div className="grid grid-cols-2 gap-1">
                               {[
                                 { id: 'win', label: 'Disciplined Win', color: 'bg-[#58CC02] border-[#388202] text-white' },
                                 { id: 'good_loss', label: 'Disciplined Loss', color: 'bg-[#1CB0F6] border-[#147BB0] text-white' },
@@ -1361,8 +1371,8 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                                 { id: 'toxic_win', label: 'Toxic Win', color: 'bg-[#FFC800] border-[#8A6B00] text-slate-950' },
                                 { id: 'toxic_be', label: 'Toxic BE', color: 'bg-[#00F0FF] border-[#00B3BF] text-slate-950' },
                                 { id: 'double_failure', label: 'Double Failure', color: 'bg-[#FF4B4B] border-[#C62828] text-white' },
-                              ].map((typeOption) => {
-                                const isSelected = trade.type === typeOption.id;
+                              ].filter(o => validLabelIds(trade.pnlNum).includes(o.id)).map((typeOption) => {
+                                const isSelected = !trade.needsLabel && trade.type === typeOption.id;
                                 return (
                                   <button
                                     key={typeOption.id}
@@ -1382,11 +1392,12 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
                             <button
                               type="button"
+                              disabled={trade.needsLabel}
                               onClick={() => handleConfirmTrade(trade.id)}
-                              className="duo-btn-green w-full py-2 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-md mt-1"
+                              className={`duo-btn-green w-full py-2 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md mt-1 ${trade.needsLabel ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                             >
                               <CheckCircle2 size={13} />
-                              <span>Confirm (+50 XP)</span>
+                              <span>{trade.needsLabel ? 'Pick a label first' : 'Confirm (+50 XP)'}</span>
                             </button>
                           </div>
                         )}

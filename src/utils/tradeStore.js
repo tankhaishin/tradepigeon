@@ -73,7 +73,8 @@ const emit = () => typeof window !== 'undefined' && window.dispatchEvent(new Cus
 
 export function getTrades() {
   return Object.values(readMap())
-    .map(normalizeTrade)
+    // needsLabel: imported/synced trades the user hasn't classified yet (normalizeTrade would otherwise guess from P&L).
+    .map(t => ({ ...normalizeTrade(t), needsLabel: !t.type && !t.executionType }))
     .sort((a, b) => (b.exitTimeMs || b.entryTimeMs || 0) - (a.exitTimeMs || a.entryTimeMs || 0) || String(b.date).localeCompare(String(a.date)));
 }
 
@@ -111,7 +112,7 @@ export function addTrades(trades, { source = 'manual', importId = null } = {}) {
   return { added, duplicates, previouslyDeleted };
 }
 
-export function updateTrade(id, fields) {
+export function updateTrade(id, { needsLabel, ...fields }) { // eslint-disable-line no-unused-vars
   const map = readMap();
   if (!map[id]) return false;
   map[id] = { ...map[id], ...fields, id, updatedAt: Date.now() };
@@ -157,7 +158,8 @@ export function restoreTrades(trades) {
  */
 export function setDayTrades(isoDate, list) {
   const map = readMap();
-  const byId = new Map(list.filter(t => t?.id).map(t => [t.id, t]));
+  // needsLabel is derived on read; never compare or store it.
+  const byId = new Map(list.filter(t => t?.id).map(({ needsLabel, ...t }) => [t.id, t])); // eslint-disable-line no-unused-vars
   const toAdd = [], toUpdate = [], toDelete = [];
   for (const [id, t] of byId) {
     const cur = map[id];
