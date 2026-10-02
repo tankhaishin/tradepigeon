@@ -181,7 +181,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     setSessionTrades(updated);
     persistSessionTrades(updated);
 
-    // Award +50 DP for confirming trade audit!
+    // Award +50 XP for confirming trade audit!
     const newDp = addDisciplinePoints(50);
     const stats = loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS);
     const updatedStats = {
@@ -343,7 +343,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       setUserStats(updatedStats);
       triggerHubToast('Streak Repaired! 1 Streak Repair Token applied.');
     } else {
-      triggerHubToast('You need 1 Streak Repair Token from the Shop (500 DP) to repair a streak!');
+      triggerHubToast('You need 1 Streak Repair Token from the Shop (500 XP) to repair a streak!');
     }
   };
 
@@ -699,30 +699,33 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       {isInPage && (
         <div className="flex items-center gap-3.5 pb-2">
           <DuoShieldIcon className="w-10 h-10 shrink-0" />
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">Session Cockpit</h2>
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">Today</h2>
         </div>
       )}
 
         {/* DUOLINGO COMPACT TOP HORIZONTAL STAT PILL BAR (EXACT MATCH WITH REAL DUOLINGO HEADER) */}
         <div className="grid grid-cols-4 gap-2">
           {/* Item 1: Season / Level Badge */}
-          <div className="flex items-center justify-center gap-1.5 p-2.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] shadow-sm" title={`Trader Level ${userStats.level || 1}`}>
+          <div className="flex flex-wrap items-center justify-center gap-x-1.5 p-2 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] shadow-sm" title={`Trader Level ${userStats.level || 1}`}>
             <DuoStarIcon className="w-5 h-5 shrink-0" />
             <span className="text-xs sm:text-sm font-black text-white">{userStats.level || 1}</span>
+            <span className="w-full text-center text-[9px] font-bold uppercase tracking-wider text-slate-500">Level</span>
           </div>
 
           {/* Item 2: Streak Flame */}
-          <div className="flex items-center justify-center gap-1.5 p-2.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] shadow-sm" title={`Discipline Streak: ${userStats.streakDays || 0} Consecutive Sessions`}>
+          <div className="flex flex-wrap items-center justify-center gap-x-1.5 p-2 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] shadow-sm" title={`Discipline Streak: ${userStats.streakDays || 0} Consecutive Sessions`}>
             <DuoLightningIcon className="w-5 h-5 shrink-0" />
             <span className="text-xs sm:text-sm font-black text-[#FF6B00]">{userStats.streakDays || 0}</span>
+            <span className="w-full text-center text-[9px] font-bold uppercase tracking-wider text-slate-500">Streak</span>
           </div>
 
           {/* Item 3: Gems / DP */}
-          <div className="flex items-center justify-center gap-1.5 p-2.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] shadow-sm" title={`Discipline Points: ${userStats.disciplinePoints || 0} DP`}>
+          <div className="flex flex-wrap items-center justify-center gap-x-1.5 p-2 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] shadow-sm" title={`${userStats.disciplinePoints || 0} XP earned for discipline`}>
             <DuoGemIcon className="w-5 h-5 shrink-0" />
             <span className="text-xs sm:text-sm font-black text-[#1CB0F6]">
               {userStats.disciplinePoints >= 1000 ? `${(userStats.disciplinePoints / 1000).toFixed(1)}k` : (userStats.disciplinePoints || 0)}
             </span>
+            <span className="w-full text-center text-[9px] font-bold uppercase tracking-wider text-slate-500">XP</span>
           </div>
 
           {/* Item 4: Disciplined Trades */}
@@ -731,11 +734,12 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
               soundFx.playPop();
               setIsRulesModalOpen(true);
             }}
-            className="flex items-center justify-center gap-1.5 p-2.5 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] hover:border-[#58CC02] cursor-pointer transition-all active:scale-95 shadow-sm"
+            className="flex flex-wrap items-center justify-center gap-x-1.5 p-2 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] hover:border-[#58CC02] cursor-pointer transition-all active:scale-95 shadow-sm"
             title={`Disciplined Trades: ${userStats.tradesLogged || 0} Taken (Click for breakdown)`}
           >
             <DuoShieldIcon className="w-5 h-5 shrink-0" />
             <span className="text-xs sm:text-sm font-black text-[#58CC02]">{userStats.tradesLogged || 0}</span>
+            <span className="w-full text-center text-[9px] font-bold uppercase tracking-wider text-slate-500">Trades</span>
           </div>
         </div>
 
@@ -745,7 +749,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
           <div className="flex items-center justify-between gap-2 border-b border-[#20323D] pb-2.5">
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-black uppercase text-[#52656D] tracking-wider block">
-                SESSION STATUS
+                STATUS
               </span>
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#182830] border border-[#20323D]">
                 <span className={`w-2 h-2 rounded-full ${
@@ -939,7 +943,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                   title="Log a setup that presented but you hesitated or missed"
                 >
                   <AlertCircle size={10} />
-                  <span>+ Missed Setup</span>
+                  <span>+ Missed trade</span>
                 </button>
 
                 <button
@@ -950,7 +954,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                   className="text-[9px] font-black px-2.5 py-1 rounded-lg bg-[#142127] hover:bg-[#20323D] border border-[#20323D] text-slate-300 hover:text-white cursor-pointer transition-all flex items-center gap-1"
                 >
                   <Plus size={10} />
-                  <span>+ Manual Fill</span>
+                  <span>+ Add trade</span>
                 </button>
 
                 {sessionTrades.length > 0 && (
@@ -1111,7 +1115,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
             {filteredTrades.length > 0 && (
               <div className="p-2.5 rounded-xl bg-[#142127] border border-[#20323D] flex items-center justify-between text-xs font-black">
                 <span className="text-slate-400 uppercase text-[9px] tracking-wider font-bold">
-                  {selectedBasketFilter === 'ALL' ? 'ALL ACCOUNTS COMBINED NET PnL' : `${selectedBasketFilter} NET PnL`}
+                  {selectedBasketFilter === 'ALL' ? "Today's P&L" : `${selectedBasketFilter} P&L`}
                 </span>
                 <span className={totalFilteredPnL >= 0 ? 'text-[#58CC02] font-black' : 'text-rose-400 font-black'}>
                   {formattedTotalPnL}
@@ -1283,7 +1287,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                                       <div className="flex items-center gap-1.5 font-black text-amber-300">
                                         {getHesitationIcon(rObj?.id, 14)}
                                         <span>{rObj?.label || trade.reason}</span>
-                                        <span className="text-[9px] font-black text-[#58CC02] bg-[#58CC02]/15 px-1.5 py-0.5 rounded border border-[#58CC02]/30">+25 DP</span>
+                                        <span className="text-[9px] font-black text-[#58CC02] bg-[#58CC02]/15 px-1.5 py-0.5 rounded border border-[#58CC02]/30">+25 XP</span>
                                       </div>
                                       <button
                                         type="button"
@@ -1305,7 +1309,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                               <div className="space-y-1.5 p-2 rounded-xl bg-[#142127] border border-[#20323D]">
                                 <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-slate-400">
                                   <span>Why was this setup missed? (1-Tap Tag)</span>
-                                  <span className="text-amber-400 font-bold">+25 DP</span>
+                                  <span className="text-amber-400 font-bold">+25 XP</span>
                                 </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
                                   {HESITATION_REASONS.map((r) => (
@@ -1333,7 +1337,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                                 <div className="flex items-center gap-1.5 font-black text-[10px]">
                                   {info.icon}
                                   <span>{info.label}</span>
-                                  <span className="text-[9px] font-black text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">+50 DP</span>
+                                  <span className="text-[9px] font-black text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">+50 XP</span>
                                 </div>
                                 <button
                                   type="button"
@@ -1381,7 +1385,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                               className="duo-btn-green w-full py-2 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-md mt-1"
                             >
                               <CheckCircle2 size={13} />
-                              <span>Confirm & Lock Trade Audit (+50 DP)</span>
+                              <span>Confirm (+50 XP)</span>
                             </button>
                           </div>
                         )}
@@ -1402,7 +1406,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 <span>SESSION AUDIT & DEBRIEF</span>
               </span>
               <span className="text-[9px] font-black text-[#58CC02] bg-[#58CC02]/20 px-2 py-0.5 rounded-md border border-[#58CC02]/30">
-                +150 DP BONUS
+                +150 XP BONUS
               </span>
             </div>
 
@@ -1495,7 +1499,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
             <div className="flex items-center gap-2">
               <ShieldCheck size={16} className="text-[#58CC02]" />
               <h3 className="text-xs font-black text-white uppercase tracking-wider">
-                Discipline Heatmap
+                Your month
               </h3>
               {onOpenCalendarTab && (
                 <button

@@ -99,7 +99,7 @@ export default function QuestsTab() {
     {
       id: 101,
       title: 'Maintain 7-Day Discipline Streak',
-      reward: '+500 DP',
+      reward: '+500 XP',
       rewardVal: 500,
       current: Math.min(7, streakDays),
       target: 7,
@@ -109,7 +109,7 @@ export default function QuestsTab() {
     {
       id: 102,
       title: 'Execute 5 Disciplined Fills',
-      reward: '+250 DP',
+      reward: '+250 XP',
       rewardVal: 250,
       current: Math.min(5, tradesLogged),
       target: 5,
@@ -119,7 +119,7 @@ export default function QuestsTab() {
     {
       id: 103,
       title: 'Complete Post-Session Audit',
-      reward: '+200 DP',
+      reward: '+200 XP',
       rewardVal: 200,
       current: hasCompletedAudit ? 1 : 0,
       target: 1,
@@ -129,7 +129,7 @@ export default function QuestsTab() {
     {
       id: 104,
       title: 'Complete Pre-Market Mindset Check',
-      reward: '+150 DP',
+      reward: '+150 XP',
       rewardVal: 150,
       current: hasCompletedMindset ? 1 : 0,
       target: 1,

@@ -615,7 +615,7 @@ export default function SetupsTab() {
         <div className="flex items-center gap-3">
           <DuoBookIcon className="w-10 h-10 shrink-0" />
           <div>
-            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Strategy Playbook</h2>
+            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Your playbook</h2>
           </div>
         </div>
 
@@ -669,7 +669,7 @@ export default function SetupsTab() {
         {/* Execution Precision Hero Card */}
         <div className="duo-card p-5 sm:p-6 space-y-4 sm:space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg sm:text-xl font-black text-white">Execution Precision</h3>
+            <h3 className="text-lg sm:text-xl font-black text-white">Plan check</h3>
             <span className={`text-xs font-black px-3 py-1 rounded-xl border ${
               totalLogsCount === 0
                 ? 'text-slate-400 bg-slate-500/10 border-slate-500/30'
@@ -710,10 +710,10 @@ export default function SetupsTab() {
         </div>
 
         {/* Behavioral Audit Hero Card */}
-        <ProLock feature="Behavioral audit">
+        <ProLock feature="Habit check">
         <div className="duo-card p-5 sm:p-6 space-y-4 sm:space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg sm:text-xl font-black text-white">Behavioral Audit</h3>
+            <h3 className="text-lg sm:text-xl font-black text-white">Habit check</h3>
             <span className={`text-xs font-black px-3 py-1 rounded-xl border ${
               totalLogsCount === 0
                 ? 'text-slate-400 bg-slate-500/10 border-slate-500/30'
@@ -790,7 +790,7 @@ export default function SetupsTab() {
         {/* Integrated Header Row (Zero Inner Boxes & Floating Filter Pill) */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#20323D]">
           <div className="flex items-center gap-3">
-            <h3 className="text-lg font-black text-white">Execution Matrix</h3>
+            <h3 className="text-lg font-black text-white">Results by habit</h3>
             <span className={`text-sm font-black px-2.5 py-0.5 rounded-lg ${
               totalNetPnl >= 0 ? 'text-[#58CC02] bg-[#58CC02]/15' : 'text-rose-400 bg-rose-500/15'
             }`}>
@@ -816,7 +816,7 @@ export default function SetupsTab() {
         </div>
 
         {/* 7 EXECUTION TYPES MATRIX & DONUT BREAKDOWN */}
-        <ProLock feature="Execution matrix">
+        <ProLock feature="Results by habit">
         <ExecutionMatrixFilter
           executionMatrix={executionMatrix}
           selectedExecutionFilter={selectedExecutionFilter}

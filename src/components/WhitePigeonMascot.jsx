@@ -30,7 +30,7 @@ export default function WhitePigeonMascot({
     "Stay disciplined!",
     "Follow your playbook!",
     "Don't FOMO in!",
-    "Coo coo! +10 DP",
+    "Coo coo! +10 XP",
     "Mindset check first!"
   ];
 

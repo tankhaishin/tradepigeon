@@ -242,7 +242,7 @@ export default function GuidebookModal({ isOpen, onClose }) {
                 At the end of every trading session, click <strong className="text-white">DONE TODAY</strong> to trigger your 60-second guided debrief.
               </p>
               <p>
-                This protocol enforces an intentional cool-down, logs your key session takeaway, awards +150 DP, and protects your streak!
+                This protocol enforces an intentional cool-down, logs your key session takeaway, awards +150 XP, and protects your streak!
               </p>
             </div>
           </div>

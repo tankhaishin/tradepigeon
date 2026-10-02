@@ -185,7 +185,7 @@ export default function AiDebriefModal({ auditDate, isOpen = true, onClose, sele
     const updatedHistory = [historyItem, ...prevHistory.filter(h => h.id !== historyItem.id && h.isoDate !== todayIso)];
     saveStoredData('tradepigeon_debrief_history', updatedHistory);
 
-    // 2. Award user DP (+150 DP)
+    // 2. Award user DP (+150 XP)
     const currentDp = loadStoredData('tradepigeon_user_dp', 0);
     const newDp = Number(currentDp) + 150;
     saveStoredData('tradepigeon_user_dp', newDp);
@@ -379,7 +379,7 @@ export default function AiDebriefModal({ auditDate, isOpen = true, onClose, sele
               ) : (
                 <>
                   <Sparkles size={18} />
-                  <span>Complete Debrief (+150 DP)</span>
+                  <span>Complete Debrief (+150 XP)</span>
                 </>
               )}
             </button>
@@ -476,14 +476,14 @@ export default function AiDebriefModal({ auditDate, isOpen = true, onClose, sele
                   <div className="text-[10px] font-bold text-slate-300">Saved to calendar.</div>
                 </div>
               </div>
-              <span className="text-sm font-black text-[#58CC02]">+150 DP</span>
+              <span className="text-sm font-black text-[#58CC02]">+150 XP</span>
             </div>
 
             <button
               onClick={handleFinish}
               className="duo-btn-green w-full py-4 text-xs uppercase tracking-wider flex items-center justify-center gap-2"
             >
-              <span>Done (+150 DP)</span>
+              <span>Done (+150 XP)</span>
               <ChevronRight size={18} />
             </button>
           </div>

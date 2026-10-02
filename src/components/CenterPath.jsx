@@ -63,7 +63,7 @@ export default function CenterPath() {
   const uncalibratedCount = sessionTrades.filter(t => !t.confirmed).length;
   const unitTitles = [
     "Foundations of Discipline",
-    "Advanced Risk Cockpit & Sizing",
+    "Risk & Position Size",
     "Playbook Execution Mastery",
     "Emotional Reset & Mindset",
     "Capital Preservation & Discipline",
@@ -405,7 +405,7 @@ export default function CenterPath() {
     setCompletedSteps(newCompletedSteps);
     saveStoredData('tradepigeon_completed_steps', newCompletedSteps);
 
-    // Award promised DP rewards for Step 1 (+50 DP), Step 2 (+50 DP), and Step 3 (+100 DP)
+    // Award promised DP rewards for Step 1 (+50 XP), Step 2 (+50 XP), and Step 3 (+100 XP)
     if (!alreadyCompleted) {
       const stepDpMap = { 1: 50, 2: 50, 3: 100 };
       const dpReward = stepDpMap[stepNum];
@@ -556,7 +556,7 @@ export default function CenterPath() {
 
               const unitTitles = [
                 "Foundations of Discipline",
-                "Advanced Risk Cockpit & Sizing",
+                "Risk & Position Size",
                 "Playbook Execution Mastery",
                 "Emotional Reset & Mindset",
                 "Capital Preservation & Discipline",
@@ -652,8 +652,8 @@ export default function CenterPath() {
                                   <div className="flex items-center gap-2">
                                     <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-lg bg-black/20 text-white/90 border border-white/20">
                                       {hasUncalibratedFills 
-                                        ? `${uncalibratedCount} Fills Captured • Step ${currentStepNum} of 4` 
-                                        : `Step ${currentStepNum} of 4 • ${currentStepNum === 1 ? '+50 DP' : currentStepNum === 2 ? '+50 DP' : currentStepNum === 3 ? '+100 DP' : '+150 DP'}`}
+                                        ? `${uncalibratedCount} ${uncalibratedCount === 1 ? 'trade' : 'trades'} today • Step ${currentStepNum} of 4` 
+                                        : `Step ${currentStepNum} of 4 • ${currentStepNum === 1 ? '+50 XP' : currentStepNum === 2 ? '+50 XP' : currentStepNum === 3 ? '+100 XP' : '+150 XP'}`}
                                     </span>
                                   </div>
 
@@ -713,7 +713,7 @@ export default function CenterPath() {
                           </div>
                         </div>
                         <span className="text-xs font-black text-white bg-[#58CC02] border-b-4 border-b-[#388202] px-4 py-1.5 rounded-2xl shadow-md">
-                          +350 DP
+                          +350 XP
                         </span>
                       </div>
 
@@ -923,9 +923,9 @@ export default function CenterPath() {
                         <div className="relative z-10 w-full space-y-8 flex flex-col items-center pt-2">
                           {[
                             { stepNum: 1, title: "1. Mindset Check", icon: <DuoStarIcon className="w-8 h-8" />, x: 0 },
-                            { stepNum: 2, title: "2. Risk Cockpit", icon: <DuoShieldIcon className="w-7 h-7" />, x: 80 },
+                            { stepNum: 2, title: "2. Risk check", icon: <DuoShieldIcon className="w-7 h-7" />, x: 80 },
                             { stepNum: 3, title: "3. Playbook Rules", icon: <DuoChestIcon className="w-8 h-8" />, x: -80 },
-                            { stepNum: 4, title: "4. Session Audit & Log", icon: <DuoTrophyIcon className="w-9 h-9" />, x: 0 },
+                            { stepNum: 4, title: "4. Review your day", icon: <DuoTrophyIcon className="w-9 h-9" />, x: 0 },
                           ].map((node) => {
                             const isStepCompleted = isDayActive && completedSteps.includes(node.stepNum);
                             const isCurrentNextStep = isDayActive && !isStepCompleted && (node.stepNum === 1 || completedSteps.includes(node.stepNum - 1));
@@ -1050,11 +1050,11 @@ export default function CenterPath() {
                   className="w-full py-4 rounded-2xl bg-black hover:bg-slate-900 text-yellow-300 font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-xl border-b-4 border-b-slate-800 flex items-center justify-center gap-2 active:scale-98"
                 >
                   <DuoTrophyIcon className="w-5 h-5 text-yellow-400 shrink-0" />
-                  <span>Graduate & Unlock Season {(season || 1) + 1} (+1,000 DP Prestige)</span>
+                  <span>Graduate & Unlock Season {(season || 1) + 1} (+1,000 XP Prestige)</span>
                 </button>
               ) : (
                 <div className="w-full p-3 rounded-2xl bg-black/15 border border-black/10 text-xs font-black text-amber-950/80 flex items-center justify-between">
-                  <span>Campaign Progress:</span>
+                  <span>Progress:</span>
                   <span className="font-mono">{completedDays.length} / 30 Sessions Completed</span>
                 </div>
               )}
@@ -1089,7 +1089,7 @@ export default function CenterPath() {
               <div className="flex items-center justify-between pb-4 border-b border-white/20">
                 <div>
                   <span className="text-xs font-black uppercase text-sky-100 tracking-wider">
-                    DAY {currentDay} &bull; STEP {activeStep} OF 4 &bull; {activeStep === 1 ? '+50 DP' : activeStep === 2 ? '+50 DP' : activeStep === 3 ? '+100 DP' : '+150 DP'}
+                    DAY {currentDay} &bull; STEP {activeStep} OF 4 &bull; {activeStep === 1 ? '+50 XP' : activeStep === 2 ? '+50 XP' : activeStep === 3 ? '+100 XP' : '+150 XP'}
                   </span>
                   <h3 className="text-xl sm:text-2xl font-black text-white leading-tight mt-0.5">
                     {activeStep === 1 && "Step 1: Mindset Check"}
@@ -1152,7 +1152,7 @@ export default function CenterPath() {
                         !selectedMood ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                     >
-                      <span>Lock Mindset & Advance to Sizing (+50 DP)</span>
+                      <span>Lock Mindset & Advance to Sizing (+50 XP)</span>
                       <ArrowRight size={18} />
                     </button>
                   </div>
@@ -1478,7 +1478,7 @@ export default function CenterPath() {
                           }}
                           className="duo-btn-green w-full py-4 text-base font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-2xl cursor-pointer"
                         >
-                          <span>Lock Baskets & Continue Session (+50 DP)</span>
+                          <span>Lock Baskets & Continue Session (+50 XP)</span>
                           <ArrowRight size={20} />
                         </button>
                       </div>
@@ -1668,7 +1668,7 @@ export default function CenterPath() {
                           hasZeroRules ? 'opacity-50 cursor-not-allowed grayscale' : 'cursor-pointer'
                         }`}
                       >
-                        <span>{hasZeroRules ? 'Add At Least 1 Entry Rule To Lock Session' : 'Lock Pre-Flight Checklist & Start Session (+100 DP)'}</span>
+                        <span>{hasZeroRules ? 'Add At Least 1 Entry Rule To Lock Session' : 'Lock Pre-Flight Checklist & Start Session (+100 XP)'}</span>
                         <ArrowRight size={20} />
                       </button>
                     );
@@ -1689,7 +1689,7 @@ export default function CenterPath() {
                       className="duo-btn-orange w-full py-4 text-sm font-black uppercase tracking-wider inline-flex items-center justify-center gap-2 cursor-pointer shadow-xl"
                     >
                       <Sparkles size={18} />
-                      <span>Launch Post-Session Audit (+150 DP)</span>
+                      <span>Launch Post-Session Audit (+150 XP)</span>
                     </button>
                   </div>
                 </div>
@@ -1753,7 +1753,7 @@ export default function CenterPath() {
           saveStoredData('tradepigeon_user_dp', newDp);
           setUserStats(updatedStats);
           setIsMercyModalOpen(false);
-          setPresetToast('Honesty acknowledged! Streak reset, +50 DP awarded.');
+          setPresetToast('Honesty acknowledged! Streak reset, +50 XP awarded.');
           setTimeout(() => setPresetToast(''), 4000);
         }}
       />

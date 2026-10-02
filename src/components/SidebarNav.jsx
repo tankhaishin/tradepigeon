@@ -92,10 +92,10 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
   };
 
   const navItems = [
-    { id: 'learn', label: 'PROTOCOL', icon: <DuoHomeIcon className="w-8 h-8" /> },
+    { id: 'learn', label: 'LEARN', icon: <DuoHomeIcon className="w-8 h-8" /> },
     { id: 'calendar', label: 'CALENDAR', icon: <DuoCalendarIcon className="w-8 h-8" /> },
     { id: 'setups', label: 'PLAYBOOK', icon: <DuoBookIcon className="w-8 h-8" /> },
-    { id: 'connections', label: 'CONNECTIONS', icon: <DuoLightningIcon className="w-8 h-8" /> },
+    { id: 'connections', label: 'ACCOUNTS', icon: <DuoLightningIcon className="w-8 h-8" /> },
     { id: 'leaderboard', label: 'LEADERBOARD', icon: <DuoTrophyIcon className="w-8 h-8" /> },
     { id: 'quests', label: 'QUESTS', icon: <DuoChestIcon className="w-8 h-8" /> },
     { id: 'shop', label: 'SHOP', icon: <DuoShopIcon className="w-8 h-8" /> },
@@ -350,7 +350,7 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
       {/* MOBILE BOTTOM NAVIGATION BAR (Ultra-Clean 5-Tab Native Mobile Architecture) */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#070C1E] border-t-2 border-[#1C2A4E] flex items-center justify-around px-2 z-50 shadow-2xl">
         {[
-          { id: 'learn', label: 'PROTOCOL', icon: <DuoHomeIcon className="w-6 h-6" /> },
+          { id: 'learn', label: 'LEARN', icon: <DuoHomeIcon className="w-6 h-6" /> },
           { id: 'calendar', label: 'CALENDAR', icon: <DuoCalendarIcon className="w-6 h-6" /> },
           { id: 'setups', label: 'PLAYBOOK', icon: <DuoBookIcon className="w-6 h-6" /> },
           { id: 'status', label: 'COCKPIT', icon: <DuoShieldIcon className="w-6 h-6" /> },

@@ -60,7 +60,7 @@ export default function EducationalQuizNode({ onQuizComplete }) {
             ? 'bg-[#58CC02]/20 border-[#58CC02]/40 text-[#58CC02]'
             : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
         }`}>
-          {(isAnswered && selectedAnswer === selectedLesson.quiz.correctIndex) ? '✓ Completed (+50 DP)' : '+50 DP Quiz'}
+          {(isAnswered && selectedAnswer === selectedLesson.quiz.correctIndex) ? '✓ Completed (+50 XP)' : '+50 XP Quiz'}
         </span>
       </div>
 
@@ -121,7 +121,7 @@ export default function EducationalQuizNode({ onQuizComplete }) {
             <Award size={20} className={selectedAnswer === selectedLesson.quiz.correctIndex ? 'text-[#58CC02]' : 'text-rose-500'} />
             <div>
               <div className="text-xs font-black text-white">
-                {selectedAnswer === selectedLesson.quiz.correctIndex ? 'Correct! +50 DP Earned!' : 'Incorrect Choice!'}
+                {selectedAnswer === selectedLesson.quiz.correctIndex ? 'Correct! +50 XP Earned!' : 'Incorrect Choice!'}
               </div>
               <p className="text-xs font-bold text-slate-300 mt-0.5">
                 {selectedLesson.quiz.explanation}
