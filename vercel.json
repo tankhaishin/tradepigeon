@@ -2,7 +2,7 @@
   "version": 2,
   "framework": "vite",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/api/stripe/:action", "destination": "/api/stripe?action=:action" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

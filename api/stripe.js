@@ -1,5 +1,5 @@
-import { handleCors } from '../_lib/cors.js';
-import { verifyUser, getStripe, findCustomer, getEntitlement } from '../_lib/account.js';
+import { handleCors } from './_lib/cors.js';
+import { verifyUser, getStripe, findCustomer, getEntitlement } from './_lib/account.js';
 
 // /api/stripe/status | verify-session | create-checkout-session | create-portal-session
 // Every action acts on the signed-in caller only; emails/ids from the request body are ignored.
