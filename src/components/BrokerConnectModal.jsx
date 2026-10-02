@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
   CheckCircle2, ShieldAlert, ShieldCheck, Lock, Key, RefreshCw, X, Zap, 
-  Activity, ArrowLeft, Sparkles, ChevronRight, Eye, EyeOff, Layers, CheckSquare, Square
+  Activity, ArrowLeft, Sparkles, ChevronRight, Eye, EyeOff, Layers, CheckSquare, Square, Crown
 } from 'lucide-react';
 import { TradovateLogo, NinjaTraderLogo, CsvLogo } from './BrokerLogos';
 import { loadStoredData, saveStoredData } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
 import { detectPlatformFromAccountId } from '../utils/platformDetector';
 import { parseFinancialNumber, formatBalance } from '../utils/financialMath';
+import { isProActive } from '../utils/proStatus';
 
 export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, onOpenStatementImport }) {
   const [authSuccess, setAuthSuccess] = useState(false);
@@ -78,6 +79,17 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
       if (onOpenStatementImport) onOpenStatementImport();
       return;
     }
+
+    if (!isProActive()) {
+      soundFx.playWarning();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('tradepigeon_open_paywall', {
+          detail: { feature: `${platform.name} Direct API Sync` }
+        }));
+      }
+      return;
+    }
+
     setSelectedPlatform(platform);
     setUsername('');
     setPassword('');
@@ -504,23 +516,58 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
         ) : (
           /* PLATFORM SELECTION GRID */
           <div className="space-y-4 animate-fade-in">
+            {!isProActive() && (
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-2 border-amber-500/30 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-[#FFC800] flex items-center justify-center shrink-0">
+                    <Crown size={18} className="fill-[#FFC800]" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-black text-white">Direct Broker Sync is a Pro Feature</div>
+                    <div className="text-[10px] font-bold text-slate-400">Universal CSV import is free for everyone</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundFx.playPop();
+                    window.dispatchEvent(new CustomEvent('tradepigeon_open_paywall', {
+                      detail: { feature: 'Direct Broker Sync' }
+                    }));
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-[#58CC02] border-b-2 border-[#46A302] text-white text-[10px] font-black uppercase tracking-wider hover:brightness-110 cursor-pointer shrink-0 shadow"
+                >
+                  Unlock Pro
+                </button>
+              </div>
+            )}
+
             <h4 className="text-sm font-black text-white">Select Broker</h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {platforms.map((p) => {
                 const PlatformIcon = p.icon;
+                const isLocked = p.id !== 'csv' && !isProActive();
                 return (
                   <button
                     key={p.id}
                     type="button"
                     onClick={() => handleSelectPlatform(p)}
-                    className="p-4 rounded-2xl bg-[#142127] border-2 border-[#20323D] hover:border-[#1CB0F6] hover:bg-[#1CB0F6]/10 text-left transition-all group cursor-pointer flex flex-col justify-between space-y-3"
+                    className={`p-4 rounded-2xl bg-[#142127] border-2 border-[#20323D] hover:border-[#1CB0F6] hover:bg-[#1CB0F6]/10 text-left transition-all group cursor-pointer flex flex-col justify-between space-y-3 relative ${isLocked ? 'opacity-90' : ''}`}
                   >
                     <div className="flex items-center justify-between">
                       <PlatformIcon className="w-8 h-8 object-contain shrink-0" />
-                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-[#1CB0F6]/20 text-[#1CB0F6] border border-[#1CB0F6]/30">
-                        {p.badge}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {isLocked && (
+                          <span className="flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded bg-amber-500/20 text-[#FFC800] border border-amber-500/30">
+                            <Lock size={10} />
+                            PRO
+                          </span>
+                        )}
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-[#1CB0F6]/20 text-[#1CB0F6] border border-[#1CB0F6]/30">
+                          {p.badge}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="text-sm font-black text-white group-hover:text-[#1CB0F6] transition-colors flex items-center justify-between">

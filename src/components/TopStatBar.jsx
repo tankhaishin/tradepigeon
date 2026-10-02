@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { User } from 'lucide-react';
+import { User, Crown } from 'lucide-react';
 import { DuoStarIcon, DuoLightningIcon, DuoGemIcon, DuoShieldIcon } from './DuoIcons';
 import { soundFx } from '../utils/audioEngine';
 import { loadStoredData, subscribeToStorageUpdate, DEFAULT_USER_STATS } from '../utils/storage';
+import { computeSubscriptionEntitlement } from '../utils/subscriptionEngine';
 
 export default function TopStatBar({ onOpenRulesModal, onNavigateTab }) {
   const [stats, setStats] = useState(() => loadStoredData('tradepigeon_user_stats', DEFAULT_USER_STATS));
   const [activeUser, setActiveUser] = useState(() => loadStoredData('tradepigeon_auth_user', null) || loadStoredData('tradepigeon_google_user', null));
+  const [entitlement, setEntitlement] = useState(() => computeSubscriptionEntitlement(activeUser));
 
   useEffect(() => {
+    const handleSubUpdate = () => {
+      setEntitlement(computeSubscriptionEntitlement(activeUser));
+    };
+    window.addEventListener('tradepigeon_subscription_updated', handleSubUpdate);
     const unsubscribe = subscribeToStorageUpdate(({ key, legacyKey, value }) => {
       if (key === 'tradepigeon_user_stats') {
         setStats(value || DEFAULT_USER_STATS);
@@ -16,9 +22,15 @@ export default function TopStatBar({ onOpenRulesModal, onNavigateTab }) {
       if (key === 'tradepigeon_auth_user' || key === 'tradepigeon_google_user' || legacyKey === 'tradepigeon_google_user') {
         setActiveUser(value);
       }
+      if (key?.includes('subscription') || key?.includes('voucher') || key === 'tradepigeon_is_pro') {
+        handleSubUpdate();
+      }
     });
-    return unsubscribe;
-  }, []);
+    return () => {
+      window.removeEventListener('tradepigeon_subscription_updated', handleSubUpdate);
+      unsubscribe();
+    };
+  }, [activeUser]);
 
   const formatPoints = (num) => {
     if (!num || num === 0) return '0';
@@ -89,7 +101,35 @@ export default function TopStatBar({ onOpenRulesModal, onNavigateTab }) {
           <span className="text-sm sm:text-base font-black text-[#58CC02]">{stats.tradesLogged || 0}</span>
         </button>
 
-        {/* Item 5: Profile / Settings */}
+        {/* Item 5: Pro / Trial Pill */}
+        <button
+          type="button"
+          onClick={() => {
+            soundFx.playPop();
+            window.dispatchEvent(new CustomEvent('tradepigeon_open_paywall'));
+          }}
+          className={`flex items-center justify-center gap-1 px-2 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0 ${
+            entitlement?.plan === 'PRO'
+              ? 'bg-[#FF6B00]/20 text-[#FF6B00] border border-[#FF6B00]/40'
+              : entitlement?.isTrial
+              ? 'bg-[#58CC02]/20 text-[#58CC02] border border-[#58CC02]/40'
+              : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+          }`}
+          title="TradePigeon Pro Status — Click to view benefits"
+        >
+          {entitlement?.plan === 'PRO' ? (
+            <>
+              <Crown size={12} className="fill-[#FF6B00]" />
+              <span>PRO</span>
+            </>
+          ) : entitlement?.isTrial ? (
+            <span>🔥 {entitlement.daysRemaining}d</span>
+          ) : (
+            <span>🔒 PRO</span>
+          )}
+        </button>
+
+        {/* Item 6: Profile / Settings */}
         <button 
           type="button"
           onClick={() => {

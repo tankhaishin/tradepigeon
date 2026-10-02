@@ -9,6 +9,7 @@ import { sendDiscordWebhookMessage } from '../src/utils/discordWebhook.js';
 import { generateAiDebriefWithGemini, parseGeminiResponse } from '../src/utils/geminiAiEngine.js';
 import { buildWeeklyLeagueCohort, getCurrentWeekId } from '../src/utils/leagueCohortEngine.js';
 import { getTradovateBaseUrl, authenticateTradovate } from '../server/utils/tradovateShared.js';
+import { computeSubscriptionEntitlement, canAccessFeature, TRIAL_DURATION_MS, PASS_DURATION_MS } from '../src/utils/subscriptionEngine.js';
 
 console.log('--- 1. Testing Audio Engine Methods ---');
 console.assert(typeof soundFx.playTrophy === 'function', 'soundFx.playTrophy must be a function');
@@ -1437,8 +1438,100 @@ console.assert(parseFinancialNumber('500', 0) === 500, '500 is positive 500');
 console.assert(parseFinancialNumber('+500', 0) === 500, '+500 is positive 500');
 console.log('✓ Anchored negative regex cleanly differentiates negative amounts without false-triggering on dates or symbols');
 
+console.log('\n--- 78. Testing Subscription Entitlement Engine Hierarchy & Stripe Subscriptions ---');
+const simulatedNow = 1770000000000;
+// Case 1: Active Stripe subscription
+const activeStripeCloud = {
+  subscription: {
+    status: 'active',
+    proExpiresAt: simulatedNow + 15 * 86400000,
+    customerId: 'cus_123',
+    subscriptionId: 'sub_456'
+  }
+};
+const entStripeActive = computeSubscriptionEntitlement({ uid: 'usr_1' }, activeStripeCloud, simulatedNow);
+console.assert(entStripeActive.isPro === true, 'Active Stripe sub must be isPro: true');
+console.assert(entStripeActive.plan === 'PRO', 'Active Stripe sub plan must be PRO');
+console.assert(entStripeActive.source === 'stripe', 'Active Stripe sub source must be stripe');
+console.assert(entStripeActive.daysRemaining === 15, `Expected 15 days remaining, got ${entStripeActive.daysRemaining}`);
+console.assert(entStripeActive.canAccessProFeatures === true, 'Active Stripe sub can access Pro features');
+
+// Case 2: Expired Stripe subscription with old trial
+const expiredStripeCloud = {
+  subscription: {
+    status: 'active',
+    proExpiresAt: simulatedNow - 1000, // expired 1s ago
+    customerId: 'cus_123',
+    subscriptionId: 'sub_456'
+  },
+  createdAt: new Date(simulatedNow - 20 * 86400000).toISOString() // account created 20 days ago
+};
+const entStripeExpired = computeSubscriptionEntitlement({ uid: 'usr_1' }, expiredStripeCloud, simulatedNow);
+console.assert(entStripeExpired.isPro === false, 'Expired Stripe sub with expired trial must be isPro: false');
+console.assert(entStripeExpired.plan === 'FREE', 'Expired Stripe sub with expired trial plan must be FREE');
+console.assert(entStripeExpired.isTrialExpired === true, 'Trial must be marked expired');
+console.assert(entStripeExpired.canAccessProFeatures === false, 'Expired subscription cannot access Pro features');
+console.log('✓ Subscription entitlement hierarchy and Stripe subscription states verified');
+
+console.log('\n--- 79. Testing Coin Shop 30-Day Pro Pass Entitlement & Expiration ---');
+// Case 1: Active 30-Day Pro Pass Voucher
+const activePassCloud = {
+  proVoucher: {
+    activatedAt: new Date(simulatedNow - 5 * 86400000).toISOString(),
+    expiresAt: simulatedNow + 25 * 86400000,
+    days: 30
+  },
+  createdAt: new Date(simulatedNow - 30 * 86400000).toISOString()
+};
+const entPassActive = computeSubscriptionEntitlement({ uid: 'usr_2' }, activePassCloud, simulatedNow);
+console.assert(entPassActive.isPro === true, 'Active Coin Pass must be isPro: true');
+console.assert(entPassActive.plan === 'COIN_PASS', 'Active Coin Pass plan must be COIN_PASS');
+console.assert(entPassActive.daysRemaining === 25, `Expected 25 days remaining, got ${entPassActive.daysRemaining}`);
+console.assert(entPassActive.canAccessProFeatures === true, 'Active Coin Pass can access Pro features');
+
+// Case 2: Expired Coin Pass Voucher
+const expiredPassCloud = {
+  proVoucher: {
+    activatedAt: new Date(simulatedNow - 35 * 86400000).toISOString(),
+    expiresAt: simulatedNow - 5 * 86400000,
+    days: 30
+  },
+  createdAt: new Date(simulatedNow - 40 * 86400000).toISOString()
+};
+const entPassExpired = computeSubscriptionEntitlement({ uid: 'usr_2' }, expiredPassCloud, simulatedNow);
+console.assert(entPassExpired.isPro === false, 'Expired Coin Pass must fall to free plan');
+console.assert(entPassExpired.plan === 'FREE', 'Expired Coin Pass plan must be FREE');
+console.log('✓ Coin Shop 30-Day Pro Pass entitlement and deterministic expiration verified');
+
+console.log('\n--- 80. Testing 7-Day Free Trial Clock Determinism & Feature Gating Enforcement ---');
+// Case 1: Active 7-Day Free Trial (Day 3 of 7)
+const activeTrialCloud = {
+  createdAt: new Date(simulatedNow - 3 * 86400000).toISOString()
+};
+const entTrialActive = computeSubscriptionEntitlement({ uid: 'usr_3' }, activeTrialCloud, simulatedNow);
+console.assert(entTrialActive.isPro === true, 'Active trial must be isPro: true');
+console.assert(entTrialActive.isTrial === true, 'Active trial must be isTrial: true');
+console.assert(entTrialActive.plan === 'TRIAL', 'Active trial plan must be TRIAL');
+console.assert(entTrialActive.daysRemaining === 4, `Expected 4 days remaining, got ${entTrialActive.daysRemaining}`);
+console.assert(entTrialActive.canAccessProFeatures === true, 'Active trial user can access Pro features');
+console.assert(canAccessFeature('ai_debrief', entTrialActive) === true, 'Trial user can access AI debrief');
+console.assert(canAccessFeature('broker_sync', entTrialActive) === true, 'Trial user can access Broker sync');
+
+// Case 2: Expired 7-Day Free Trial (Day 8 of 7)
+const expiredTrialCloud = {
+  createdAt: new Date(simulatedNow - 8 * 86400000).toISOString()
+};
+const entTrialExpired = computeSubscriptionEntitlement({ uid: 'usr_3' }, expiredTrialCloud, simulatedNow);
+console.assert(entTrialExpired.isPro === false, 'Expired trial must be isPro: false');
+console.assert(entTrialExpired.isTrialExpired === true, 'isTrialExpired must be true');
+console.assert(entTrialExpired.plan === 'FREE', 'Expired trial plan must be FREE');
+console.assert(entTrialExpired.canAccessProFeatures === false, 'Expired trial user cannot access Pro features');
+console.assert(canAccessFeature('ai_debrief', entTrialExpired) === false, 'Expired trial user cannot access AI debrief');
+console.assert(canAccessFeature('broker_sync', entTrialExpired) === false, 'Expired trial user cannot access Broker sync');
+console.log('✓ 7-Day Free Trial clock and Pro feature gating deterministically enforced');
+
 console.log('\n========================================');
-console.log('ALL VERIFICATION UNIT TESTS PASSED (77/77 - 100%)');
+console.log('ALL VERIFICATION UNIT TESTS PASSED (80/80 - 100%)');
 console.log('========================================\n');
 
 

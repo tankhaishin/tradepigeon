@@ -7,6 +7,9 @@ import TopStatBar from './components/TopStatBar';
 import RealTimeCompanionToast from './components/RealTimeCompanionToast';
 import NetworkStatusBanner from './components/NetworkStatusBanner';
 import LandingPage from './components/LandingPage';
+import ProPaywallModal from './components/ProPaywallModal';
+import { refreshProStatus } from './utils/proStatus';
+import { syncSubscriptionToCloud, computeSubscriptionEntitlement } from './utils/subscriptionEngine';
 import ConfettiBurst from './components/ConfettiBurst';
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
 import ManualTradeModal from './components/ManualTradeModal';
@@ -219,6 +222,18 @@ export default function App() {
   const [isManualTradeOpen, setIsManualTradeOpen] = useState(false);
   const [latestTradeAlert, setLatestTradeAlert] = useState(null);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
+  const [isPaywallOpen, setIsPaywallOpen] = useState(false);
+  const [paywallFeature, setPaywallFeature] = useState('');
+
+  // Global listener for paywall triggers across all tabs and modals
+  useEffect(() => {
+    const handleOpenPaywall = (e) => {
+      setPaywallFeature(e?.detail?.feature || '');
+      setIsPaywallOpen(true);
+    };
+    window.addEventListener('tradepigeon_open_paywall', handleOpenPaywall);
+    return () => window.removeEventListener('tradepigeon_open_paywall', handleOpenPaywall);
+  }, []);
 
   // Real-Time mascot coaching telemetry alert listener
   useEffect(() => {
@@ -267,7 +282,16 @@ export default function App() {
         });
         const data = await res.json();
         if (data?.verified && data?.isPro) {
-          saveStoredData('tradepigeon_is_pro', true);
+          const authUser = loadStoredData(STORAGE_KEYS.AUTH_USER, null);
+          const entitlement = data.subscription || {
+            isPro: true,
+            plan: 'PRO',
+            status: 'active',
+            proExpiresAt: Date.now() + 30 * 86400000,
+            customerId: data.customerId,
+            subscriptionId: data.subscriptionId
+          };
+          await syncSubscriptionToCloud(authUser?.uid, entitlement);
           soundFx.playTrophy();
           setConfettiTrigger(prev => prev + 1);
         } else {
@@ -499,6 +523,15 @@ export default function App() {
         isOpen={isManualTradeOpen} 
         onClose={() => setIsManualTradeOpen(false)} 
       />
+
+      {/* 9. PRO PAYWALL MODAL */}
+      <ErrorBoundary>
+        <ProPaywallModal 
+          isOpen={isPaywallOpen} 
+          onClose={() => setIsPaywallOpen(false)} 
+          featureName={paywallFeature} 
+        />
+      </ErrorBoundary>
       </div>
     </div>
   );

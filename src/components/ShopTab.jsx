@@ -3,6 +3,8 @@ import { Check, Sparkles, ShieldCheck } from 'lucide-react';
 import { DuoIceIcon, DuoShopIcon, DuoGemIcon, DuoStarIcon } from './DuoIcons';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS, spendDisciplinePoints } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
+import { useAuth } from '../context/AuthContext';
+import { activateShopProPass, SUBSCRIPTION_STORAGE_KEYS } from '../utils/subscriptionEngine';
 
 export default function ShopTab() {
   const [userDp, setUserDp] = useState(() => loadStoredData('tradepigeon_user_dp', 0));
@@ -30,6 +32,12 @@ export default function ShopTab() {
   }, []);
 
   const [weekendShields, setWeekendShields] = useState(() => loadStoredData('tradepigeon_weekend_shields', 0));
+
+  const { user } = useAuth();
+  const [proVoucher, setProVoucher] = useState(() => loadStoredData(SUBSCRIPTION_STORAGE_KEYS.SHOP_VOUCHER, null));
+
+  const isVoucherActive = proVoucher?.expiresAt && Date.now() < Number(proVoucher.expiresAt);
+  const voucherDaysLeft = isVoucherActive ? Math.ceil((Number(proVoucher.expiresAt) - Date.now()) / 86400000) : 0;
 
   const shopItems = [
     {
@@ -90,17 +98,19 @@ export default function ShopTab() {
     {
       id: 'free_sub_month',
       name: '1 Month Pro Pass Voucher',
-      price: 5000,
+      price: 1500,
       icon: <DuoStarIcon className="w-12 h-12 shrink-0 drop-shadow-md" />,
       tag: 'PRO',
       tagStyle: 'bg-[#1CB0F6] text-white',
-      desc: 'Unlock 1 full month of institutional Pro features with your discipline points.',
+      desc: isVoucherActive 
+        ? `Pro Pass Active! (${voucherDaysLeft} days remaining). Purchase again to extend by 30 days.` 
+        : 'Unlock 30 days of automated broker sync, Gemini AI debriefs, and prop firm drawdown HUD.',
       isLocked: false,
-      isConsumable: false
+      isConsumable: true
     }
   ];
 
-  const handleBuy = (item) => {
+  const handleBuy = async (item) => {
     if (userDp < item.price) return;
     if (!item.isConsumable && purchasedItems.includes(item.id)) return;
 
@@ -125,6 +135,10 @@ export default function ShopTab() {
       setWeekendShields(nextShields);
       saveStoredData('tradepigeon_weekend_shields', nextShields);
       setPurchaseToast(`Weekend Rest Shield acquired! (${nextShields} available)`);
+    } else if (item.id === 'free_sub_month') {
+      const newVoucher = await activateShopProPass(user?.uid, newDp);
+      setProVoucher(newVoucher);
+      setPurchaseToast('Pro Pass unlocked! 30 days added to your account.');
     } else {
       const updatedPurchased = [...purchasedItems, item.id];
       setPurchasedItems(updatedPurchased);
@@ -139,10 +153,6 @@ export default function ShopTab() {
       } else if (item.id === 'hud_stealth') {
         saveStoredData('tradepigeon_stealth_mode', true);
         setPurchaseToast('Stealth Mode R-Multiple HUD enabled!');
-      } else if (item.id === 'free_sub_month') {
-        saveStoredData('tradepigeon_is_pro', true);
-        saveStoredData('tradepigeon_pro_voucher', { activatedAt: new Date().toISOString(), days: 30 });
-        setPurchaseToast('Pro Pass unlocked! 30 days applied.');
       }
     }
 

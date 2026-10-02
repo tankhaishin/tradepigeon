@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, LifeBuoy, LogOut, Volume2, VolumeX, User } from 'lucide-react';
+import { Eye, EyeOff, LifeBuoy, LogOut, Volume2, VolumeX, User, Crown } from 'lucide-react';
 import { DuoHomeIcon, DuoShieldIcon, DuoChestIcon, DuoShopIcon, DuoProfileIcon, DuoTrophyIcon, DuoCalendarIcon, DuoLightningIcon, DuoBookIcon } from './DuoIcons';
 import SupportFeedbackModal from './SupportFeedbackModal';
 import GuidebookModal from './GuidebookModal';
@@ -9,6 +9,7 @@ import ConfirmModal from './ConfirmModal';
 import { useAuth } from '../context/AuthContext';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
+import { computeSubscriptionEntitlement } from '../utils/subscriptionEngine';
 
 export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, onOpenCalendar }) {
   const { user, signOutUser } = useAuth();
@@ -27,6 +28,24 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
     email: user.email,
     picture: user.photoURL
   } : googleUser;
+
+  const [entitlement, setEntitlement] = useState(() => computeSubscriptionEntitlement(user));
+
+  useEffect(() => {
+    const handleSubUpdate = () => {
+      setEntitlement(computeSubscriptionEntitlement(user));
+    };
+    window.addEventListener('tradepigeon_subscription_updated', handleSubUpdate);
+    const unsubscribe = subscribeToStorageUpdate(({ key }) => {
+      if (key?.includes('subscription') || key?.includes('voucher') || key === 'tradepigeon_is_pro') {
+        handleSubUpdate();
+      }
+    });
+    return () => {
+      window.removeEventListener('tradepigeon_subscription_updated', handleSubUpdate);
+      unsubscribe();
+    };
+  }, [user]);
 
   const toggleSound = () => {
     const next = soundFx.toggleMute();
@@ -103,6 +122,36 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
             </div>
             <div className="hidden xl:block">
               <h1 className="text-xl font-black tracking-tight text-white leading-none">TRADEPIGEON</h1>
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  soundFx.playPop();
+                  window.dispatchEvent(new CustomEvent('tradepigeon_open_paywall'));
+                }}
+                className={`mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all hover:scale-105 ${
+                  entitlement?.plan === 'PRO'
+                    ? 'bg-[#FF6B00]/20 text-[#FF6B00] border border-[#FF6B00]/40'
+                    : entitlement?.isTrial
+                    ? 'bg-[#58CC02]/20 text-[#58CC02] border border-[#58CC02]/40'
+                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                }`}
+                title="Click to view TradePigeon Pro status & benefits"
+              >
+                {entitlement?.plan === 'PRO' ? (
+                  <>
+                    <Crown size={11} className="fill-[#FF6B00]" />
+                    <span>PRO ACTIVE</span>
+                  </>
+                ) : entitlement?.isTrial ? (
+                  <>
+                    <span>🔥 TRIAL: {entitlement.daysRemaining}D LEFT</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🔒 FREE TIER &bull; UPGRADE</span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 

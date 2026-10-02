@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { refreshProStatus } from '../utils/proStatus';
 import { 
   onAuthStateChanged, 
   signInWithPopup, 
@@ -72,9 +73,11 @@ export function AuthProvider({ children }) {
         setUser(formattedUser);
         saveStoredData(STORAGE_KEYS.AUTH_USER, formattedUser);
         initCloudFirestoreSync(fbUser.uid);
+        refreshProStatus();
       } else {
         setUser(null);
         saveStoredData(STORAGE_KEYS.AUTH_USER, null);
+        saveStoredData('tradepigeon_is_pro', false);
         initCloudFirestoreSync(null);
       }
       setLoading(false);

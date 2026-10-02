@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { isProActive, startCheckout, openBillingPortal } from '../utils/proStatus';
+import { computeSubscriptionEntitlement } from '../utils/subscriptionEngine';
 import { User, Flame, Gem, Heart, Calendar, ShieldCheck, Award, TrendingUp, CheckCircle2, AlertCircle, Cpu, RefreshCw, BarChart3, Activity, Sparkles, Trash2, RotateCcw, ShieldAlert, CheckSquare, Square, X, Download, Upload, FileText, Check, LogOut, CreditCard, Mail, ExternalLink, AlertTriangle, Volume2, VolumeX, HardDrive, Database } from 'lucide-react';
 import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoProfileIcon, DuoTrophyIcon } from './DuoIcons';
 import GoogleAuthButton from './GoogleAuthButton';
@@ -25,7 +27,8 @@ import { formatFinancialCurrency, sumTradesPnl, parseFinancialNumber } from '../
 export default function ProfileTab() {
   const { user, signOutUser } = useAuth();
   const [googleUser, setGoogleUser] = useState(() => loadStoredData('tradepigeon_auth_user', null) || loadStoredData('tradepigeon_google_user', null));
-  const [isPro, setIsPro] = useState(() => loadStoredData('tradepigeon_is_pro', false));
+  const [entitlement, setEntitlement] = useState(() => computeSubscriptionEntitlement(user));
+  const [isPro, setIsPro] = useState(() => entitlement?.isPro);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('DEBRIEF_HISTORY');
   const [isProcessingStripe, setIsProcessingStripe] = useState(false);
@@ -43,6 +46,16 @@ export default function ProfileTab() {
 
   // Storage utilization & Quota
   const [storageUsage, setStorageUsage] = useState(() => getStorageUsage());
+
+  useEffect(() => {
+    const handleSubUpdate = () => {
+      const e = computeSubscriptionEntitlement(user);
+      setEntitlement(e);
+      setIsPro(e.isPro);
+    };
+    window.addEventListener('tradepigeon_subscription_updated', handleSubUpdate);
+    return () => window.removeEventListener('tradepigeon_subscription_updated', handleSubUpdate);
+  }, [user]);
 
   useEffect(() => {
     const handleSoundToggle = (e) => {
@@ -216,57 +229,21 @@ export default function ProfileTab() {
   const handleStripeCheckout = async () => {
     soundFx.playPop();
     setIsProcessingStripe(true);
-    const monthlyUrl = import.meta.env.VITE_STRIPE_MONTHLY_LINK || 'https://buy.stripe.com/00w28t0HrfyO93VamV7ss01';
-    const emailParam = user?.email ? `?prefilled_email=${encodeURIComponent(user.email)}` : '';
-    const fallbackUrl = `${monthlyUrl}${emailParam}`;
-
     try {
-      const res = await fetch('/api/stripe/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plan: 'monthly',
-          customerEmail: user?.email || googleUser?.email || '',
-          userId: user?.uid || googleUser?.id || ''
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.url) {
-          window.location.href = data.url;
-          return;
-        }
-      }
+      await startCheckout('monthly', user?.email || googleUser?.email, user?.uid || googleUser?.id);
     } catch (err) {
-      console.warn('[Stripe Checkout] Dynamic checkout session creation fallback:', err);
-    } finally {
+      triggerToast(err.message);
       setIsProcessingStripe(false);
     }
-
-    window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleOpenBillingPortal = async () => {
     soundFx.playPop();
     setIsOpeningPortal(true);
     try {
-      const res = await fetch('/api/stripe/create-portal-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerEmail: user?.email || googleUser?.email || '',
-          returnUrl: window.location.href
-        })
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        triggerToast(data.error || 'Failed to initialize billing portal');
-      }
+      await openBillingPortal(user?.email || googleUser?.email, entitlement?.customerId);
     } catch (err) {
-      triggerToast('Billing service unavailable');
-    } finally {
+      triggerToast(err.message);
       setIsOpeningPortal(false);
     }
   };
@@ -393,8 +370,14 @@ export default function ProfileTab() {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-2xl sm:text-3xl font-black text-white">{activeUser?.name || 'Trader'}</h2>
-              <span className={`px-2.5 py-0.5 rounded-lg text-white text-[10px] font-black uppercase ${isPro ? 'bg-[#FF6B00] border border-[#C2410C]' : 'bg-[#58CC02]'}`}>
-                {isPro ? 'PRO SUBSCRIBER' : 'PROP TRADER'}
+              <span className={`px-2.5 py-0.5 rounded-lg text-white text-[10px] font-black uppercase ${
+                entitlement?.plan === 'PRO'
+                  ? 'bg-[#FF6B00] border border-[#C2410C]'
+                  : entitlement?.isTrial
+                  ? 'bg-[#58CC02] border border-[#388202]'
+                  : 'bg-rose-600 border border-rose-800'
+              }`}>
+                {entitlement?.badgeText || (isPro ? 'PRO SUBSCRIBER' : 'FREE PLAN')}
               </span>
             </div>
             {activeUser?.email && (
@@ -405,7 +388,7 @@ export default function ProfileTab() {
 
         <div className="flex flex-wrap items-center gap-3 shrink-0">
           <GoogleAuthButton className="py-2.5 text-xs" buttonText="Google Identity" />
-          {isPro ? (
+          {entitlement?.plan === 'PRO' ? (
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-[#58CC02]/20 border-2 border-[#58CC02] border-b-4 border-b-[#388202] text-xs font-black text-white shadow-md">
                 <CheckCircle2 size={15} className="text-[#58CC02]" />

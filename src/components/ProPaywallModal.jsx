@@ -1,0 +1,287 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  X, 
+  Check, 
+  Crown, 
+  Zap, 
+  BrainCircuit, 
+  ShieldCheck, 
+  BarChart3, 
+  Cloud, 
+  Sparkles,
+  Coins,
+  ArrowRight,
+  Lock
+} from 'lucide-react';
+import { soundFx } from '../utils/audioEngine';
+import { useAuth } from '../context/AuthContext';
+import { 
+  PRO_MONTHLY_PRICE, 
+  SHOP_COIN_PASS_COST, 
+  activateShopProPass 
+} from '../utils/subscriptionEngine';
+import { loadStoredData, STORAGE_KEYS, spendDisciplinePoints } from '../utils/storage';
+
+export default function ProPaywallModal({ 
+  isOpen, 
+  onClose, 
+  featureName = '', 
+  triggerContext = 'general' 
+}) {
+  const { user } = useAuth();
+  const [isProcessingStripe, setIsProcessingStripe] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [userCoins, setUserCoins] = useState(() => {
+    const stats = loadStoredData(STORAGE_KEYS.USER_STATS, { disciplinePoints: 0 });
+    return stats?.disciplinePoints || 0;
+  });
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const stats = loadStoredData(STORAGE_KEYS.USER_STATS, { disciplinePoints: 0 });
+      setUserCoins(stats?.disciplinePoints || 0);
+      setErrorMessage('');
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleStartStripeCheckout = async () => {
+    soundFx.playPop();
+    setIsProcessingStripe(true);
+    setErrorMessage('');
+
+    try {
+      const origin = window.location.origin;
+      const res = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planName: 'TradePigeon Pro Subscription',
+          priceAmount: PRO_MONTHLY_PRICE,
+          customerEmail: user?.email || '',
+          userId: user?.uid || '',
+          successUrl: `${origin}?session_id={CHECKOUT_SESSION_ID}&status=success`,
+          cancelUrl: `${origin}?status=cancelled`
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Payment service returned ${res.status}`);
+      }
+
+      const data = await res.json();
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      } else {
+        throw new Error('Checkout URL not provided by payment gateway.');
+      }
+    } catch (err) {
+      console.error('[Stripe Checkout Error]:', err);
+      setErrorMessage(err.message || 'Could not connect to Stripe. Please try again.');
+    } finally {
+      setIsProcessingStripe(false);
+    }
+  };
+
+  const handleRedeemWithCoins = async () => {
+    if (userCoins < SHOP_COIN_PASS_COST) {
+      soundFx.playWarning();
+      setErrorMessage(`You need ${SHOP_COIN_PASS_COST} Discipline Points to redeem a Pro Pass. You have ${userCoins} DP.`);
+      return;
+    }
+
+    soundFx.playPop();
+    const success = spendDisciplinePoints(SHOP_COIN_PASS_COST);
+    if (success) {
+      await activateShopProPass(user?.uid, userCoins - SHOP_COIN_PASS_COST);
+      soundFx.playTrophy();
+      setUserCoins(prev => Math.max(0, prev - SHOP_COIN_PASS_COST));
+      onClose();
+    } else {
+      setErrorMessage('Failed to deduct Discipline Points.');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+      <div 
+        className="w-full max-w-xl bg-[#0D1635] border-2 border-[#FF6B00] border-b-6 border-b-[#C2410C] rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden text-white"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Glow ambient background element */}
+        <div className="absolute -top-24 -right-24 w-60 h-60 bg-[#FF6B00]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-60 h-60 bg-[#58CC02]/10 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Close Button */}
+        <button
+          onClick={() => {
+            soundFx.playPop();
+            onClose();
+          }}
+          className="absolute top-5 right-5 p-2 rounded-2xl bg-[#1C2A4E] hover:bg-[#2A3B66] text-slate-400 hover:text-white transition-all cursor-pointer z-10"
+          title="Close Modal"
+        >
+          <X size={18} />
+        </button>
+
+        {/* Header Badge */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 rounded-2xl bg-[#FF6B00] border-2 border-[#FFA100] border-b-4 border-b-[#C2410C] flex items-center justify-center shadow-lg shrink-0">
+            <Crown size={24} className="text-white fill-white" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black tracking-widest text-[#FF6B00] uppercase">INSTITUTIONAL TIER</span>
+              <span className="px-2 py-0.5 rounded-full bg-[#58CC02]/20 border border-[#58CC02]/40 text-[#58CC02] text-[10px] font-black uppercase">
+                7-Day Free Trial
+              </span>
+            </div>
+            <h2 className="text-2xl font-black text-white tracking-tight">
+              TradePigeon PRO
+            </h2>
+          </div>
+        </div>
+
+        {/* Dynamic Context Banner if triggered by a specific feature */}
+        {featureName && (
+          <div className="mb-5 p-3 rounded-2xl bg-[#FF6B00]/10 border border-[#FF6B00]/30 flex items-center gap-3">
+            <Lock size={18} className="text-[#FF6B00] shrink-0" />
+            <p className="text-xs font-bold text-slate-200">
+              <strong className="text-[#FF6B00]">{featureName}</strong> is a TradePigeon Pro feature. Upgrade to unlock full access.
+            </p>
+          </div>
+        )}
+
+        {/* Value Proposition Description */}
+        <p className="text-sm font-bold text-slate-300 mb-6 leading-relaxed">
+          Prop firms fail 95% of traders due to discipline leaks and rule breaches. TradePigeon Pro gives you the institutional telemetry to pass and stay funded.
+        </p>
+
+        {/* Core Pro Features Grid */}
+        <div className="space-y-3 mb-6 bg-[#070C1E]/80 p-4 rounded-2xl border border-[#1C2A4E]">
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-lg bg-[#58CC02]/20 text-[#58CC02] flex items-center justify-center shrink-0 mt-0.5">
+              <Zap size={14} strokeWidth={3} />
+            </div>
+            <div className="text-xs">
+              <span className="font-black text-white">Automated Live Broker Sync:</span>{' '}
+              <span className="text-slate-300">Direct streaming from Tradovate, MT5, and prop firm accounts with zero manual entry.</span>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-lg bg-[#1CB0F6]/20 text-[#1CB0F6] flex items-center justify-center shrink-0 mt-0.5">
+              <BrainCircuit size={14} strokeWidth={3} />
+            </div>
+            <div className="text-xs">
+              <span className="font-black text-white">Gemini AI Psychological Debriefs:</span>{' '}
+              <span className="text-slate-300">Deep behavioral post-market coaching to eradicate tilt, FOMO, and revenge trading.</span>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-lg bg-[#FF6B00]/20 text-[#FF6B00] flex items-center justify-center shrink-0 mt-0.5">
+              <ShieldCheck size={14} strokeWidth={3} />
+            </div>
+            <div className="text-xs">
+              <span className="font-black text-white">Prop Firm Trailing Drawdown HUD:</span>{' '}
+              <span className="text-slate-300">Intraday peak-to-trough drawdown protection with hard rule violation lockouts.</span>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-lg bg-[#FFA100]/20 text-[#FFA100] flex items-center justify-center shrink-0 mt-0.5">
+              <BarChart3 size={14} strokeWidth={3} />
+            </div>
+            <div className="text-xs">
+              <span className="font-black text-white">Playbook Expectancy Matrix:</span>{' '}
+              <span className="text-slate-300">Statistical breakdown of your edge by setup, time-of-day, and market regime.</span>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+              <Cloud size={14} strokeWidth={3} />
+            </div>
+            <div className="text-xs">
+              <span className="font-black text-white">Multi-Device Cloud Journal:</span>{' '}
+              <span className="text-slate-300">Seamless real-time synchronization across your phone, tablet, and desktop.</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Pricing & Guarantee Bar */}
+        <div className="flex items-center justify-between p-4 rounded-2xl bg-[#14203E] border border-[#20325C] mb-6">
+          <div>
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">MONTHLY PASS</div>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-3xl font-black text-white">${PRO_MONTHLY_PRICE}</span>
+              <span className="text-xs font-bold text-slate-400">/ month</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="inline-flex items-center gap-1 text-[11px] font-black text-[#58CC02] bg-[#58CC02]/10 border border-[#58CC02]/30 px-2.5 py-1 rounded-full">
+              <Sparkles size={12} />
+              7-Day Free Trial
+            </span>
+            <div className="text-[10px] font-bold text-slate-400 mt-1">Cancel anytime in 1 click</div>
+          </div>
+        </div>
+
+        {/* Error Notification */}
+        {errorMessage && (
+          <div className="p-3 mb-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold">
+            {errorMessage}
+          </div>
+        )}
+
+        {/* Primary Action Button */}
+        <div className="space-y-3">
+          <button
+            onClick={handleStartStripeCheckout}
+            disabled={isProcessingStripe}
+            className="w-full py-4 px-6 rounded-2xl bg-[#58CC02] hover:bg-[#46A302] border-2 border-[#46A302] border-b-4 border-b-[#347A01] text-white text-base font-black tracking-wide shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-3 disabled:opacity-50"
+          >
+            {isProcessingStripe ? (
+              <span>Connecting to Secure Checkout...</span>
+            ) : (
+              <>
+                <span>Start 7-Day Free Trial ($9.99/mo)</span>
+                <ArrowRight size={18} strokeWidth={3} />
+              </>
+            )}
+          </button>
+
+          {/* Secondary Coin Shop Option */}
+          {userCoins >= SHOP_COIN_PASS_COST && (
+            <button
+              onClick={handleRedeemWithCoins}
+              className="w-full py-3 px-4 rounded-2xl bg-[#FF6B00]/15 hover:bg-[#FF6B00]/25 border border-[#FF6B00]/40 text-[#FF6B00] text-xs font-black tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Coins size={16} />
+              <span>Redeem 30 Days with {SHOP_COIN_PASS_COST} Coins (You have {userCoins} DP)</span>
+            </button>
+          )}
+        </div>
+
+        {/* Footer Fine Print */}
+        <div className="mt-4 text-center text-[10px] font-bold text-slate-400">
+          Secured by Stripe 256-bit encryption &bull; No commitment &bull; Instant activation
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -13,12 +13,14 @@ import { saveStoredData, loadStoredData, subscribeToStorageUpdate } from '../uti
 
 import GoogleAuthButton from './GoogleAuthButton';
 import AuthModal from './AuthModal';
+import { startCheckout } from '../utils/proStatus';
 
 export default function LandingPage({ onGetStarted, onLogin }) {
   const [loggedInUser, setLoggedInUser] = useState(() => loadStoredData('tradepigeon_auth_user', null) || loadStoredData('tradepigeon_google_user', null));
   const [isLegalTermsOpen, setIsLegalTermsOpen] = useState(false);
   const [isLegalPrivacyOpen, setIsLegalPrivacyOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [pendingCheckoutPlan, setPendingCheckoutPlan] = useState(null);
   const [authMode, setAuthMode] = useState('SIGN_IN');
   const [billingCycle, setBillingCycle] = useState('MONTHLY'); // Default: $9.99 / month
   const [activeRoadmapIndex, setActiveRoadmapIndex] = useState(0);
@@ -73,38 +75,27 @@ export default function LandingPage({ onGetStarted, onLogin }) {
 
   const handleStart = (userObj = loggedInUser) => {
     soundFx.playSuccess();
+    if (pendingCheckoutPlan && userObj?.email) {
+      startCheckout(pendingCheckoutPlan).catch(err => alert(err.message));
+      return;
+    }
     onGetStarted(userObj);
   };
 
   const handleStripeCheckout = async (overrideCycle) => {
     soundFx.playSuccess();
-    const cycle = overrideCycle || billingCycle;
-    const monthlyUrl = import.meta.env.VITE_STRIPE_MONTHLY_LINK || 'https://buy.stripe.com/00w28t0HrfyO93VamV7ss01';
-    const annualUrl = import.meta.env.VITE_STRIPE_ANNUAL_LINK || 'https://buy.stripe.com/eVqbJ3bm5aeu2Fx52B7ss02';
-    const fallbackUrl = cycle === 'ANNUAL' ? annualUrl : (monthlyUrl || annualUrl);
-
-    try {
-      const res = await fetch('/api/stripe/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plan: cycle === 'ANNUAL' ? 'annual' : 'monthly',
-          customerEmail: loggedInUser?.email,
-          userId: loggedInUser?.id || loggedInUser?.uid
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.url) {
-          window.location.href = data.url;
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn('[Stripe Checkout] Server endpoint unreachable, using direct checkout link:', err);
+    const plan = (overrideCycle || billingCycle) === 'ANNUAL' ? 'annual' : 'monthly';
+    if (!loggedInUser?.email) {
+      // Trial needs an account: sign in first, then continue to checkout.
+      setPendingCheckoutPlan(plan);
+      setIsAuthModalOpen(true);
+      return;
     }
-
-    window.location.href = fallbackUrl;
+    try {
+      await startCheckout(plan);
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   return (

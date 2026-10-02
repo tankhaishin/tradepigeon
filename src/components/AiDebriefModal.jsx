@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, AlertTriangle, AlertCircle, ShieldCheck, CheckCircle2, ChevronRight, Award, X } from 'lucide-react';
+import { Sparkles, AlertTriangle, AlertCircle, ShieldCheck, CheckCircle2, ChevronRight, Award, X, Crown, Lock } from 'lucide-react';
 import { Duo3dZenBadge, Duo3dPulseBadge, Duo3dCrosshairBadge, Duo3dRocketBadge } from './GamifiedFeatureBadges';
 import { loadStoredData, saveStoredData } from '../utils/storage';
 import { formatFinancialCurrency, parseFinancialNumber } from '../utils/financialMath';
 import { soundFx } from '../utils/audioEngine';
+import { isProActive } from '../utils/proStatus';
 
 import { generateIntelligentSessionDebrief } from '../utils/aiDebriefEngine';
 import { generateAiDebriefWithGemini } from '../utils/geminiAiEngine';
@@ -89,6 +90,33 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
     setIsAnalyzing(true);
     soundFx.playPop();
     const trades = getDayTrades();
+    const proUser = isProActive();
+
+    if (!proUser) {
+      // Free Tier / Expired Trial: run deterministic Rule Auditor and flag Pro upsell
+      const fallback = generateIntelligentSessionDebrief({
+        trades,
+        emotion,
+        followedPlan,
+        selectedMood,
+        notes
+      });
+      setAiReportObj({
+        integrityAnalysis: fallback,
+        psychologicalAnalysis: 'Upgrade to TradePigeon Pro or redeem a 30-Day Pro Pass for deep Gemini 1.5 Flash cognitive bias analysis and tactical recommendations.',
+        actionableRecommendations: [
+          'Maintain static position sizing according to your risk parameters',
+          'Review executed fills against pre-market playbook levels'
+        ],
+        isRealAi: false,
+        aiModel: 'Process Rule Auditor (Free Tier)',
+        isLockedForPro: true
+      });
+      setAiReport(fallback);
+      setIsAnalyzing(false);
+      setAiReportGenerated(true);
+      return;
+    }
 
     try {
       const report = await generateAiDebriefWithGemini({
@@ -394,6 +422,35 @@ export default function AiDebriefModal({ isOpen = true, onClose, selectedMood, o
                 </div>
               )}
             </div>
+
+            {/* Pro Upgrade Callout if not Pro */}
+            {(!isProActive() || aiReportObj?.isLockedForPro) && (
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-[#FF6B00]/15 to-amber-500/15 border-2 border-[#FF6B00]/40 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Crown size={16} className="text-[#FFC800] fill-[#FFC800]" />
+                    <span className="text-xs font-black text-white uppercase tracking-wider">Deep Gemini AI Diagnostics</span>
+                  </div>
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-[#FFC800]/20 text-[#FFC800] border border-[#FFC800]/40">
+                    PRO FEATURE
+                  </span>
+                </div>
+                <p className="text-[11px] font-bold text-slate-300 leading-relaxed">
+                  Free tier includes deterministic process scoring. Upgrade to TradePigeon Pro ($9.99/mo) or activate a 30-Day Pro Pass for full generative psychological coaching and custom tactical directives.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundFx.playPop();
+                    window.dispatchEvent(new CustomEvent('tradepigeon_open_paywall'));
+                  }}
+                  className="duo-btn-green w-full py-2.5 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                >
+                  <Crown size={14} className="text-white fill-white" />
+                  <span>Start 7-Day Free Trial / Upgrade ($9.99)</span>
+                </button>
+              </div>
+            )}
 
             {/* Behavioral Diagnostic Card */}
             <div className="p-5 rounded-3xl bg-[#142127] border-2 border-[#20323D] space-y-4">
