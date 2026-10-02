@@ -238,21 +238,6 @@ export default function SetupsTab() {
     return base;
   }, [connectedAccounts]);
 
-  // Modal Escape Key Dismissal & Global Paste Listener
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        if (attachingChartTrade) setAttachingChartTrade(null);
-        if (activeChartLightbox) setActiveChartLightbox(null);
-        if (isNewSetupModalOpen) setIsNewSetupModalOpen(false);
-        if (selectedSetup) setSelectedSetup(null);
-        if (isCsvModalOpen) setIsCsvModalOpen(false);
-        if (taggingTrade) setTaggingTrade(null);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [attachingChartTrade, activeChartLightbox, isNewSetupModalOpen, selectedSetup, isCsvModalOpen, taggingTrade]);
 
   const handleImagePaste = (e) => {
     const clipboardData = e.clipboardData || window.clipboardData;
@@ -506,6 +491,22 @@ export default function SetupsTab() {
   const [isNewSetupModalOpen, setIsNewSetupModalOpen] = useState(false);
   const [newSetupName, setNewSetupName] = useState('');
   const [newSetupRules, setNewSetupRules] = useState('');
+
+  // Escape closes any open modal (declared after all the modal state it reads)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (attachingChartTrade) setAttachingChartTrade(null);
+        if (activeChartLightbox) setActiveChartLightbox(null);
+        if (isNewSetupModalOpen) setIsNewSetupModalOpen(false);
+        if (selectedSetup) setSelectedSetup(null);
+        if (isCsvModalOpen) setIsCsvModalOpen(false);
+        if (taggingTrade) setTaggingTrade(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [attachingChartTrade, activeChartLightbox, isNewSetupModalOpen, selectedSetup, isCsvModalOpen, taggingTrade]);
 
   const handleCreateNewSetup = (e) => {
     e.preventDefault();
