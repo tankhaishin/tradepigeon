@@ -46,13 +46,14 @@ export default function TopStatBar({ onOpenRulesModal, onNavigateTab }) {
           type="button"
           onClick={() => {
             soundFx.playPop();
-            if (typeof onNavigateTab === 'function') onNavigateTab('quests');
+            if (typeof onNavigateTab === 'function') onNavigateTab('learn');
           }}
-          className="flex items-center justify-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95 transition-all" 
-          title={`Trader Level ${stats.level || 1} — View Quests & Milestones`}
+          className="flex flex-wrap items-center justify-center gap-x-1.5 cursor-pointer hover:scale-105 active:scale-95 transition-all" 
+          title={`Level ${stats.level || 1}`}
         >
           <DuoStarIcon className="w-5 h-5 sm:w-6 sm:h-6 shrink-0 drop-shadow-md" />
           <span className="text-sm sm:text-base font-black text-white">{stats.level || 1}</span>
+          <span className="w-full text-center text-[8px] font-bold uppercase tracking-wider text-slate-500 leading-none">Level</span>
         </button>
 
         {/* Item 2: Streak Flame -> Leaderboard */}
@@ -60,13 +61,14 @@ export default function TopStatBar({ onOpenRulesModal, onNavigateTab }) {
           type="button"
           onClick={() => {
             soundFx.playPop();
-            if (typeof onNavigateTab === 'function') onNavigateTab('leaderboard');
+            if (typeof onNavigateTab === 'function') onNavigateTab('calendar');
           }}
-          className="flex items-center justify-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95 transition-all" 
-          title={`Discipline Streak: ${stats.streakDays || 0} Consecutive Sessions — View Personal League`}
+          className="flex flex-wrap items-center justify-center gap-x-1.5 cursor-pointer hover:scale-105 active:scale-95 transition-all" 
+          title={`${stats.streakDays || 0}-day discipline streak`}
         >
           <DuoLightningIcon className="w-5 h-5 sm:w-6 sm:h-6 shrink-0 drop-shadow-md" />
           <span className="text-sm sm:text-base font-black text-[#FF6B00]">{stats.streakDays || 0}</span>
+          <span className="w-full text-center text-[8px] font-bold uppercase tracking-wider text-slate-500 leading-none">Streak</span>
         </button>
 
         {/* Item 3: Gems / DP -> Shop */}
@@ -74,13 +76,14 @@ export default function TopStatBar({ onOpenRulesModal, onNavigateTab }) {
           type="button"
           onClick={() => {
             soundFx.playPop();
-            if (typeof onNavigateTab === 'function') onNavigateTab('shop');
+            if (typeof onNavigateTab === 'function') onNavigateTab('learn');
           }}
-          className="flex items-center justify-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95 transition-all" 
-          title={`Discipline Points: ${stats.disciplinePoints || 0} DP — Visit Duolingo Shop`}
+          className="flex flex-wrap items-center justify-center gap-x-1.5 cursor-pointer hover:scale-105 active:scale-95 transition-all" 
+          title={`${stats.disciplinePoints || 0} XP`}
         >
           <DuoGemIcon className="w-5 h-5 sm:w-6 sm:h-6 shrink-0 drop-shadow-md" />
           <span className="text-sm sm:text-base font-black text-[#1CB0F6]">{formatPoints(stats.disciplinePoints)}</span>
+          <span className="w-full text-center text-[8px] font-bold uppercase tracking-wider text-slate-500 leading-none">XP</span>
         </button>
 
         {/* Item 4: Disciplined Trades -> Cockpit */}
@@ -95,10 +98,11 @@ export default function TopStatBar({ onOpenRulesModal, onNavigateTab }) {
             }
           }}
           className="flex items-center justify-center gap-1.5 hover:scale-105 cursor-pointer transition-all active:scale-95"
-          title={`Disciplined Trades: ${stats.tradesLogged || 0} Taken — Open Cockpit`}
+          title={`${stats.tradesLogged || 0} trades logged`}
         >
           <DuoShieldIcon className="w-5 h-5 sm:w-6 sm:h-6 shrink-0 drop-shadow-md" />
           <span className="text-sm sm:text-base font-black text-[#58CC02]">{stats.tradesLogged || 0}</span>
+          <span className="w-full text-center text-[8px] font-bold uppercase tracking-wider text-slate-500 leading-none">Trades</span>
         </button>
 
         {/* Item 5: Pro / Trial Pill */}

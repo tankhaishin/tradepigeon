@@ -704,7 +704,8 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
       )}
 
         {/* DUOLINGO COMPACT TOP HORIZONTAL STAT PILL BAR (EXACT MATCH WITH REAL DUOLINGO HEADER) */}
-        <div className="grid grid-cols-4 gap-2">
+        {/* On phones these counters live in the top bar */}
+        <div className="hidden lg:grid grid-cols-4 gap-2">
           {/* Item 1: Season / Level Badge */}
           <div className="flex flex-wrap items-center justify-center gap-x-1.5 p-2 rounded-2xl bg-[#182830] border-2 border-[#20323D] border-b-4 border-b-[#142127] shadow-sm" title={`Trader Level ${userStats.level || 1}`}>
             <DuoStarIcon className="w-5 h-5 shrink-0" />
