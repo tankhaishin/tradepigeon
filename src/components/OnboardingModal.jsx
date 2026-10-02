@@ -1,16 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoPlusIcon 
-} from './DuoIcons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoPlusIcon } from './DuoIcons';
 import InteractiveParrotMascot from './InteractiveParrotMascot';
-import { ShieldCheck, ArrowRight, Sparkles, Check, CheckCircle2, ShieldAlert, Key, Zap, Lock, Server, RefreshCw, Activity, ExternalLink, X, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowRight, Check, X } from 'lucide-react';
 import { sendDiscordSignupAlert } from '../utils/discordWebhook';
-import GoogleAuthButton from './GoogleAuthButton';
-import { TradovateLogo, MetaTrader5Logo, NinjaTraderLogo, CsvLogo } from './BrokerLogos';
+
 import { loadStoredData, saveStoredData, safeRemoveItem, STORAGE_KEYS } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
-import { detectPlatformFromAccountId } from '../utils/platformDetector';
-import { parseFinancialNumber, formatBalance } from '../utils/financialMath';
 
 export default function OnboardingModal({ isOpen, onComplete }) {
   const initialDraft = loadStoredData(STORAGE_KEYS.ONBOARDING_DRAFT, {});
@@ -23,20 +18,8 @@ export default function OnboardingModal({ isOpen, onComplete }) {
   const [customPlaybookName, setCustomPlaybookName] = useState(() => initialDraft.customPlaybookName || '');
 
   // Step 4 Live Broker Sync State
-  const [connectingBroker, setConnectingBroker] = useState(null);
-  const [authSuccess, setAuthSuccess] = useState(false);
-  const [selectedPlatform, setSelectedPlatform] = useState(null);
-  const brokerPopupRef = useRef(null);
 
   // Form Fields
-  const [env, setEnv] = useState('LIVE');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [capital, setCapital] = useState('50000');
-  const [subAccountCount, setSubAccountCount] = useState('1');
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState('');
 
   // Auto-persist step and uncommitted draft inputs
   useEffect(() => {
@@ -90,27 +73,6 @@ export default function OnboardingModal({ isOpen, onComplete }) {
   }, [customPlaybookName, customMaxDailyLoss, riskType, tradingStyle, onComplete]);
 
   useEffect(() => {
-    const handleOAuthMessage = (event) => {
-      if (event.data?.type === 'TRADEPIGEON_BROKER_OAUTH_SUCCESS') {
-        const { account, accounts } = event.data;
-        const allAccounts = accounts && accounts.length > 0 ? accounts : (account ? [account] : []);
-        if (allAccounts.length > 0) {
-          soundFx.playSuccess();
-          setAuthSuccess(true);
-          setConnectingBroker(null);
-
-          setTimeout(() => {
-            handleFinishOnboarding(false, allAccounts[0], allAccounts);
-          }, 1200);
-        }
-      }
-    };
-
-    window.addEventListener('message', handleOAuthMessage);
-    return () => window.removeEventListener('message', handleOAuthMessage);
-  }, [handleFinishOnboarding]);
-
-  useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
@@ -146,92 +108,6 @@ export default function OnboardingModal({ isOpen, onComplete }) {
       icon: DuoChestIcon,
     }
   ];
-
-  const platforms = [
-    { 
-      id: 'tradovate', 
-      name: 'Tradovate', 
-      icon: TradovateLogo, 
-      badge: 'DIRECT API'
-    },
-    { 
-      id: 'ninjatrader', 
-      name: 'NinjaTrader', 
-      icon: NinjaTraderLogo, 
-      badge: 'DIRECT API'
-    },
-    { 
-      id: 'propfirms', 
-      name: 'Apex / TopStep / Prop Firms', 
-      icon: TradovateLogo, 
-      badge: 'PROP FIRMS'
-    }
-  ];
-
-  const handleSelectPlatform = (platform) => {
-    soundFx.playPop();
-    setSelectedPlatform(platform);
-    setUsername('');
-    setCapital('50000');
-    setSubAccountCount('1');
-    setShowAdvanced(false);
-    setFormError('');
-  };
-
-  const handleDirectAuthSubmit = (e) => {
-    e.preventDefault();
-    if (!username.trim()) {
-      setFormError('Please enter your Account Username or Login ID');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setFormError('');
-    soundFx.playPop();
-
-    setTimeout(() => {
-      const rawBalance = parseFinancialNumber(capital, 50000);
-      const formattedBalance = formatBalance(rawBalance);
-
-      // Support comma-separated account numbers or multi-account expansion
-      let rawAccList = username.split(',').map(s => s.trim()).filter(Boolean);
-      if (rawAccList.length === 0) {
-        rawAccList = [username.trim()];
-      }
-
-      const countNum = parseInt(subAccountCount, 10) || 1;
-      if (rawAccList.length === 1 && countNum > 1) {
-        const baseName = rawAccList[0];
-        rawAccList = Array.from({ length: countNum }, (_, i) => `${baseName}-${(i + 1).toString().padStart(2, '0')}`);
-      }
-
-      const createdAccounts = rawAccList.map((accNum, idx) => ({
-        id: `BROKER-${Date.now().toString().slice(-6)}-${idx + 1}`,
-        name: `${selectedPlatform.name} (${accNum})`,
-        broker: `${selectedPlatform.name} (${env})`,
-        platformId: selectedPlatform.id,
-        accountNumber: accNum,
-        status: 'SYNCED (LIVE)',
-        balance: formattedBalance,
-        pnl: '+$0.00',
-        connectedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-      }));
-
-      soundFx.playSuccess();
-      setIsSubmitting(false);
-      setAuthSuccess(true);
-
-      setTimeout(() => {
-        handleFinishOnboarding(false, createdAccounts[0], createdAccounts);
-      }, 1400);
-    }, 1200);
-  };
-
-  const handleLaunchOfficialSite = () => {
-    if (selectedPlatform?.url) {
-      window.open(selectedPlatform.url, '_blank', 'noopener,noreferrer');
-    }
-  };
 
   return (
     <div 
@@ -293,10 +169,10 @@ export default function OnboardingModal({ isOpen, onComplete }) {
               className="w-11 h-11 shrink-0" 
             />
             <span className="text-xs font-black uppercase tracking-wider text-slate-300">
-              {step === 1 && 'Trading Strategy'}
-              {step === 2 && 'Daily Risk Limit'}
-              {step === 3 && 'Name Playbook'}
-              {step === 4 && 'Connect Broker'}
+              {step === 1 && 'Your strategy'}
+              {step === 2 && 'Daily loss limit'}
+              {step === 3 && 'Name it'}
+              {step === 4 && 'Your trades'}
             </span>
           </div>
           <span className="text-xs font-black font-mono text-[#FF6B00]">Step {step} of 4</span>
@@ -305,17 +181,6 @@ export default function OnboardingModal({ isOpen, onComplete }) {
         {/* STEP 1: TRADING METHODOLOGY PRESETS */}
         {step === 1 && (
           <div className="space-y-5 animate-fade-in">
-            <div className="p-4 rounded-2xl bg-[#182830] border-2 border-[#FF6B00]/40 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
-              <div>
-                <div className="text-xs font-black text-white text-center sm:text-left flex items-center gap-1.5">
-                  <ShieldCheck size={14} className="text-[#58CC02]" />
-                  <span>Sign in with Google to Secure Your Account</span>
-                </div>
-                <div className="text-[10px] font-bold text-slate-400 text-center sm:text-left">1-tap authentication & cloud backup for your trade logs</div>
-              </div>
-              <GoogleAuthButton className="py-2.5 text-xs shrink-0 w-full sm:w-auto" buttonText="Sign in with Google" />
-            </div>
-
             <div className="text-center sm:text-left">
               <h2 className="text-2xl font-black text-white">Choose Your Trading Strategy</h2>
             </div>
@@ -472,289 +337,30 @@ export default function OnboardingModal({ isOpen, onComplete }) {
           </div>
         )}
 
-        {/* STEP 4: REAL BROKER LIVE SOCKET AUTO-SYNC STEP */}
+        {/* STEP 4: HOW TRADES COME IN (honest: file import or manual; broker auto-sync is coming soon) */}
         {step === 4 && (
-          <div className="space-y-5 animate-fade-in">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-black text-white">
-                  {selectedPlatform ? `Connect ${selectedPlatform.name}` : 'Connect Broker'}
-                </h2>
-                {selectedPlatform && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPlatform(null)}
-                    className="p-1.5 rounded-xl bg-[#142127] border border-[#20323D] text-slate-300 hover:text-white cursor-pointer transition-all flex items-center gap-1 text-xs font-bold"
-                  >
-                    <ArrowLeft size={14} />
-                    <span>Change Broker</span>
-                  </button>
-                )}
-              </div>
-            </div>
+          <div className="space-y-4 animate-fade-in">
+            <h2 className="text-xl font-black text-white">Bring in your trades</h2>
 
-            {authSuccess ? (
-              <div className="p-4 text-center bg-[#58CC02]/20 border-2 border-[#58CC02] rounded-2xl space-y-1 animate-fade-in">
-                <div className="text-sm font-black text-[#58CC02] flex items-center justify-center gap-2">
-                  <CheckCircle2 size={18} />
-                  <span>Broker Connected!</span>
-                </div>
-                <div className="text-xs font-bold text-slate-300">Completing onboarding setup...</div>
-              </div>
-            ) : selectedPlatform ? (
-              /* OFFICIAL BROKER DOMAIN AUTHENTICATION VIEW */
-              <form onSubmit={handleDirectAuthSubmit} className="space-y-4 animate-fade-in text-left">
-                {/* Official Broker Banner */}
-                <div className="p-4 rounded-2xl bg-[#142127] border-2 border-[#58CC02]/40 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <selectedPlatform.icon className="w-8 h-8 object-contain shrink-0" />
-                      <div>
-                        <div className="text-sm font-black text-white flex items-center gap-1.5">
-                          <span>{selectedPlatform.name} Official Portal</span>
-                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-[#58CC02]/20 text-[#58CC02] border border-[#58CC02]/30">
-                            OFFICIAL DOMAIN
-                          </span>
-                        </div>
-                        <div className="text-[10px] font-bold text-slate-400">{selectedPlatform.url}</div>
-                      </div>
-                    </div>
+            <button
+              onClick={() => { handleFinishOnboarding(true); setTimeout(() => window.dispatchEvent(new CustomEvent('tradepigeon_open_import')), 300); }}
+              className="w-full p-5 rounded-2xl bg-[#1CB0F6] border-b-4 border-[#1480B3] text-left cursor-pointer active:translate-y-0.5 transition-all"
+            >
+              <div className="text-base font-black text-white">Import a file</div>
+              <div className="text-xs font-bold text-white/80">Tradovate or NinjaTrader export (CSV)</div>
+            </button>
 
-                    <button
-                      type="button"
-                      onClick={handleLaunchOfficialSite}
-                      className="px-3 py-2 rounded-xl bg-[#58CC02] text-white text-xs font-black hover:bg-[#46a302] cursor-pointer flex items-center gap-1.5 transition-all shadow-md shrink-0"
-                    >
-                      <ExternalLink size={14} />
-                      <span>Open Official Site</span>
-                    </button>
-                  </div>
+            <button
+              onClick={() => handleFinishOnboarding(true)}
+              className="w-full p-5 rounded-2xl bg-[#142127] border-2 border-[#20323D] text-left cursor-pointer hover:border-[#37464F] transition-all"
+            >
+              <div className="text-base font-black text-white">Add trades by hand</div>
+              <div className="text-xs font-bold text-slate-400">Log each trade after you take it</div>
+            </button>
 
-                  <div className="p-3 rounded-xl bg-[#0b1318] border border-[#20323D] text-[11px] font-bold text-slate-300 leading-relaxed space-y-1.5">
-                    <div className="text-[#58CC02] font-black flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <ShieldCheck size={14} />
-                        <span>1-Click Session Auto-Sync</span>
-                      </span>
-                      <span className="text-[10px] font-mono text-white bg-[#58CC02]/20 px-2 py-0.5 rounded border border-[#58CC02]/40">
-                        {username || selectedPlatform.sampleAcc}
-                      </span>
-                    </div>
-                    <p>
-                      Sign in on <strong>{selectedPlatform.name}'s official portal ({selectedPlatform.url})</strong>. TradePigeon auto-links your session ID <strong>{username || selectedPlatform.sampleAcc}</strong> — zero password entry needed!
-                    </p>
-                    <div className="text-[10px] text-[#FF6B00] font-black pt-1 border-t border-[#20323D]/60 flex items-center gap-1.5">
-                      <Zap size={12} className="text-[#FF6B00]" />
-                      <span>Direct In-App Sync:</span>
-                      <span className="text-slate-300 font-bold">Fills track automatically into your session hub.</span>
-                    </div>
-                  </div>
-                </div>
+            <div className="text-xs font-bold text-slate-500 text-center">Broker auto-sync is coming soon.</div>
 
-                {formError && (
-                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-bold flex items-center gap-2">
-                    <ShieldAlert size={16} />
-                    <span>{formError}</span>
-                  </div>
-                )}
-
-                {/* Environment Toggle Pill */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                    Account Environment
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setEnv('LIVE')}
-                      className={`py-2.5 px-4 rounded-xl border-2 font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                        env === 'LIVE' 
-                          ? 'bg-[#58CC02]/20 border-[#58CC02] text-[#58CC02]' 
-                          : 'bg-[#142127] border-[#20323D] text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${env === 'LIVE' ? 'bg-[#58CC02] animate-pulse' : 'bg-slate-500'}`} />
-                      <span>Live Funded Account</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEnv('DEMO')}
-                      className={`py-2.5 px-4 rounded-xl border-2 font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                        env === 'DEMO' 
-                          ? 'bg-[#FF6B00]/20 border-[#FF6B00] text-[#FF6B00]' 
-                          : 'bg-[#142127] border-[#20323D] text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${env === 'DEMO' ? 'bg-[#FF6B00]' : 'bg-slate-500'}`} />
-                      <span>Demo / Evaluation</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Core Account Number / ID Field */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                      {selectedPlatform.name} Account ID(s) <span className="text-slate-500 font-normal">(Single or Comma-Separated)</span>
-                    </label>
-                    <span className="text-[9px] font-bold text-[#58CC02] flex items-center gap-1">
-                      <CheckCircle2 size={10} />
-                      <span>Auto-Detected ID</span>
-                    </span>
-                  </div>
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="e.g. 1092834, 1092835"
-                    className="w-full p-3.5 rounded-xl bg-[#142127] border-2 border-[#58CC02]/50 text-white font-black text-xs outline-none focus:border-[#58CC02]"
-                    required
-                    autoFocus
-                  />
-
-                  <div className="text-[10px] text-slate-400 font-semibold flex items-center gap-1.5 px-1">
-                    <Sparkles size={11} className="text-[#00E5FF] shrink-0" />
-                    <span><strong>Multi-Account Sync:</strong> Separate multiple sub-accounts with commas (e.g. ACC1, ACC2)</span>
-                  </div>
-
-                  {username.trim() && detectPlatformFromAccountId(username) && (
-                    <div className="p-2 rounded-xl bg-[#00E5FF]/10 border border-[#00E5FF]/30 text-[#00E5FF] text-[10px] font-black flex items-center justify-between animate-fade-in">
-                      <div className="flex items-center gap-1.5">
-                        <Sparkles size={12} className="animate-spin text-[#00E5FF]" />
-                        <span>Auto-Identified: {detectPlatformFromAccountId(username).name}</span>
-                      </div>
-                      <span className="text-[9px] uppercase px-2 py-0.5 rounded bg-[#00E5FF]/20 font-black border border-[#00E5FF]/40">
-                        {detectPlatformFromAccountId(username).badge}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Optional Collapsible Advanced Multi-Account Settings */}
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowAdvanced(!showAdvanced)}
-                    className="text-[11px] font-bold text-slate-400 hover:text-white flex items-center gap-1.5 cursor-pointer py-1"
-                  >
-                    {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    <span>{showAdvanced ? 'Hide Advanced Options' : 'Optional: Advanced Multi-Account Batch Import'}</span>
-                  </button>
-
-                  {showAdvanced && (
-                    <div className="space-y-3.5 pt-2 p-[#142127]/60 border border-[#20323D] animate-fade-in p-3.5 rounded-2xl">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                          Number of Sub-Accounts (Prop Firm Batch Import)
-                        </label>
-                        <select
-                          value={subAccountCount}
-                          onChange={(e) => setSubAccountCount(e.target.value)}
-                          className="w-full p-2.5 rounded-xl bg-[#142127] border border-[#20323D] text-white font-bold text-xs outline-none focus:border-[#FF6B00]"
-                        >
-                          <option value="1">1 Account (Single Account)</option>
-                          <option value="2">2 Sub-Accounts (Auto-create ACC-01, ACC-02)</option>
-                          <option value="3">3 Sub-Accounts (Auto-create ACC-01 to ACC-03)</option>
-                          <option value="5">5 Sub-Accounts (Auto-create ACC-01 to ACC-05)</option>
-                          <option value="10">10 Sub-Accounts (Auto-create ACC-01 to ACC-10)</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                          Starting Capital ($)
-                        </label>
-                        <input
-                          type="number"
-                          value={capital}
-                          onChange={(e) => setCapital(e.target.value)}
-                          placeholder="50000"
-                          className="w-full p-2.5 rounded-xl bg-[#142127] border border-[#20323D] text-white font-bold text-xs outline-none focus:border-[#FF6B00]"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Primary Submit Button */}
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="duo-btn-green w-full py-4 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-lg mt-2"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <RefreshCw size={16} className="animate-spin" />
-                      <span>Syncing Account {username}...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Zap size={16} />
-                      <span>Connect {selectedPlatform.name}</span>
-                    </>
-                  )}
-                </button>
-              </form>
-            ) : (
-              /* Platform Selector Grid */
-              <div className="grid grid-cols-2 gap-2.5">
-                {platforms.map((p) => {
-                  const PlatformIcon = p.icon;
-                  const isConnecting = connectingBroker === p.id;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => handleSelectPlatform(p)}
-                      className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between space-y-3 group ${
-                        isConnecting 
-                          ? 'bg-[#FF6B00]/20 border-[#FF6B00] scale-[1.01]' 
-                          : 'bg-[#142127] border-[#20323D] hover:border-[#FF6B00] hover:bg-[#FF6B00]/10'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <PlatformIcon className="w-8 h-8 shrink-0 object-contain" />
-                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-[#FF6B00]/20 text-[#FF6B00] border border-[#FF6B00]/30 flex items-center gap-1">
-                          <span>{p.badge}</span>
-                          <Zap size={10} />
-                        </span>
-                      </div>
-
-                      <div className="text-xs font-black text-white group-hover:text-[#FF6B00] transition-colors flex items-center justify-between">
-                        <span>{p.name}</span>
-                        {isConnecting && <RefreshCw size={14} className="animate-spin text-[#FF6B00]" />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => handleFinishOnboarding(true)}
-                className="text-xs font-bold text-slate-400 hover:text-white underline cursor-pointer py-2"
-              >
-                Skip for now & start session
-              </button>
-
-              <div className="flex gap-2 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (selectedPlatform) {
-                      setSelectedPlatform(null);
-                    } else {
-                      setStep(3);
-                    }
-                  }}
-                  className="px-5 py-3 rounded-2xl bg-[#142127] border-2 border-[#20323D] text-xs font-black text-[#52656D] hover:text-white cursor-pointer"
-                >
-                  Back
-                </button>
-              </div>
-            </div>
+            <button onClick={() => setStep(3)} className="w-full py-3 text-xs font-black uppercase text-slate-400 hover:text-white cursor-pointer">Back</button>
           </div>
         )}
 
