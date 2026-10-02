@@ -227,7 +227,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
             </div>
             <div className="duo-card flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] ">
               <CsvLogo className="w-4 h-4" />
-              <span>Any CSV</span>
+              <span>CSV template</span>
             </div>
           </div>
 
@@ -579,7 +579,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                   <div className="w-6 h-6 rounded-xl bg-[#58CC02] border border-[#58CC02] border-b-4 border-b-[#3C8901] flex items-center justify-center text-white shrink-0 shadow-md">
                     <Check size={14} strokeWidth={4} />
                   </div>
-                  <span>Pro: import from Tradovate, NinjaTrader or any CSV, unlimited accounts</span>
+                  <span>Pro: import from Tradovate, NinjaTrader or our CSV template, unlimited accounts</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <div className="w-6 h-6 rounded-xl bg-[#58CC02] border border-[#58CC02] border-b-4 border-b-[#3C8901] flex items-center justify-center text-white shrink-0 shadow-md">

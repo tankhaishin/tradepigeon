@@ -493,7 +493,7 @@ export default function CenterPath() {
                       Bring in your trades.
                     </h4>
                     <p className="text-[10px] font-bold text-slate-400 truncate mt-0.5">
-                      From Tradovate, NinjaTrader or any CSV
+                      Tradovate, NinjaTrader or CSV template
                     </p>
                   </div>
                 </div>
