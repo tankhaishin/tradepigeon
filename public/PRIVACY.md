@@ -1,40 +1,36 @@
-# TradePigeon — Privacy Policy & Data Protection Standards
+# TradePigeon Privacy Policy
 
-**Effective Date:** September 16, 2026
+**Last updated:** October 3, 2026
 
----
+Plain version: we collect what we need to run your journal, we never sell it, and you can delete everything yourself at any time.
 
-## 1. Commitment to Data Privacy & Confidentiality
-At TradePigeon, we recognize that your trading data, execution patterns, and strategies represent your confidential intellectual property. This Privacy Policy details the exact types of information we collect, how it is secured, and our strict commitment to safeguarding your privacy.
+## What we collect
+- **Your account:** email address, name, and a user ID (when you sign up with email or Google).
+- **Your journal:** the trades you type in or import (symbol, side, size, prices, times, P&L, fees), the labels you give them, your notes, playbooks, and daily lesson progress.
+- **Payments:** handled by Stripe. We never see or store your card number.
+- **On your device:** your journal is also saved in your browser so the app works fast and offline.
 
----
+We do **not** ask for or store your broker username, password, or API keys.
 
-## 2. Information We Collect
-We collect only the minimum necessary information required to deliver behavioral analytics and cross-device synchronization:
-- **Authentication Credentials:** Your email address, authenticated user identifier (UID), and display profile name (via Google OAuth or secure email registration).
-- **Trade Execution History:** Fills, execution timestamps, contracts, entry/exit prices, net profit/loss, and strategy notes necessary to calculate your discipline score and calendar performance.
-- **Payment Information:** Payment card transactions are processed entirely through Stripe under PCI-DSS Level 1 certification. TradePigeon never receives, views, or stores your full credit card number.
+## Who processes your data for us
+- **Google Firebase**: sign-in and the cloud copy of your journal, so it syncs across your devices.
+- **Vercel**: hosts the website and our server functions.
+- **Stripe**: subscriptions and payments.
+- **Google Gemini**: only when you ask for an AI debrief, we send that day's trades and notes to generate it.
+- **Discord**: when you sign up, your name and email are sent to the founder's private Discord channel so we can welcome new users.
 
----
+These services may store data on servers outside your country.
 
-## 3. Broker Connection Security
-- TradePigeon integrates with brokerage platforms (such as Tradovate, NinjaTrader, MetaTrader 5, and TradeLocker) exclusively through read-only API tokens, OAuth authorization gateways, or offline CSV statements.
-- We never ask for, access, or store master account withdrawal privileges or master passwords.
+## What we never do
+We never sell, rent, or share your trading data or personal data with brokers, prop firms, advertisers, or anyone else.
 
----
+## Keeping and deleting your data
+- We keep your data while you have an account.
+- **Delete it yourself:** Profile → "Delete my account and data" permanently removes your journal and login from our servers.
+- **Export it:** Profile lets you download your trades (CSV) and a full backup at any time.
+- Stripe keeps payment records as required by law, even after you delete your account.
 
-## 4. Zero Data Selling Guarantee
-TradePigeon will NEVER sell, rent, license, or disclose your trading records, strategy playbooks, behavioral debriefs, or personal data to hedge funds, proprietary trading firms, market makers, brokers, or advertising networks.
+## Contact
+Questions or requests: **privacy@tradepigeon.com** (or support@tradepigeon.com).
 
----
-
-## 5. Data Portability & Deletion Rights
-In accordance with modern privacy standards (including GDPR and CCPA):
-- **Self-Custody Export:** You can export your complete journal and all trading history in JSON and CSV formats at any time from your Profile Settings.
-- **Account Deletion:** You may perform a complete clean slate factory reset directly within the application, or request complete account and cloud database deletion by emailing privacy@tradepigeon.com.
-
----
-
-## 6. Contact Us
-For any privacy inquiries, data subject access requests, or compliance questions:
-**privacy@tradepigeon.com** or **support@tradepigeon.com**
+We'll update this page if anything changes and show the new date at the top.

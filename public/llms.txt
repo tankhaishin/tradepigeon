@@ -1,18 +1,17 @@
-# TradePigeon — Behavioral Trading Engine & Execution Analytics
+# TradePigeon — Duolingo-style trading journal
 
-> TradePigeon is the 100% read-only behavioral accountability, risk lock protocol, and playbook execution audit engine for prop traders and market operators.
+> TradePigeon tracks your trading discipline, not just P&L. Each trade gets one of seven labels (Disciplined Win, Disciplined Loss, Disciplined BE, Toxic Win, Toxic BE, Double Failure, Missed Trade), and the app shows what your rule breaks cost you.
 
-## Core Capabilities
-- **1-Click Statement & Fill Ingestion**: Parse execution fills from MetaTrader 4, MetaTrader 5, Tradovate, TradeLocker, cTrader, and universal CSV files in under 1 second.
-- **Execution Quality Grading**: Evaluate trade discipline (A+ Disciplined Win, A Disciplined Loss, C Toxic Win, F Double Failure) instead of raw PnL.
-- **Daily Loss Limit Proximity Gauge**: Real-time risk lock protocol preventing revenge trading and funded account breaches.
-- **Pre-Market Risk Warmups**: 60-second interactive behavioral drills (+50 DP awards) before opening market hours.
-- **Stealth Mode (R-Only Telemetry)**: Hide dollar amounts to eliminate emotional trading bias during active sessions.
+## What it does today
+- Log trades by hand (Free) or import Tradovate Performance and NinjaTrader 8 Trades exports, or a CSV template (Pro).
+- Daily lessons, streak and calendar in a Duolingo-style path.
+- AI debrief of your trading day (Pro).
+- Broker auto-sync is coming soon. TradePigeon never places trades and never asks for broker passwords.
 
-## Primary Links
+## Pricing
+Free: manual journal, 1 account. Pro: $9.99/month or $79.99/year, 7-day free trial with no card.
+
+## Links
 - Website: https://tradepigeon.com
 - Privacy Policy: https://tradepigeon.com/PRIVACY.md
 - Terms of Service: https://tradepigeon.com/TERMS.md
-
-## Ideal For
-Prop firm traders (Apex, Topstep, FTMO, MyFundedFX), futures scalpers (NQ, ES, CL, GC), forex operators, and high-frequency retail traders focused on process discipline.

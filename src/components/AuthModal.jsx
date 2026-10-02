@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Mail, Lock, User, ArrowRight, ShieldCheck, AlertCircle, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../config/firebase';
 import { soundFx } from '../utils/audioEngine';
 
 export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode = 'signin' }) {
@@ -10,7 +12,11 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Each time the modal opens, start in the mode the caller asked for (trial button -> sign up).
+  useEffect(() => { if (isOpen) { setMode(initialMode); setNotice(''); setError(''); } }, [isOpen, initialMode]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -58,6 +64,19 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Firebase emails a reset link (from the project's noreply address). We never learn whether the email exists.
+  const handleForgotPassword = async () => {
+    setError('');
+    setNotice('');
+    if (!email.trim()) { setError('Type your email above first.'); return; }
+    try {
+      if (auth) await sendPasswordResetEmail(auth, email.trim());
+    } catch (err) {
+      if (!String(err.code || '').includes('user-not-found')) { setError('Could not send the email. Check the address and try again.'); return; }
+    }
+    setNotice(`If ${email.trim()} has an account, a reset link is on its way. Check your inbox and spam.`);
   };
 
   const handleGoogleClick = async () => {
@@ -114,7 +133,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
           </div>
           <div>
             <h3 className="text-xl font-black text-white tracking-tight">
-              {mode === 'signup' ? 'Create Account' : 'Welcome Back'}
+              {mode === 'signup' ? 'Start your free week' : 'Welcome back'}
             </h3>
           </div>
         </div>
@@ -187,7 +206,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="trader@gmail.com"
+                placeholder="you@email.com"
                 className="w-full bg-[#142127] border-2 border-[#20323D] rounded-xl pl-10 pr-3 py-2.5 text-xs font-black text-white focus:outline-none focus:border-[#FF6B00]"
                 required
               />
@@ -204,13 +223,22 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="At least 6 characters"
                 minLength={6}
                 className="w-full bg-[#142127] border-2 border-[#20323D] rounded-xl pl-10 pr-3 py-2.5 text-xs font-black text-white focus:outline-none focus:border-[#FF6B00]"
                 required
               />
             </div>
+            {mode === 'signin' && (
+              <button type="button" onClick={handleForgotPassword} className="mt-1.5 text-[11px] font-bold text-[#1CB0F6] hover:underline cursor-pointer">
+                Forgot password?
+              </button>
+            )}
           </div>
+
+          {notice && (
+            <div className="p-3 rounded-xl bg-[#58CC02]/10 border border-[#58CC02]/30 text-xs font-bold text-[#9BE15D]">{notice}</div>
+          )}
 
           <button
             type="submit"

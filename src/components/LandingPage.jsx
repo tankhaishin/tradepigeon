@@ -19,7 +19,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
   const [isLegalTermsOpen, setIsLegalTermsOpen] = useState(false);
   const [isLegalPrivacyOpen, setIsLegalPrivacyOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState('SIGN_IN');
+  const [authMode, setAuthMode] = useState('signin');
   const [billingCycle, setBillingCycle] = useState('MONTHLY'); // Default: $9.99 / month
   const [activeRoadmapIndex, setActiveRoadmapIndex] = useState(0);
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
@@ -80,7 +80,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
   const handleStripeCheckout = () => {
     soundFx.playSuccess();
     if (loggedInUser?.email) handleStart(loggedInUser);
-    else setIsAuthModalOpen(true);
+    else { setAuthMode('signup'); setIsAuthModalOpen(true); }
   };
 
   return (
@@ -107,7 +107,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
         {/* Header CTAs */}
         <div className="flex items-center gap-2.5">
           <GoogleAuthButton 
-            onOpenAuthModal={() => setIsAuthModalOpen(true)}
+            onOpenAuthModal={() => { setAuthMode('signin'); setIsAuthModalOpen(true); }}
             onAuthSuccess={(userObj) => {
               if (userObj && userObj.email) {
                 handleStart(userObj);
@@ -672,7 +672,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
             {[
               {
                 q: "Does TradePigeon have trade execution or withdrawal rights on my account?",
-                a: "No. Connections are strictly Read-Only API keys with zero execution or withdrawal authority."
+                a: "No. TradePigeon never connects to place, change or close trades, and never asks for your broker password. You bring in trades by importing a file or typing them in."
               },
               {
                 q: "How does the rotational curriculum work?",

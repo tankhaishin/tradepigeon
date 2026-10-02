@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { isProActive, startCheckout, openBillingPortal } from '../utils/proStatus';
 import { getTrades, onTradesChange, setDayTrades, todaySessionDate } from '../utils/tradeStore';
+import { deleteMyAccount } from '../utils/accountDeletion';
 import { computeSubscriptionEntitlement } from '../utils/subscriptionEngine';
 import { User, Flame, Gem, Heart, Calendar, ShieldCheck, Award, TrendingUp, CheckCircle2, AlertCircle, Cpu, RefreshCw, BarChart3, Activity, Sparkles, Trash2, RotateCcw, ShieldAlert, CheckSquare, Square, X, Download, Upload, FileText, Check, LogOut, CreditCard, Mail, ExternalLink, AlertTriangle, Volume2, VolumeX, HardDrive, Database } from 'lucide-react';
 import { DuoShieldIcon, DuoLightningIcon, DuoChestIcon, DuoProfileIcon, DuoTrophyIcon } from './DuoIcons';
@@ -40,6 +41,9 @@ export default function ProfileTab() {
   const [profileToast, setProfileToast] = useState('');
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState('');
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteMessage, setDeleteMessage] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [keepBrokersOnReset, setKeepBrokersOnReset] = useState(true);
 
   // Audio & Haptic preferences
@@ -1042,6 +1046,35 @@ export default function ProfileTab() {
               <span>Start with a Clean Slate...</span>
             </button>
           </div>
+
+          {/* Card 3: Delete account and all data (GDPR/CCPA style self-serve deletion) */}
+          {user?.email && (
+            <div className="duo-card p-6 space-y-3 border-2 border-rose-500/40 bg-rose-500/5">
+              <h3 className="text-base font-black text-rose-400">Delete my account and data</h3>
+              <p className="text-xs font-bold text-slate-300 leading-relaxed">
+                Permanently deletes your trades, journal and login from our servers. Export first if you want a copy. This can't be undone.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder="Type DELETE" className="flex-1 p-3 rounded-xl bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs outline-none focus:border-rose-500" />
+                <button
+                  type="button"
+                  disabled={deleteConfirmText.trim().toUpperCase() !== 'DELETE' || isDeletingAccount}
+                  onClick={async () => {
+                    setIsDeletingAccount(true);
+                    setDeleteMessage('');
+                    const res = await deleteMyAccount();
+                    setIsDeletingAccount(false);
+                    if (res.ok) { window.location.href = '/'; return; }
+                    setDeleteMessage(res.message);
+                  }}
+                  className="px-5 py-3 rounded-xl bg-rose-600 border-b-4 border-rose-800 text-white text-xs font-black uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {isDeletingAccount ? 'Deleting…' : 'Delete forever'}
+                </button>
+              </div>
+              {deleteMessage && <p className="text-xs font-bold text-amber-300">{deleteMessage}</p>}
+            </div>
+          )}
         </div>
       )}
 

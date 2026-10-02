@@ -1,40 +1,33 @@
-# TradePigeon — Terms of Service & CFTC Risk Disclosure
+# TradePigeon Terms of Service
 
-**Effective Date:** September 16, 2026
+**Last updated:** October 3, 2026
 
----
+By using TradePigeon you agree to these terms.
 
-## 1. Educational & Behavioral Tracking Software Disclaimer
-TradePigeon ("the Platform", operated by TradePigeon LLC) is a proprietary trading psychology, behavioral discipline accountability, and execution analytics software application. TradePigeon is NOT a registered broker-dealer, investment advisor, financial planner, or Commodity Trading Advisor (CTA). 
+## What TradePigeon is
+TradePigeon is a trading journal that helps you track your discipline. It is **not** a broker, investment adviser, or trading signal service, and nothing in it is financial advice. TradePigeon never places, changes, or closes trades in your brokerage accounts.
 
-TradePigeon does NOT hold customer funds, execute live orders on behalf of users, or provide personalized financial, legal, or tax advice. All analytics, scores, discipline points, and historical trade summaries provided through the Platform are strictly for educational, behavioral self-improvement, and personal tracking purposes.
+**Risk warning:** trading futures and other markets involves substantial risk, and you can lose more than you invest. Past results, including your own journal, don't guarantee future results.
 
----
+## Your data is yours
+You own your trades and notes. You can export or delete them at any time (see our Privacy Policy). Imported numbers come from the files you upload, so please check them against your broker's statements.
 
-## 2. CFTC Rule 4.41 — Hypothetical & Risk Disclaimer
-HIGH RISK INVESTMENT WARNING: Trading futures, foreign exchange (forex), equities, options, and digital assets involves substantial risk of loss and is not suitable for all investors. An investor could potentially lose all or more than the initial investment. Risk capital is money that can be lost without jeopardizing one's financial security or lifestyle. Only risk capital should be used for trading and only those with sufficient risk capital should consider trading. Past performance is not necessarily indicative of future results.
+## Free and Pro
+- **Free:** manual trade entry, one account, the daily lessons, streak and calendar.
+- **Pro:** file import, unlimited accounts, AI debrief, deeper stats, and future broker sync.
+- **Trial:** new accounts get 7 days of Pro free. No card is needed, and nothing is charged when it ends; you simply return to Free.
+- **Price:** $9.99 per month or $79.99 per year, billed by Stripe until you cancel.
+- **Cancel any time:** Profile → Manage billing. Pro stays active until the end of the period you've paid for. We don't refund partial periods, except where the law requires it.
+- We'll tell you before any price change takes effect for you.
 
-> CFTC RULE 4.41: HYPOTHETICAL OR SIMULATED PERFORMANCE RESULTS HAVE CERTAIN LIMITATIONS. UNLIKE AN ACTUAL PERFORMANCE RECORD, SIMULATED RESULTS DO NOT REPRESENT ACTUAL TRADING. ALSO, SINCE THE TRADES HAVE NOT BEEN EXECUTED, THE RESULTS MAY HAVE UNDER-OR-OVER COMPENSATED FOR THE IMPACT, IF ANY, OF CERTAIN MARKET FACTORS, SUCH AS LACK OF LIQUIDITY. SIMULATED TRADING PROGRAMS IN GENERAL ARE ALSO SUBJECT TO THE FACT THAT THEY ARE DESIGNED WITH THE BENEFIT OF HINDSIGHT. NO REPRESENTATION IS BEING MADE THAT ANY ACCOUNT WILL OR IS LIKELY TO ACHIEVE PROFIT OR LOSSES SIMILAR TO THOSE SHOWN.
+## Fair use
+Please don't misuse the service: no attacking or overloading it, no reselling access, and no uploading files you don't have the right to use. AI debriefs have a daily limit to keep costs fair. We may suspend accounts that break these rules.
 
----
+## No guarantees
+We work hard to keep TradePigeon accurate and available, but it's provided "as is". We aren't liable for trading decisions or losses, or for data lost because of things outside our control. Keep your own exports if your journal matters to you.
 
-## 3. Broker Integrations & Read-Only Data Security
-TradePigeon connects to supported third-party brokers (including Tradovate, NinjaTrader, and MetaTrader 5) strictly using read-only API telemetry tokens, official OAuth authorization redirects, or user-provided CSV/HTML statement files. 
+## Changes
+We may update these terms and will show the new date at the top. Continuing to use TradePigeon means you accept the update.
 
-TradePigeon:
-- Never requests, receives, or stores master trading account passwords or withdrawal credentials.
-- Does not possess authorization or technical capability to initiate, modify, or liquidate financial positions on your brokerage accounts.
-- Encrypts all authorization tokens in transit and at rest.
-
----
-
-## 4. Subscriptions, Billing & Cancellation Policy
-- **Billing:** Subscriptions to TradePigeon Pro are billed on a recurring monthly ($9.99/mo) or annual ($79.00/yr) basis via Stripe.
-- **Self-Serve Cancellation:** You may cancel your subscription at any time with a single click inside your Profile Settings via the Stripe Customer Portal. Upon cancellation, your Pro access will remain active until the end of your current paid billing period with zero cancellation penalties.
-- **Hassle-Free 14-Day Refund Guarantee:** If you are not completely satisfied with TradePigeon Pro within the first 14 days of your initial subscription, contact support@tradepigeon.com for an immediate, full refund. Refunds are issued within 24 hours.
-
----
-
-## 5. Contact Information
-For legal notices, terms inquiries, or compliance questions, please contact:
-**legal@tradepigeon.com** or **support@tradepigeon.com**
+## Contact
+**support@tradepigeon.com**
