@@ -23,7 +23,6 @@ import {
   DuoMissedTradeIcon
 } from './DuoIcons';
 import { 
-  parseTradeFile, 
   calculateExecutionMatrix, 
   calculateSetupExpectancy, 
   formatCurrencyOrR, 

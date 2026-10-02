@@ -4,7 +4,7 @@ import { getMonthDataFor, buildDynamicMonthData } from '../src/utils/calendarEng
 import { generateIntelligentSessionDebrief } from '../src/utils/aiDebriefEngine.js';
 import { soundFx } from '../src/utils/audioEngine.js';
 import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple } from '../src/utils/financialMath.js';
-import { calculateSetupExpectancy, calculateExecutionMatrix, extractIsoDate, detectDelimiter, parseCsvLine, parseTradeFile, calculateHoldDuration, getGlobexClearingDate, resolveMarketSession, calculateSessionMetrics } from '../src/utils/tradeParser.js';
+import { calculateSetupExpectancy, calculateExecutionMatrix, extractIsoDate, detectDelimiter, parseCsvLine, calculateHoldDuration, getGlobexClearingDate, resolveMarketSession, calculateSessionMetrics } from '../src/utils/tradeParser.js';
 import { sanitizeAccountsList, factoryResetCleanSlate, normalizeTrade, saveSessionTrades, loadSessionTrades, addDisciplinePoints, spendDisciplinePoints, loadStoredData, saveStoredData, STORAGE_KEYS, DEFAULT_USER_STATS, getStorageUsage, computeTradeFingerprint, seedSyncedTradesFingerprint, syncedTradesFingerprintCache, safeRemoveItem } from '../src/utils/storage.js';
 import { sendDiscordWebhookMessage } from '../src/utils/discordWebhook.js';
 import { generateAiDebriefWithGemini, parseGeminiResponse } from '../src/utils/geminiAiEngine.js';
@@ -472,11 +472,12 @@ console.assert(parsedCells.length === 5, `Expected 5 cells, got ${parsedCells.le
 console.assert(parsedCells[1] === 'NQ, Futures', 'Quoted comma preserved inside cell');
 console.assert(parsedCells[3] === '1,500.25', 'Quoted financial number preserved');
 
-const semicolonCsv = `Symbol;Side;Qty;Price;Date;PnL
-NQ;BUY;1;20000;10/14/2025;500.00`;
-const semicolonTrades = parseTradeFile(semicolonCsv, 'trades.csv');
+const { importTradesFile: importForSemicolon } = await import('../src/utils/importFormats.js');
+const semicolonCsv = `symbol;side;qty;entry_time;exit_time;entry_price;exit_price;pnl
+NQZ5;long;1;2025-10-14 09:30:00;2025-10-14 09:45:00;20000;20025;500.00`;
+const semicolonTrades = importForSemicolon(semicolonCsv, { account: 'x', timeZone: 'America/New_York' }).trades;
 console.assert(semicolonTrades.length === 1, 'Semicolon CSV successfully parsed');
-console.assert(semicolonTrades[0].date === '2025-10-14', `Expected 2025-10-14, got ${semicolonTrades[0].date}`);
+console.assert(semicolonTrades[0].date === '2025-10-14', `Expected 2025-10-14, got ${semicolonTrades[0]?.date}`);
 console.assert(semicolonTrades[0].pnlNum === 500, 'PnL parsed correctly');
 console.log('✓ CSV delimiter auto-detection and quote parsing verified');
 

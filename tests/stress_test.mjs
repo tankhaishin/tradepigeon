@@ -1,4 +1,6 @@
+import './_browser_shim.mjs';
 import './_strict.mjs';
+const { importTradesFile } = await import('../src/utils/importFormats.js');
 /**
  * TradePigeon Automated High-Load Stress & Hostile Ingestion Test Suite
  * 
@@ -33,7 +35,7 @@ global.CustomEvent = class CustomEvent {
 
 import { pairFillsFIFO, getInstrumentMultiplier, normalizeSymbol, INSTRUMENT_MULTIPLIERS } from '../src/utils/fillPairingEngine.js';
 import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl, calculateTrailingDrawdown } from '../src/utils/financialMath.js';
-import { parseTradeFile, parseCsvLine, extractIsoDate, getGlobexClearingDate, calculateExecutionMatrix, calculateSetupExpectancy, calculateHoldDuration } from '../src/utils/tradeParser.js';
+import { parseCsvLine, extractIsoDate, getGlobexClearingDate, calculateExecutionMatrix, calculateSetupExpectancy, calculateHoldDuration } from '../src/utils/tradeParser.js';
 import { computeTradeFingerprint, syncedTradesFingerprintCache, seedSyncedTradesFingerprint, importFullBackup, normalizeTrade, getStorageUsage } from '../src/utils/storage.js';
 import { soundFx } from '../src/utils/audioEngine.js';
 
@@ -148,7 +150,7 @@ let parsedResults = [];
 let unhandledException = false;
 
 try {
-  parsedResults = parseTradeFile(hostileCsv, 'hostile_stress_test.csv');
+  parsedResults = importTradesFile(hostileCsv, { account: 'stress', timeZone: 'America/New_York' }).trades;
 } catch (err) {
   unhandledException = true;
   console.error('Fatal crash on hostile CSV:', err);
