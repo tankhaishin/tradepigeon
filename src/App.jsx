@@ -10,7 +10,7 @@ import LandingPage from './components/LandingPage';
 import ProPaywallModal from './components/ProPaywallModal';
 import StatementImportModal from './components/StatementImportModal';
 import ComingSoon from './components/ComingSoon';
-import { refreshProStatus } from './utils/proStatus';
+import { refreshProStatus, isProActive } from './utils/proStatus';
 import ConfettiBurst from './components/ConfettiBurst';
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
 import ManualTradeModal from './components/ManualTradeModal';
@@ -225,7 +225,11 @@ export default function App() {
 
   // Any screen can open the single trade importer.
   useEffect(() => {
-    const open = () => setIsImportOpen(true);
+    // File import is Pro (Free is manual entry, one account).
+    const open = () => {
+      if (isProActive()) setIsImportOpen(true);
+      else window.dispatchEvent(new CustomEvent('tradepigeon_open_paywall', { detail: { feature: 'File import' } }));
+    };
     window.addEventListener('tradepigeon_open_import', open);
     return () => window.removeEventListener('tradepigeon_open_import', open);
   }, []);

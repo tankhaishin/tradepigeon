@@ -34,6 +34,7 @@ import {
 } from '../utils/tradeParser';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, buildDefaultPlaybooks, getAllStoredTrades, deleteStoredTrade, updateStoredTrade, restoreStoredTrade } from '../utils/storage';
 import { getTrades, onTradesChange, updateTrade, deleteTrades, restoreTrades } from '../utils/tradeStore';
+import ProLock from './ProLock';
 import { soundFx } from '../utils/audioEngine';
 import { parseFinancialNumber, formatFinancialCurrency, sumTradesPnl } from '../utils/financialMath';
 import { compressImage } from '../utils/imageCompressor';
@@ -620,13 +621,6 @@ export default function SetupsTab() {
 
         {/* 4 Action Controls (Unboxed, Floating 3D Row) */}
         <div className="flex flex-wrap items-center gap-2">
-          <button 
-            onClick={() => setIsBrokerModalOpen(true)}
-            className="duo-btn-orange px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
-          >
-            <DuoLightningIcon className="w-4 h-4 shrink-0" />
-            <span>Connect Broker</span>
-          </button>
 
           <button 
             onClick={() => window.dispatchEvent(new CustomEvent('tradepigeon_open_import'))}
@@ -716,6 +710,7 @@ export default function SetupsTab() {
         </div>
 
         {/* Behavioral Audit Hero Card */}
+        <ProLock feature="Behavioral audit">
         <div className="duo-card p-5 sm:p-6 space-y-4 sm:space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-lg sm:text-xl font-black text-white">Behavioral Audit</h3>
@@ -759,6 +754,7 @@ export default function SetupsTab() {
             </div>
           </div>
         </div>
+        </ProLock>
       </div>
 
       {/* CUMULATIVE EQUITY PERFORMANCE TRAJECTORY */}
@@ -820,11 +816,13 @@ export default function SetupsTab() {
         </div>
 
         {/* 7 EXECUTION TYPES MATRIX & DONUT BREAKDOWN */}
+        <ProLock feature="Execution matrix">
         <ExecutionMatrixFilter
           executionMatrix={executionMatrix}
           selectedExecutionFilter={selectedExecutionFilter}
           onToggleExecutionFilter={handleToggleExecutionFilter}
         />
+        </ProLock>
       </div>
 
 

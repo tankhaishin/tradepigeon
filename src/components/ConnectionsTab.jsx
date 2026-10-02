@@ -7,7 +7,6 @@ import {
 import { DuoShieldIcon, DuoLightningIcon, DuoTrophyIcon, DuoStarIcon } from './DuoIcons';
 import { TradovateLogo, NinjaTraderLogo, MetaTrader5Logo, CsvLogo } from './BrokerLogos';
 import BrokerConnectModal from './BrokerConnectModal';
-import StatementImportModal from './StatementImportModal';
 import { getTradesForDate, todaySessionDate } from '../utils/tradeStore';
 import ConfirmModal from './ConfirmModal';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS } from '../utils/storage';
@@ -17,7 +16,6 @@ import { parseFinancialNumber, formatFinancialCurrency, formatBalance as formatB
 export default function ConnectionsTab() {
   const [accounts, setAccounts] = useState(() => loadStoredData('tradepigeon_accounts_data', []));
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('tradepigeon_stealth_mode', false));
   const [isSyncing, setIsSyncing] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
@@ -203,7 +201,7 @@ export default function ConnectionsTab() {
   // Live broker auto-sync is paused until verified against a real Tradovate account; trades come in via file import.
   const handleSyncAllFills = () => {
     soundFx.playPop();
-    setIsImportModalOpen(true);
+    window.dispatchEvent(new CustomEvent('tradepigeon_open_import'));
   };
 
   // Total active accounts & combined stats
@@ -283,7 +281,7 @@ export default function ConnectionsTab() {
             type="button"
             onClick={() => {
               soundFx.playPop();
-              setIsImportModalOpen(true);
+              window.dispatchEvent(new CustomEvent('tradepigeon_open_import'));
             }}
             className="px-3.5 py-2 rounded-2xl bg-[#142127] hover:bg-[#182830] border-2 border-[#20323D] hover:border-[#1CB0F6] text-xs font-black text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:translate-y-0.5"
             title="Upload CSV or HTML Broker Statement"
@@ -711,7 +709,7 @@ export default function ConnectionsTab() {
       <BrokerConnectModal 
         isOpen={isBrokerModalOpen}
         onClose={() => setIsBrokerModalOpen(false)}
-        onOpenStatementImport={() => setIsImportModalOpen(true)}
+        onOpenStatementImport={() => window.dispatchEvent(new CustomEvent('tradepigeon_open_import'))}
         onAccountAdded={({ account, accounts: newAccounts }) => {
           const toAdd = newAccounts && newAccounts.length > 0 ? newAccounts : (account ? [account] : []);
           const updated = [...toAdd, ...accounts];
@@ -723,19 +721,7 @@ export default function ConnectionsTab() {
         }}
       />
 
-      <StatementImportModal 
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onSuccess={(count, accName) => {
-          soundFx.playLevelUp();
-          if (count === 0) {
-            setToastMsg(`All statement trades were already recorded for ${accName} (0 new duplicates added).`);
-          } else {
-            setToastMsg(`Successfully imported ${count} new trade fill${count === 1 ? '' : 's'} for ${accName}!`);
-          }
-          setTimeout(() => setToastMsg(''), 4000);
-        }}
-      />
+
 
       <ConfirmModal
         isOpen={confirmConfig.isOpen}

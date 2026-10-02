@@ -121,10 +121,7 @@ export default function ProPaywallModal({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black tracking-widest text-[#FF6B00] uppercase">INSTITUTIONAL TIER</span>
-              <span className="px-2 py-0.5 rounded-full bg-[#58CC02]/20 border border-[#58CC02]/40 text-[#58CC02] text-[10px] font-black uppercase">
-                7-Day Free Trial
-              </span>
+              <span className="text-xs font-black tracking-widest text-[#FF6B00] uppercase">Upgrade</span>
             </div>
             <h2 className="text-2xl font-black text-white tracking-tight">
               TradePigeon PRO
@@ -137,14 +134,14 @@ export default function ProPaywallModal({
           <div className="mb-5 p-3 rounded-2xl bg-[#FF6B00]/10 border border-[#FF6B00]/30 flex items-center gap-3">
             <Lock size={18} className="text-[#FF6B00] shrink-0" />
             <p className="text-xs font-bold text-slate-200">
-              <strong className="text-[#FF6B00]">{featureName}</strong> is a TradePigeon Pro feature. Upgrade to unlock full access.
+              <strong className="text-[#FF6B00]">{featureName}</strong> is part of Pro. Free keeps your journal, path and streak.
             </p>
           </div>
         )}
 
         {/* Value Proposition Description */}
         <p className="text-sm font-bold text-slate-300 mb-6 leading-relaxed">
-          Prop firms fail 95% of traders due to discipline leaks and rule breaches. TradePigeon Pro gives you the institutional telemetry to pass and stay funded.
+          Everything in Free, plus:
         </p>
 
         {/* Core Pro Features Grid */}
@@ -154,8 +151,8 @@ export default function ProPaywallModal({
               <Zap size={14} strokeWidth={3} />
             </div>
             <div className="text-xs">
-              <span className="font-black text-white">Broker auto-sync:</span>{' '}
-              <span className="text-slate-300">Coming soon. Pro members get it first.</span>
+              <span className="font-black text-white">Import your trades:</span>{' '}
+              <span className="text-slate-300">Tradovate & NinjaTrader files or any CSV, with undo. No more typing.</span>
             </div>
           </div>
 
@@ -164,8 +161,8 @@ export default function ProPaywallModal({
               <BrainCircuit size={14} strokeWidth={3} />
             </div>
             <div className="text-xs">
-              <span className="font-black text-white">Gemini AI Psychological Debriefs:</span>{' '}
-              <span className="text-slate-300">Deep behavioral post-market coaching to eradicate tilt, FOMO, and revenge trading.</span>
+              <span className="font-black text-white">AI debrief:</span>{' '}
+              <span className="text-slate-300">A coach reads your day and names the habit to fix tomorrow.</span>
             </div>
           </div>
 
@@ -174,8 +171,8 @@ export default function ProPaywallModal({
               <ShieldCheck size={14} strokeWidth={3} />
             </div>
             <div className="text-xs">
-              <span className="font-black text-white">Multi-Account Portfolio Analytics:</span>{' '}
-              <span className="text-slate-300">Unified basket execution tracking and combined performance across all your trading accounts.</span>
+              <span className="font-black text-white">Unlimited accounts:</span>{' '}
+              <span className="text-slate-300">Every prop and personal account, separately and combined. Free has one.</span>
             </div>
           </div>
 
@@ -184,8 +181,8 @@ export default function ProPaywallModal({
               <BarChart3 size={14} strokeWidth={3} />
             </div>
             <div className="text-xs">
-              <span className="font-black text-white">Playbook Expectancy Matrix:</span>{' '}
-              <span className="text-slate-300">Statistical breakdown of your edge by setup, time-of-day, and market regime.</span>
+              <span className="font-black text-white">Deeper stats:</span>{' '}
+              <span className="text-slate-300">See which habit costs you the most money, by setup and time of day.</span>
             </div>
           </div>
 
@@ -194,8 +191,8 @@ export default function ProPaywallModal({
               <Cloud size={14} strokeWidth={3} />
             </div>
             <div className="text-xs">
-              <span className="font-black text-white">Multi-Device Cloud Journal:</span>{' '}
-              <span className="text-slate-300">Seamless real-time synchronization across your phone, tablet, and desktop.</span>
+              <span className="font-black text-white">Broker auto-sync:</span>{' '}
+              <span className="text-slate-300">Coming soon. Pro members get it first.</span>
             </div>
           </div>
         </div>
@@ -210,10 +207,6 @@ export default function ProPaywallModal({
             </div>
           </div>
           <div className="text-right">
-            <span className="inline-flex items-center gap-1 text-[11px] font-black text-[#58CC02] bg-[#58CC02]/10 border border-[#58CC02]/30 px-2.5 py-1 rounded-full">
-              <Sparkles size={12} />
-              7-Day Free Trial
-            </span>
             <div className="text-[10px] font-bold text-slate-400 mt-1">Cancel anytime in 1 click</div>
           </div>
         </div>
@@ -236,7 +229,7 @@ export default function ProPaywallModal({
               <span>Connecting to Secure Checkout...</span>
             ) : (
               <>
-                <span>Start 7-Day Free Trial ($9.99/mo)</span>
+                <span>Upgrade to Pro · $9.99/mo</span>
                 <ArrowRight size={18} strokeWidth={3} />
               </>
             )}
@@ -256,7 +249,7 @@ export default function ProPaywallModal({
 
         {/* Footer Fine Print */}
         <div className="mt-4 text-center text-[10px] font-bold text-slate-400">
-          Secured by Stripe 256-bit encryption &bull; No commitment &bull; Instant activation
+          Secure checkout by Stripe &bull; Cancel any time
         </div>
       </div>
     </div>

@@ -76,7 +76,7 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
     soundFx.playPop();
     if (platform.id === 'csv') {
       onClose();
-      if (onOpenStatementImport) onOpenStatementImport();
+      window.dispatchEvent(new CustomEvent('tradepigeon_open_import'));
       return;
     }
 

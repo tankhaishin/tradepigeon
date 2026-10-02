@@ -13,14 +13,12 @@ import { saveStoredData, loadStoredData, subscribeToStorageUpdate } from '../uti
 
 import GoogleAuthButton from './GoogleAuthButton';
 import AuthModal from './AuthModal';
-import { startCheckout } from '../utils/proStatus';
 
 export default function LandingPage({ onGetStarted, onLogin }) {
   const [loggedInUser, setLoggedInUser] = useState(() => loadStoredData('tradepigeon_auth_user', null) || loadStoredData('tradepigeon_google_user', null));
   const [isLegalTermsOpen, setIsLegalTermsOpen] = useState(false);
   const [isLegalPrivacyOpen, setIsLegalPrivacyOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [pendingCheckoutPlan, setPendingCheckoutPlan] = useState(null);
   const [authMode, setAuthMode] = useState('SIGN_IN');
   const [billingCycle, setBillingCycle] = useState('MONTHLY'); // Default: $9.99 / month
   const [activeRoadmapIndex, setActiveRoadmapIndex] = useState(0);
@@ -75,27 +73,14 @@ export default function LandingPage({ onGetStarted, onLogin }) {
 
   const handleStart = (userObj = loggedInUser) => {
     soundFx.playSuccess();
-    if (pendingCheckoutPlan && userObj?.email) {
-      startCheckout(pendingCheckoutPlan).catch(err => alert(err.message));
-      return;
-    }
     onGetStarted(userObj);
   };
 
-  const handleStripeCheckout = async (overrideCycle) => {
+  // The 7-day Pro trial is card-free and starts when the account is created. Paying happens in-app via Upgrade.
+  const handleStripeCheckout = () => {
     soundFx.playSuccess();
-    const plan = (overrideCycle || billingCycle) === 'ANNUAL' ? 'annual' : 'monthly';
-    if (!loggedInUser?.email) {
-      // Trial needs an account: sign in first, then continue to checkout.
-      setPendingCheckoutPlan(plan);
-      setIsAuthModalOpen(true);
-      return;
-    }
-    try {
-      await startCheckout(plan);
-    } catch (err) {
-      alert(err.message);
-    }
+    if (loggedInUser?.email) handleStart(loggedInUser);
+    else setIsAuthModalOpen(true);
   };
 
   return (
@@ -588,25 +573,25 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                   <div className="w-6 h-6 rounded-xl bg-[#58CC02] border border-[#58CC02] border-b-4 border-b-[#3C8901] flex items-center justify-center text-white shrink-0 shadow-md">
                     <Check size={14} strokeWidth={4} />
                   </div>
-                  <span>CME futures · import Tradovate & NinjaTrader files</span>
+                  <span>Free forever: journal by hand, 1 account, daily path & streak</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <div className="w-6 h-6 rounded-xl bg-[#58CC02] border border-[#58CC02] border-b-4 border-b-[#3C8901] flex items-center justify-center text-white shrink-0 shadow-md">
                     <Check size={14} strokeWidth={4} />
                   </div>
-                  <span>Daily pre-market risk warmups</span>
+                  <span>Pro: import Tradovate & NinjaTrader files, unlimited accounts</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <div className="w-6 h-6 rounded-xl bg-[#58CC02] border border-[#58CC02] border-b-4 border-b-[#3C8901] flex items-center justify-center text-white shrink-0 shadow-md">
                     <Check size={14} strokeWidth={4} />
                   </div>
-                  <span>Automatic trade discipline grading</span>
+                  <span>Pro: AI debrief + see which habit costs you the most</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <div className="w-6 h-6 rounded-xl bg-[#58CC02] border border-[#58CC02] border-b-4 border-b-[#3C8901] flex items-center justify-center text-white shrink-0 shadow-md">
                     <Check size={14} strokeWidth={4} />
                   </div>
-                  <span>7-Day Free Trial — $0 charged today, cancel anytime in 1 click</span>
+                  <span>7 days of Pro free. No card needed.</span>
                 </li>
               </ul>
 
@@ -666,7 +651,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                   </div>
                   <div className="text-[10px] font-black uppercase text-[#58CC02] tracking-widest">DAY 7</div>
                   <h4 className="text-base sm:text-lg font-black text-white">Membership Begins</h4>
-                  <p className="text-xs sm:text-sm font-bold text-slate-300 leading-relaxed">Cancel anytime with 1 click. If you love it, your pass continues seamlessly at the locked-in Launch Special price of $9.99/mo (or $79.99/yr).</p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-300 leading-relaxed">After 7 days you keep the Free plan. Upgrade any time for $9.99/mo (or $79.99/yr). Cancel in 1 click.</p>
                 </div>
 
               </div>
