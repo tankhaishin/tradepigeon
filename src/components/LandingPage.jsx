@@ -231,18 +231,18 @@ export default function LandingPage({ onGetStarted, onLogin }) {
 
           {/* Duolingo 3D Tactile Broker Badges */}
           <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-2.5 text-[11px] font-black text-slate-300">
-            <span className="text-[10px] uppercase text-[#52656D] tracking-widest w-full text-center lg:text-left mb-1">DIRECT BROKER SYNC</span>
-            <div className="duo-card flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] hover:border-[#FF6B00] active:translate-y-[2px] transition-all cursor-pointer">
+            <span className="text-[10px] uppercase text-[#52656D] tracking-widest w-full text-center lg:text-left mb-1">IMPORT YOUR TRADES FROM</span>
+            <div className="duo-card flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] ">
               <TradovateLogo className="w-4 h-4" />
-              <span>Tradovate</span>
+              <span>Tradovate file</span>
             </div>
-            <div className="duo-card flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] hover:border-[#58CC02] active:translate-y-[2px] transition-all cursor-pointer">
+            <div className="duo-card flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] ">
               <NinjaTraderLogo className="w-4 h-4" />
-              <span>NinjaTrader</span>
+              <span>NinjaTrader file</span>
             </div>
-            <div className="duo-card flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] hover:border-amber-400 active:translate-y-[2px] transition-all cursor-pointer">
+            <div className="duo-card flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0D1635] border-2 border-[#1C2A4E] border-b-4 border-b-[#15203D] ">
               <CsvLogo className="w-4 h-4" />
-              <span>Universal CSV / Statement</span>
+              <span>Any broker (CSV template)</span>
             </div>
           </div>
 
@@ -588,7 +588,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                   <div className="w-6 h-6 rounded-xl bg-[#58CC02] border border-[#58CC02] border-b-4 border-b-[#3C8901] flex items-center justify-center text-white shrink-0 shadow-md">
                     <Check size={14} strokeWidth={4} />
                   </div>
-                  <span>Supports CME Futures, Tradovate, NinjaTrader & Universal CSV</span>
+                  <span>CME futures · import Tradovate & NinjaTrader files</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <div className="w-6 h-6 rounded-xl bg-[#58CC02] border border-[#58CC02] border-b-4 border-b-[#3C8901] flex items-center justify-center text-white shrink-0 shadow-md">
@@ -694,8 +694,8 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                 a: "Every day you get a 30-second institutional risk math drill to prime your mind before trading."
               },
               {
-                q: "What if my broker is not listed for auto-sync?",
-                a: "Drop raw trade CSV/HTML exports in 1 second from any broker or platform."
+                q: "Does it sync with my broker automatically?",
+                a: "Not yet. Today you import a Tradovate or NinjaTrader file in seconds (any other broker via our CSV template). Direct broker sync is coming."
               },
               {
                 q: "What is your refund policy?",

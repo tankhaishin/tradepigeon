@@ -154,8 +154,8 @@ export default function ProPaywallModal({
               <Zap size={14} strokeWidth={3} />
             </div>
             <div className="text-xs">
-              <span className="font-black text-white">Automated Live Broker Sync:</span>{' '}
-              <span className="text-slate-300">Direct streaming from Tradovate, MT5, and prop firm accounts with zero manual entry.</span>
+              <span className="font-black text-white">Broker auto-sync:</span>{' '}
+              <span className="text-slate-300">Coming soon. Pro members get it first.</span>
             </div>
           </div>
 
