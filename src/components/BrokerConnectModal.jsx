@@ -65,7 +65,7 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
     },
     { 
       id: 'csv', 
-      name: 'Universal CSV / Statement', 
+      name: 'Import a file (CSV)', 
       icon: CsvLogo, 
       badge: 'STATEMENT',
       color: '#1CB0F6'
@@ -545,15 +545,18 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
             <h4 className="text-sm font-black text-white">Select Broker</h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {platforms.map((p) => {
+              {[...platforms].sort((a, b) => (a.id === 'csv' ? -1 : b.id === 'csv' ? 1 : 0)).map((p) => {
                 const PlatformIcon = p.icon;
-                const isLocked = p.id !== 'csv' && !isProActive();
+                // Broker auto-sync needs approved partner API access (NinjaTrader Ecosystem); until then only file import works.
+                const soon = p.id !== 'csv';
+                const isLocked = false;
                 return (
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => handleSelectPlatform(p)}
-                    className={`p-4 rounded-2xl bg-[#142127] border-2 border-[#20323D] hover:border-[#1CB0F6] hover:bg-[#1CB0F6]/10 text-left transition-all group cursor-pointer flex flex-col justify-between space-y-3 relative ${isLocked ? 'opacity-90' : ''}`}
+                    onClick={() => !soon && handleSelectPlatform(p)}
+                    disabled={soon}
+                    className={`${soon ? 'opacity-50 cursor-not-allowed' : ''} p-4 rounded-2xl bg-[#142127] border-2 border-[#20323D] hover:border-[#1CB0F6] hover:bg-[#1CB0F6]/10 text-left transition-all group cursor-pointer flex flex-col justify-between space-y-3 relative ${isLocked ? 'opacity-90' : ''}`}
                   >
                     <div className="flex items-center justify-between">
                       <PlatformIcon className="w-8 h-8 object-contain shrink-0" />
@@ -565,7 +568,7 @@ export default function BrokerConnectModal({ isOpen, onClose, onAccountAdded, on
                           </span>
                         )}
                         <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-[#1CB0F6]/20 text-[#1CB0F6] border border-[#1CB0F6]/30">
-                          {p.badge}
+                          {soon ? 'Coming soon' : 'Works now'}
                         </span>
                       </div>
                     </div>
