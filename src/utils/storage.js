@@ -17,7 +17,6 @@ const STORAGE_KEYS = {
   ONBOARDING_DRAFT: 'tradepigeon_onboarding_draft',
   TRADE_HISTORY: 'tradepigeon_tradelogs',
   MAX_DAILY_LOSS: 'tradepigeon_max_daily_loss',
-  TRAILING_MAX_DRAWDOWN: 'tradepigeon_trailing_max_drawdown',
   RISK_TYPE: 'tradepigeon_risk_type'
 };
 

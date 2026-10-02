@@ -5,13 +5,12 @@ import { DuoLightningIcon, DuoPalmtreeIcon, DuoShieldIcon, DuoGemIcon, DuoStarIc
 import AiDebriefModal from './AiDebriefModal';
 import ManualTradeModal from './ManualTradeModal';
 import BrokerConnectModal from './BrokerConnectModal';
-import PropFirmDrawdownGauge from './cockpit/PropFirmDrawdownGauge';
 import LivePositionsCard from './cockpit/LivePositionsCard';
 import ConfirmModal from './ConfirmModal';
 import { loadStoredData, saveStoredData, subscribeToStorageUpdate, STORAGE_KEYS, DEFAULT_USER_STATS, deleteStoredTrade, deleteMultipleStoredTrades, restoreStoredTrade, saveSessionTrades, loadSessionTrades, addDisciplinePoints } from '../utils/storage';
 import { auditAndSanitizeCalendarState, buildDynamicMonthData } from '../utils/calendarEngine';
 import { soundFx } from '../utils/audioEngine';
-import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl, calculateTrailingDrawdown } from '../utils/financialMath';
+import { parseFinancialNumber, formatFinancialCurrency, formatRMultiple, sumTradesPnl } from '../utils/financialMath';
 import { classifyTradeExecution } from '../utils/tradeParser';
 
 export const HESITATION_REASONS = [
@@ -78,12 +77,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const [streakFreezes, setStreakFreezes] = useState(() => loadStoredData('tradepigeon_streak_freezes', 1));
   const [completedSteps, setCompletedSteps] = useState(() => loadStoredData('tradepigeon_completed_steps', []));
   const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('tradepigeon_stealth_mode', false));
-  const [trailingMaxDrawdown, setTrailingMaxDrawdown] = useState(() => {
-    const raw = loadStoredData('tradepigeon_trailing_max_drawdown', '$2,500');
-    return Math.abs(parseFinancialNumber(raw, 2500));
-  });
-  const [isDrawdownPopoverOpen, setIsDrawdownPopoverOpen] = useState(false);
-  const [customDrawdownInput, setCustomDrawdownInput] = useState('');
 
   const isDebriefDoneToday = useMemo(() => {
     const todayIsoStr = new Date().toISOString().split('T')[0];
@@ -120,9 +113,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
       if (key === 'tradepigeon_stealth_mode') {
         setIsStealthMode(Boolean(value));
-      }
-      if (key === 'tradepigeon_trailing_max_drawdown') {
-        setTrailingMaxDrawdown(Math.abs(parseFinancialNumber(value, 2500)));
       }
       if (key === 'trades_cleared') {
         setSessionTrades([]);
@@ -499,18 +489,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   const storedMaxLoss = loadStoredData('tradepigeon_max_daily_loss', '$1,000');
   const hubLossLimitNum = Math.abs(parseFinancialNumber(storedMaxLoss, 1000));
 
-  const trailingMetrics = useMemo(() => {
-    return calculateTrailingDrawdown(filteredTrades, trailingMaxDrawdown);
-  }, [filteredTrades, trailingMaxDrawdown]);
-
-  const handleSelectTrailingDrawdown = (val) => {
-    soundFx.playPop();
-    const num = Math.abs(parseFinancialNumber(val, 2500));
-    setTrailingMaxDrawdown(num);
-    saveStoredData('tradepigeon_trailing_max_drawdown', `$${num.toLocaleString()}`);
-    setIsDrawdownPopoverOpen(false);
-  };
-
   const formatHubTradePnl = (trade) => {
     if (!isStealthMode) return trade.pnl;
     if (trade.rMultiple || trade.r) return trade.rMultiple || trade.r;
@@ -645,7 +623,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        if (isDrawdownPopoverOpen) setIsDrawdownPopoverOpen(false);
         if (isRulesModalOpen) setIsRulesModalOpen(false);
         if (isVacationModalOpen) setIsVacationModalOpen(false);
         if (isManualModalOpen) setIsManualModalOpen(false);
@@ -656,7 +633,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isDrawdownPopoverOpen, isRulesModalOpen, isVacationModalOpen, isManualModalOpen, isDebriefModalOpen, isBrokerModalOpen, onCloseMobile]);
+  }, [isRulesModalOpen, isVacationModalOpen, isManualModalOpen, isDebriefModalOpen, isBrokerModalOpen, onCloseMobile]);
 
   // Real-Time Synchronization between Session Trades & Calendar Day State
   useEffect(() => {
@@ -1289,14 +1266,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 </span>
               </div>
             )}
-
-            {/* PROP FIRM TRAILING DRAWDOWN & LIQUIDATION BUFFER GAUGE */}
-            <PropFirmDrawdownGauge
-              trailingMetrics={trailingMetrics}
-              trailingMaxDrawdown={trailingMaxDrawdown}
-              onSelectTrailingDrawdown={handleSelectTrailingDrawdown}
-              isStealthMode={isStealthMode}
-            />
 
             {/* UNDO DELETION BANNER */}
             {deletedTradesBackup && (

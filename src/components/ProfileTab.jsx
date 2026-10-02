@@ -73,17 +73,14 @@ export default function ProfileTab() {
     }
   }, [activeSubTab]);
 
-  // Risk & Prop Firm Drawdown Calibration
+  // Risk Calibration
   const [maxDailyLoss, setMaxDailyLoss] = useState(() => loadStoredData('tradepigeon_max_daily_loss', '$1,000'));
-  const [trailingMaxDrawdown, setTrailingMaxDrawdown] = useState(() => loadStoredData('tradepigeon_trailing_max_drawdown', '$2,500'));
   const [customLossInput, setCustomLossInput] = useState('');
-  const [customDrawdownInput, setCustomDrawdownInput] = useState('');
   const [isStealthMode, setIsStealthMode] = useState(() => loadStoredData('tradepigeon_stealth_mode', false));
 
   useEffect(() => {
     const unsubscribe = subscribeToStorageUpdate(({ key, value }) => {
       if (key === 'tradepigeon_max_daily_loss') setMaxDailyLoss(value || '$1,000');
-      if (key === 'tradepigeon_trailing_max_drawdown') setTrailingMaxDrawdown(value || '$2,500');
       if (key === 'tradepigeon_stealth_mode') setIsStealthMode(Boolean(value));
       if (key === 'tradepigeon_sound_muted') setIsSoundMuted(value === 'true' || value === true);
     });
@@ -97,15 +94,6 @@ export default function ProfileTab() {
     setMaxDailyLoss(formatted);
     saveStoredData('tradepigeon_max_daily_loss', formatted);
     triggerToast(`Max Daily Loss updated to ${formatted}`);
-  };
-
-  const handleSetTrailingDrawdown = (val) => {
-    soundFx.playPop();
-    const num = Math.abs(parseFinancialNumber(val, 2500));
-    const formatted = `$${num.toLocaleString()}`;
-    setTrailingMaxDrawdown(formatted);
-    saveStoredData('tradepigeon_trailing_max_drawdown', formatted);
-    triggerToast(`Trailing Max Drawdown updated to ${formatted}`);
   };
 
   const handleToggleStealthMode = () => {
@@ -822,79 +810,7 @@ export default function ProfileTab() {
             </div>
           </div>
 
-          {/* Card 2: Prop Firm Trailing Max Drawdown */}
-          <div className="duo-card p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#20323D]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#1CB0F6]/20 border border-[#1CB0F6]/40 text-[#1CB0F6] flex items-center justify-center">
-                  <ShieldCheck size={16} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-white">Prop Firm Trailing Max Drawdown</h3>
-                  <p className="text-xs font-bold text-[#52656D]">Apex / Topstep / MyFundedFutures liquidation threshold</p>
-                </div>
-              </div>
-              <div className="px-3 py-1 rounded-xl bg-[#1CB0F6]/20 border border-[#1CB0F6]/40 text-[#1CB0F6] font-mono font-black text-sm">
-                {trailingMaxDrawdown}
-              </div>
-            </div>
-
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Your trailing threshold dynamically trails upward behind your session peak equity (High-Water Mark). If your equity falls below this trailing threshold, the Cockpit signals a Liquidation Breach.
-            </p>
-
-            <div className="space-y-2">
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Prop Firm Account Presets:</span>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {[
-                  { label: '$1,500 (25k Account)', amt: 1500 },
-                  { label: '$2,000 (25k / 50k)', amt: 2000 },
-                  { label: '$2,500 (50k Standard)', amt: 2500 },
-                  { label: '$3,000 (75k Standard)', amt: 3000 },
-                  { label: '$4,500 (100k Standard)', amt: 4500 },
-                  { label: '$7,500 (150k Standard)', amt: 7500 },
-                ].map(item => (
-                  <button
-                    key={item.amt}
-                    type="button"
-                    onClick={() => handleSetTrailingDrawdown(item.amt)}
-                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold text-left cursor-pointer transition-all flex items-center justify-between ${
-                      Math.abs(parseFinancialNumber(trailingMaxDrawdown, 2500)) === item.amt
-                        ? 'bg-[#1CB0F6]/20 border-[#1CB0F6] text-white shadow-sm'
-                        : 'bg-[#182830] border-[#20323D] text-slate-400 hover:text-white hover:border-slate-500'
-                    }`}
-                  >
-                    <span>{item.label}</span>
-                    <span className="font-mono font-black text-[11px]">${item.amt.toLocaleString()}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-2 flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Custom buffer (e.g. $3,500)"
-                value={customDrawdownInput}
-                onChange={(e) => setCustomDrawdownInput(e.target.value)}
-                className="duo-input text-xs w-48"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  if (customDrawdownInput.trim()) {
-                    handleSetTrailingDrawdown(customDrawdownInput);
-                    setCustomDrawdownInput('');
-                  }
-                }}
-                className="duo-btn-green px-4 py-2 text-xs font-black uppercase tracking-wider cursor-pointer"
-              >
-                Save Buffer
-              </button>
-            </div>
-          </div>
-
-          {/* Card 3: Psychology Shield & Stealth Mode */}
+          {/* Card 2: Psychology Shield & Stealth Mode */}
           <div className="duo-card p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#20323D]">
               <div className="flex items-center gap-2.5">

@@ -26,7 +26,7 @@ export const SUBSCRIPTION_STORAGE_KEYS = {
 export const PRO_FEATURES = {
   AI_DEBRIEF: 'ai_debrief',
   BROKER_SYNC: 'broker_sync',
-  PROP_FIRM_COCKPIT: 'prop_firm_cockpit',
+  MULTI_ACCOUNT: 'multi_account',
   EXECUTION_MATRIX: 'execution_matrix',
   DATA_EXPORT: 'data_export'
 };

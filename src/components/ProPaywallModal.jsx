@@ -174,8 +174,8 @@ export default function ProPaywallModal({
               <ShieldCheck size={14} strokeWidth={3} />
             </div>
             <div className="text-xs">
-              <span className="font-black text-white">Prop Firm Trailing Drawdown HUD:</span>{' '}
-              <span className="text-slate-300">Intraday peak-to-trough drawdown protection with hard rule violation lockouts.</span>
+              <span className="font-black text-white">Multi-Account Portfolio Analytics:</span>{' '}
+              <span className="text-slate-300">Unified basket execution tracking and combined performance across all your trading accounts.</span>
             </div>
           </div>
 
