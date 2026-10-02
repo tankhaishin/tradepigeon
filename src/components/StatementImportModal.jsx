@@ -17,6 +17,7 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
   const [account, setAccount] = useState('');
   const [newAccount, setNewAccount] = useState('');
   const [timeZone, setTimeZone] = useState(browserTz);
+  const [feePerContract, setFeePerContract] = useState('');
   const [fileName, setFileName] = useState('');
   const [fileText, setFileText] = useState('');
   const [dragOver, setDragOver] = useState(false);
@@ -30,6 +31,7 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
     const first = fileAccounts()[0];
     setAccount(first ? first.name : '__new');
     if (first?.timeZone) setTimeZone(first.timeZone);
+    setFeePerContract(first?.feePerContract ? String(first.feePerContract) : '');
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -41,10 +43,15 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
   const result = useMemo(() => {
     if (!fileText || !accountName) return null;
     const r = importTradesFile(fileText, { account: accountName, timeZone });
+    // Files whose P&L is before fees (Tradovate) get the account's round-trip fee per contract.
+    const fee = Math.max(0, parseFloat(feePerContract) || 0);
+    const trades = r.trades.map(t => t.pnlIsGross && fee
+      ? { ...t, feesNum: Math.round(fee * t.contracts * 100) / 100, pnlNum: Math.round((t.pnlNum - fee * t.contracts) * 100) / 100, pnlIsGross: false }
+      : t);
     const existing = new Set(getTrades().map(t => t.id));
-    const fresh = r.trades.filter(t => !existing.has(t.id));
-    return { ...r, fresh, already: r.trades.length - fresh.length };
-  }, [fileText, accountName, timeZone]);
+    const fresh = trades.filter(t => !existing.has(t.id));
+    return { ...r, trades, fresh, already: trades.length - fresh.length, hasGross: r.trades.some(t => t.pnlIsGross) };
+  }, [fileText, accountName, timeZone, feePerContract]);
 
   if (!isOpen) return null;
 
@@ -61,6 +68,7 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
     setAccount(value);
     const acc = accounts.find(a => a.name === value);
     if (acc?.timeZone) setTimeZone(acc.timeZone);
+    setFeePerContract(acc?.feePerContract ? String(acc.feePerContract) : '');
   };
 
   const handleImport = () => {
@@ -72,7 +80,7 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
     // Register / update the account (file-sourced, remembers its timezone).
     const all = loadStoredData('tradepigeon_accounts_data', []);
     const i = all.findIndex(a => a.name === accountName);
-    const acc = { ...(i >= 0 ? all[i] : { id: `ACC-${Date.now()}`, name: accountName, accountNumber: accountName, broker: result.formatName, isActive: true }), source: 'file', timeZone, status: 'Imported', lastImportAt: Date.now() };
+    const acc = { ...(i >= 0 ? all[i] : { id: `ACC-${Date.now()}`, name: accountName, accountNumber: accountName, broker: result.formatName, isActive: true }), source: 'file', timeZone, feePerContract: parseFloat(feePerContract) || 0, status: 'Imported', lastImportAt: Date.now() };
     if (i >= 0) all[i] = acc; else all.push(acc);
     saveStoredData('tradepigeon_accounts_data', all);
 
@@ -160,6 +168,12 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
                 <button type="button" onClick={() => setShowSkipped(!showSkipped)} className="underline">{result.rejected.length} {result.rejected.length === 1 ? 'row' : 'rows'} skipped</button>
                 {showSkipped && <ul className="mt-1 space-y-0.5 text-amber-200/80">{result.rejected.slice(0, 20).map(r => <li key={r.line}>Row {r.line}: {r.reason}</li>)}</ul>}
               </div>
+            )}
+            {result.hasGross && (
+              <label className="flex items-center justify-between gap-3 text-xs font-bold text-slate-300 pt-1">
+                <span>Fees per contract, round trip</span>
+                <span className="flex items-center gap-1">$<input type="number" min="0" step="0.01" inputMode="decimal" value={feePerContract} onChange={(e) => setFeePerContract(e.target.value)} placeholder="0.00" className="w-20 p-1.5 rounded-lg bg-[#142127] border-2 border-[#20323D] text-white font-black text-xs outline-none focus:border-[#1CB0F6]" /></span>
+              </label>
             )}
             <div className="text-[11px] font-bold text-[#52656D]">{result.formatName}</div>
           </div>
