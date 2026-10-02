@@ -681,10 +681,6 @@ export default function LandingPage({ onGetStarted, onLogin }) {
               {
                 q: "Does it sync with my broker automatically?",
                 a: "Not yet. Today you import a Tradovate or NinjaTrader file in seconds (any other broker via our CSV template). Direct broker sync is coming."
-              },
-              {
-                q: "What is your refund policy?",
-                a: "100% 7-day money-back guarantee. Zero questions asked."
               }
             ].map((faq, idx) => {
               const isOpen = openFaqIndex === idx;

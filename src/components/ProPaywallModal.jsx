@@ -31,6 +31,7 @@ export default function ProPaywallModal({
 }) {
   const { user } = useAuth();
   const [isProcessingStripe, setIsProcessingStripe] = useState(false);
+  const [plan, setPlan] = useState('monthly');
   const [errorMessage, setErrorMessage] = useState('');
   const [userCoins, setUserCoins] = useState(() => {
     const stats = loadStoredData(STORAGE_KEYS.USER_STATS, { disciplinePoints: 0 });
@@ -63,7 +64,7 @@ export default function ProPaywallModal({
     setErrorMessage('');
 
     try {
-      await startCheckout('monthly');
+      await startCheckout(plan);
       return;
     } catch (err) {
       console.error('[Stripe Checkout Error]:', err);
@@ -197,18 +198,26 @@ export default function ProPaywallModal({
           </div>
         </div>
 
-        {/* Pricing & Guarantee Bar */}
-        <div className="flex items-center justify-between p-4 rounded-2xl bg-[#14203E] border border-[#20325C] mb-6">
-          <div>
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">MONTHLY PASS</div>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-3xl font-black text-white">${PRO_MONTHLY_PRICE}</span>
-              <span className="text-xs font-bold text-slate-400">/ month</span>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-[10px] font-bold text-slate-400 mt-1">Cancel anytime in 1 click</div>
-          </div>
+        {/* Plan picker */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          {[
+            { id: 'monthly', label: 'Monthly', price: `$${PRO_MONTHLY_PRICE}`, per: '/ month', note: 'Cancel anytime' },
+            { id: 'annual', label: 'Yearly', price: '$79.99', per: '/ year', note: 'Save 33%' }
+          ].map(o => (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => setPlan(o.id)}
+              className={`p-4 rounded-2xl text-left border-2 cursor-pointer transition-all ${plan === o.id ? 'border-[#58CC02] bg-[#58CC02]/10' : 'border-[#20325C] bg-[#14203E] hover:border-slate-500'}`}
+            >
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">{o.label}</div>
+              <div className="flex items-baseline gap-1 mt-0.5">
+                <span className="text-2xl font-black text-white">{o.price}</span>
+                <span className="text-xs font-bold text-slate-400">{o.per}</span>
+              </div>
+              <div className={`text-[11px] font-black mt-1 ${o.id === 'annual' ? 'text-[#58CC02]' : 'text-slate-400'}`}>{o.note}</div>
+            </button>
+          ))}
         </div>
 
         {/* Error Notification */}
@@ -229,7 +238,7 @@ export default function ProPaywallModal({
               <span>Connecting to Secure Checkout...</span>
             ) : (
               <>
-                <span>Upgrade to Pro · $9.99/mo</span>
+                <span>Upgrade to Pro · {plan === 'annual' ? '$79.99/yr' : `$${PRO_MONTHLY_PRICE}/mo`}</span>
                 <ArrowRight size={18} strokeWidth={3} />
               </>
             )}
