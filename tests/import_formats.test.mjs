@@ -57,3 +57,9 @@ console.assert(noPnl.trades[0].pnlNum === 20, 'MNQ +10pts x1 = $20 (not NQ $200)
 // unknown file
 console.assert(importTradesFile('foo,bar\n1,2', { account: 'x', timeZone: NY }).error, 'unknown format -> clear error, nothing imported');
 console.log('✓ strict import: Tradovate, NinjaTrader, template, money, time, rejection');
+const { limitToRecent } = await import('../src/utils/importFormats.js');
+const now = Date.parse('2026-10-03T12:00:00Z');
+const sample = [{ exitTimeMs: now - 5 * 86400000 }, { exitTimeMs: now - 40 * 86400000 }];
+console.assert(limitToRecent(sample, true, now).trades.length === 1 && limitToRecent(sample, true, now).olderSkipped === 1, 'trial keeps last 30 days only');
+console.assert(limitToRecent(sample, false, now).trades.length === 2, 'Pro imports everything');
+console.log('✓ trial import limited to 30 days');

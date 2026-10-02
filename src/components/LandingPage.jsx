@@ -130,7 +130,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
               className="duo-btn-orange px-5 py-2.5 text-xs uppercase tracking-wider font-black shadow-lg cursor-pointer flex items-center gap-2"
             >
               <Duo3dZapBadge className="w-4 h-4" />
-              <span>START FREE TRIAL</span>
+              <span>START FREE</span>
             </button>
           )}
         </div>
@@ -209,9 +209,10 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                 className="duo-btn-orange w-full py-4 text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-[0_8px_30px_rgba(255,107,0,0.4)] cursor-pointer"
               >
                 <Duo3dZapBadge className="w-5 h-5" />
-                <span>START YOUR 7-DAY FREE TRIAL</span>
+                <span>START FREE</span>
               </button>
             )}
+            {!loggedInUser && <p className="text-xs font-bold text-slate-400 text-center">Includes 7 days of Pro. No card needed.</p>}
           </div>
 
           {/* Duolingo 3D Tactile Broker Badges */}
@@ -609,7 +610,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                   className="duo-btn-orange w-full py-4 text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg cursor-pointer"
                 >
                   <Duo3dZapBadge className="w-5 h-5" />
-                  <span>START YOUR 7-DAY FREE TRIAL</span>
+                  <span>TRY PRO FREE FOR 7 DAYS</span>
                 </button>
               )}
             </div>

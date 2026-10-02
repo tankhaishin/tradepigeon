@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Upload, X, AlertTriangle, ArrowRight, Undo2, Download } from 'lucide-react';
-import { importTradesFile, TEMPLATE_CSV } from '../utils/importFormats';
+import { importTradesFile, TEMPLATE_CSV, limitToRecent } from '../utils/importFormats';
+import { computeSubscriptionEntitlement } from '../utils/subscriptionEngine';
 import { addTrades, getTrades, recordImport, getImportHistory, undoImport } from '../utils/tradeStore';
 import { loadStoredData, saveStoredData } from '../utils/storage';
 import { soundFx } from '../utils/audioEngine';
@@ -48,9 +49,11 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
     const trades = r.trades.map(t => t.pnlIsGross && fee
       ? { ...t, feesNum: Math.round(fee * t.contracts * 100) / 100, pnlNum: Math.round((t.pnlNum - fee * t.contracts) * 100) / 100, pnlIsGross: false }
       : t);
+    const isTrial = Boolean(computeSubscriptionEntitlement()?.isTrial);
+    const { trades: inRange, olderSkipped } = limitToRecent(trades, isTrial);
     const existing = new Set(getTrades().map(t => t.id));
-    const fresh = trades.filter(t => !existing.has(t.id));
-    return { ...r, trades, fresh, already: trades.length - fresh.length, hasGross: r.trades.some(t => t.pnlIsGross) };
+    const fresh = inRange.filter(t => !existing.has(t.id));
+    return { ...r, trades: inRange, fresh, already: inRange.length - fresh.length, olderSkipped, hasGross: r.trades.some(t => t.pnlIsGross) };
   }, [fileText, accountName, timeZone, feePerContract]);
 
   if (!isOpen) return null;
@@ -163,6 +166,7 @@ export default function StatementImportModal({ isOpen, onClose, onSuccess }) {
               <span className={pnl >= 0 ? 'text-[#58CC02]' : 'text-rose-400'}>{formatFinancialCurrency(pnl, { showPlus: true })}{isGross ? ' before fees' : ''}</span>
             </div>
             {result.already > 0 && <div className="text-xs font-bold text-[#7A8E99]">{result.already} already in your journal</div>}
+            {result.olderSkipped > 0 && <div className="text-xs font-bold text-[#7A8E99]">{result.olderSkipped} older than 30 days skipped during your trial. Upgrade to import your full history.</div>}
             {result.rejected.length > 0 && (
               <div className="text-xs font-bold text-amber-300">
                 <button type="button" onClick={() => setShowSkipped(!showSkipped)} className="underline">{result.rejected.length} {result.rejected.length === 1 ? 'row' : 'rows'} skipped</button>

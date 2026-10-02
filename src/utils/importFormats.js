@@ -228,3 +228,13 @@ export function importTradesFile(text, { account, timeZone }) {
   }
   return { format: fmt.id, formatName: fmt.name, trades, rejected };
 }
+
+export const TRIAL_IMPORT_DAYS = 30;
+
+/** During the free trial only the last 30 days import (keeps trial storage small; full history is Pro). */
+export function limitToRecent(trades, isTrial, now = Date.now()) {
+  if (!isTrial) return { trades, olderSkipped: 0 };
+  const cutoff = now - TRIAL_IMPORT_DAYS * 86400000;
+  const kept = trades.filter(t => (t.exitTimeMs || t.entryTimeMs || 0) >= cutoff);
+  return { trades: kept, olderSkipped: trades.length - kept.length };
+}

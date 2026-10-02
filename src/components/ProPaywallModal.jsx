@@ -152,8 +152,8 @@ export default function ProPaywallModal({
               <Zap size={14} strokeWidth={3} />
             </div>
             <div className="text-xs">
-              <span className="font-black text-white">Import your trades:</span>{' '}
-              <span className="text-slate-300">From Tradovate, NinjaTrader or our CSV template, with undo. No more typing.</span>
+              <span className="font-black text-white">Stop typing every trade:</span>{' '}
+              <span className="text-slate-300">Import from Tradovate, NinjaTrader or our CSV template in seconds. Broker auto-sync comes to Pro first.</span>
             </div>
           </div>
 
@@ -187,15 +187,6 @@ export default function ProPaywallModal({
             </div>
           </div>
 
-          <div className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-              <Cloud size={14} strokeWidth={3} />
-            </div>
-            <div className="text-xs">
-              <span className="font-black text-white">Broker auto-sync:</span>{' '}
-              <span className="text-slate-300">Coming soon. Pro members get it first.</span>
-            </div>
-          </div>
         </div>
 
         {/* Plan picker */}
