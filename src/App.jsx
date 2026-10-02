@@ -9,7 +9,6 @@ import NetworkStatusBanner from './components/NetworkStatusBanner';
 import LandingPage from './components/LandingPage';
 import ProPaywallModal from './components/ProPaywallModal';
 import { refreshProStatus } from './utils/proStatus';
-import { syncSubscriptionToCloud, computeSubscriptionEntitlement } from './utils/subscriptionEngine';
 import ConfettiBurst from './components/ConfettiBurst';
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
 import ManualTradeModal from './components/ManualTradeModal';
@@ -275,30 +274,11 @@ export default function App() {
 
     const verifySession = async () => {
       try {
-        const res = await fetch('/api/stripe/verify-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId })
-        });
-        const data = await res.json();
-        if (data?.verified && data?.isPro) {
-          const authUser = loadStoredData(STORAGE_KEYS.AUTH_USER, null);
-          const entitlement = data.subscription || {
-            isPro: true,
-            plan: 'PRO',
-            status: 'active',
-            proExpiresAt: Date.now() + 30 * 86400000,
-            customerId: data.customerId,
-            subscriptionId: data.subscriptionId
-          };
-          await syncSubscriptionToCloud(authUser?.uid, entitlement);
+        const entitlement = await refreshProStatus();
+        if (entitlement?.isPro && entitlement.source === 'stripe') {
           soundFx.playTrophy();
           setConfettiTrigger(prev => prev + 1);
-        } else {
-          console.warn('[TradePigeon Billing] Session verification rejected:', data?.error);
         }
-      } catch (err) {
-        console.warn('[TradePigeon Billing] Failed to verify checkout session:', err);
       } finally {
         window.history.replaceState({}, document.title, window.location.pathname);
       }

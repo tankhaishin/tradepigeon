@@ -1,3 +1,4 @@
+import './_strict.mjs';
 /**
  * TradePigeon Automated High-Load Stress & Hostile Ingestion Test Suite
  * 

@@ -2,6 +2,7 @@
 // Combines real Google Gemini generative AI insights with audited deterministic mathematical grounding
 
 import { generateIntelligentSessionDebrief } from './aiDebriefEngine.js';
+import { authHeaders } from './proStatus.js';
 import { formatFinancialCurrency, parseFinancialNumber } from './financialMath.js';
 
 /**
@@ -91,7 +92,7 @@ Return ONLY the valid raw JSON object without markdown formatting or backticks.`
       try {
         const proxyRes = await fetch('/api/ai/debrief', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
           body: JSON.stringify({ prompt })
         });
         if (proxyRes.ok) {
@@ -102,7 +103,7 @@ Return ONLY the valid raw JSON object without markdown formatting or backticks.`
           await new Promise((r) => setTimeout(r, 1200));
           const retryRes = await fetch('/api/ai/debrief', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
             body: JSON.stringify({ prompt })
           });
           if (retryRes.ok) {

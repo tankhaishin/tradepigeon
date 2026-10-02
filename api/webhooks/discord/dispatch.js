@@ -1,9 +1,11 @@
-import { handleCors } from '../../utils/cors.js';
+import { handleCors } from '../../_lib/cors.js';
+import { verifyUser } from '../../_lib/account.js';
 
 const DEFAULT_DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || '';
 
-async function sendDiscordWebhook(webhookUrl, embedPayload) {
-  const url = webhookUrl || DEFAULT_DISCORD_WEBHOOK_URL;
+async function sendDiscordWebhook(embedPayload) {
+  // Only ever posts to the owner's own webhook; user webhooks are called directly from the browser.
+  const url = DEFAULT_DISCORD_WEBHOOK_URL;
   if (!url) {
     return { success: false, reason: 'No Webhook URL' };
   }
@@ -33,7 +35,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
   }
 
-  const { title, description, color, fields, footerText, webhookUrl } = req.body || {};
+  if (!(await verifyUser(req))) return res.status(401).json({ error: 'Please sign in again.' });
+
+  const { title, description, color, fields, footerText } = req.body || {};
   if (!title) {
     return res.status(400).json({ error: 'Title is required' });
   }
@@ -55,6 +59,6 @@ export default async function handler(req, res) {
     ]
   };
 
-  const result = await sendDiscordWebhook(webhookUrl, embedPayload);
+  const result = await sendDiscordWebhook(embedPayload);
   return res.json({ status: 'OK', sent: result.success });
 }

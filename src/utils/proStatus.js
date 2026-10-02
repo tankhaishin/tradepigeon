@@ -1,162 +1,64 @@
-import { auth, db } from '../config/firebase.js';
-import { loadStoredData, saveStoredData, STORAGE_KEYS } from './storage.js';
-import { 
-  computeSubscriptionEntitlement, 
-  syncSubscriptionToCloud,
-  SUBSCRIPTION_STORAGE_KEYS 
-} from './subscriptionEngine.js';
-import { doc, getDoc } from 'firebase/firestore';
+import { auth } from '../config/firebase.js';
+import { saveStoredData } from './storage.js';
+import { computeSubscriptionEntitlement, SUBSCRIPTION_STORAGE_KEYS } from './subscriptionEngine.js';
 
 /**
- * Checks whether Pro access is active right now.
- * Validates Stripe subscription, Coin Pass voucher expiry, and 7-Day Free Trial.
+ * Pro access right now (server-confirmed Stripe/trial cache + local coin pass).
+ * Display/gating only: server-side features re-check Pro on every call.
  */
 export function isProActive() {
-  const entitlement = computeSubscriptionEntitlement();
-  return Boolean(entitlement?.isPro);
+  return Boolean(computeSubscriptionEntitlement()?.isPro);
 }
 
-/**
- * Calls a billing endpoint securely with auth token fallback
- */
-export async function billingFetch(action, body = null) {
-  let token = null;
+// Authorization header for our /api endpoints as the signed-in Firebase user.
+export async function authHeaders() {
   try {
-    await auth?.authStateReady?.();
-    token = await auth?.currentUser?.getIdToken();
-  } catch (authErr) {
-    console.warn('[Billing Auth Warning]:', authErr.message);
+    await auth?.authStateReady?.(); // checkout returns can land before Firebase restores the session
+    const token = await auth?.currentUser?.getIdToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
   }
+}
 
-  const headers = {
-    'Content-Type': 'application/json'
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const endpoint = `/api/stripe/${action}`;
-  const res = await fetch(endpoint, {
+export async function billingFetch(action, body = null) {
+  const res = await fetch(`/api/stripe/${action}`, {
     method: body ? 'POST' : 'GET',
-    headers,
+    headers: { ...(await authHeaders()), ...(body ? { 'Content-Type': 'application/json' } : {}) },
     body: body ? JSON.stringify(body) : undefined
   });
-
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || `Billing service error (${res.status})`);
-  }
+  if (!res.ok) throw new Error(data.error || `Billing service error (${res.status})`);
   return data;
 }
 
-/**
- * Syncs and refreshes Pro subscription status from Cloud Firestore and Stripe.
- */
+/** Asks the server (Stripe + account age) for this account's Pro status and caches it locally. */
 export async function refreshProStatus() {
   try {
-    const currentUser = auth?.currentUser || loadStoredData(STORAGE_KEYS.AUTH_USER, null);
-    let cloudData = null;
+    const server = await billingFetch('status');
+    const cloudData = {
+      subscription: server.source === 'stripe' ? server : null,
+      trialStartedAt: server.trialStartedAt ? new Date(server.trialStartedAt).toISOString() : undefined
+    };
+    saveStoredData(SUBSCRIPTION_STORAGE_KEYS.STATE, server.source === 'stripe' ? server : null);
+    if (server.trialStartedAt) saveStoredData(SUBSCRIPTION_STORAGE_KEYS.TRIAL_STARTED_AT, server.trialStartedAt);
 
-    if (currentUser?.uid && db) {
-      try {
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
-          cloudData = userDoc.data();
-        }
-      } catch (cloudErr) {
-        console.warn('[Cloud Subscription Fetch Notice]:', cloudErr.message);
-      }
-    }
-
-    // Attempt to query Stripe for real-time subscription lifecycle updates
-    if (currentUser?.email) {
-      try {
-        const stripeStatus = await billingFetch(`subscription-status?email=${encodeURIComponent(currentUser.email)}`);
-        if (stripeStatus && stripeStatus.isPro !== undefined) {
-          const updatedSub = {
-            isPro: Boolean(stripeStatus.isPro),
-            status: stripeStatus.status || 'active',
-            proExpiresAt: stripeStatus.proExpiresAt || null,
-            customerId: stripeStatus.customerId || null,
-            subscriptionId: stripeStatus.subscriptionId || null,
-            updatedAt: new Date().toISOString()
-          };
-          await syncSubscriptionToCloud(currentUser.uid, updatedSub);
-          cloudData = { ...(cloudData || {}), subscription: updatedSub };
-        }
-      } catch (stripeErr) {
-        // Silent fallback to cloud/local verification
-      }
-    }
-
-    const entitlement = computeSubscriptionEntitlement(currentUser, cloudData);
+    const entitlement = computeSubscriptionEntitlement(auth?.currentUser, cloudData);
     saveStoredData(SUBSCRIPTION_STORAGE_KEYS.IS_PRO, entitlement.isPro);
-    saveStoredData(SUBSCRIPTION_STORAGE_KEYS.STATE, entitlement);
-    
+    window.dispatchEvent(new CustomEvent('tradepigeon_subscription_updated', { detail: entitlement }));
     return entitlement;
   } catch (err) {
     console.warn('[Pro Status Refresh Notice]:', err.message);
-    return computeSubscriptionEntitlement();
+    return computeSubscriptionEntitlement(); // keep last known state when offline / signed out
   }
 }
 
-/**
- * Initiates Stripe Checkout session for Pro upgrade
- */
-export async function startCheckout(plan = 'monthly', customerEmail = '', userId = '') {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tradepigeon.com';
-  const currentUser = auth?.currentUser;
-
-  const res = await fetch('/api/stripe/create-checkout-session', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      planName: 'TradePigeon Pro Subscription',
-      priceAmount: 9.99,
-      customerEmail: customerEmail || currentUser?.email || '',
-      userId: userId || currentUser?.uid || '',
-      successUrl: `${origin}?session_id={CHECKOUT_SESSION_ID}&status=success`,
-      cancelUrl: `${origin}?status=cancelled`
-    })
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || 'Failed to start Stripe checkout session.');
-  }
-
-  if (data?.url) {
-    window.location.href = data.url;
-  } else {
-    throw new Error('Stripe checkout URL missing.');
-  }
+export async function startCheckout(plan = 'monthly') {
+  const { url } = await billingFetch('create-checkout-session', { plan });
+  window.location.href = url;
 }
 
-/**
- * Opens Stripe Customer Portal for self-service cancellation / billing management
- */
-export async function openBillingPortal(customerEmail = '', customerId = '') {
-  const currentUser = auth?.currentUser;
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tradepigeon.com';
-
-  const res = await fetch('/api/stripe/create-portal-session', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      customerId: customerId || undefined,
-      customerEmail: customerEmail || currentUser?.email || '',
-      returnUrl: `${origin}`
-    })
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || 'Failed to open customer billing portal.');
-  }
-
-  if (data?.url) {
-    window.location.href = data.url;
-  } else {
-    throw new Error('Billing portal URL missing.');
-  }
+export async function openBillingPortal() {
+  const { url } = await billingFetch('create-portal-session', {});
+  window.location.href = url;
 }

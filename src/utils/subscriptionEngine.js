@@ -156,36 +156,6 @@ export function canAccessFeature(featureKey, entitlement) {
 }
 
 /**
- * Persists an active subscription entitlement to Cloud Firestore and localStorage
- */
-export async function syncSubscriptionToCloud(userId, subscriptionPayload) {
-  if (!subscriptionPayload) return;
-
-  // Mirror locally for immediate offline/render capability
-  saveStoredData(SUBSCRIPTION_STORAGE_KEYS.STATE, subscriptionPayload);
-  saveStoredData(SUBSCRIPTION_STORAGE_KEYS.IS_PRO, Boolean(subscriptionPayload.isPro));
-
-  if (userId && db) {
-    try {
-      const userRef = doc(db, 'users', userId);
-      await setDoc(userRef, {
-        subscription: subscriptionPayload,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-    } catch (err) {
-      console.warn('[Subscription Sync Warning]:', err.message);
-    }
-  }
-
-  // Dispatch custom window event so all tabs/components react immediately
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('tradepigeon_subscription_updated', {
-      detail: subscriptionPayload
-    }));
-  }
-}
-
-/**
  * Activates a 30-day Pro Pass purchased in the Coin Shop
  */
 export async function activateShopProPass(userId, currentCoins = 0) {

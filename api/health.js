@@ -1,4 +1,4 @@
-import { handleCors } from './utils/cors.js';
+import { handleCors } from './_lib/cors.js';
 
 export default function handler(req, res) {
   if (!handleCors(req, res)) return;

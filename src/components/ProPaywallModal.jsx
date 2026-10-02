@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { startCheckout } from '../utils/proStatus';
 import { 
   X, 
   Check, 
@@ -62,32 +63,8 @@ export default function ProPaywallModal({
     setErrorMessage('');
 
     try {
-      const origin = window.location.origin;
-      const res = await fetch('/api/stripe/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          planName: 'TradePigeon Pro Subscription',
-          priceAmount: PRO_MONTHLY_PRICE,
-          customerEmail: user?.email || '',
-          userId: user?.uid || '',
-          successUrl: `${origin}?session_id={CHECKOUT_SESSION_ID}&status=success`,
-          cancelUrl: `${origin}?status=cancelled`
-        })
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `Payment service returned ${res.status}`);
-      }
-
-      const data = await res.json();
-      if (data?.url) {
-        window.location.href = data.url;
-        return;
-      } else {
-        throw new Error('Checkout URL not provided by payment gateway.');
-      }
+      await startCheckout('monthly');
+      return;
     } catch (err) {
       console.error('[Stripe Checkout Error]:', err);
       setErrorMessage(err.message || 'Could not connect to Stripe. Please try again.');

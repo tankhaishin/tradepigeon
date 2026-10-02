@@ -1,3 +1,4 @@
+import { authHeaders } from './proStatus.js';
 const DEFAULT_DISCORD_WEBHOOK = import.meta.env?.VITE_DISCORD_WEBHOOK_URL || '';
 
 let lastDispatchTimestamp = 0;
@@ -24,7 +25,7 @@ export async function sendDiscordWebhookMessage({
     try {
       const proxyRes = await fetch('/api/webhooks/discord/dispatch', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({ title, description, color, fields, footerText })
       });
       if (proxyRes.ok) {

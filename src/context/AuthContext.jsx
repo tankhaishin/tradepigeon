@@ -78,6 +78,7 @@ export function AuthProvider({ children }) {
         setUser(null);
         saveStoredData(STORAGE_KEYS.AUTH_USER, null);
         saveStoredData('tradepigeon_is_pro', false);
+        saveStoredData('tradepigeon_subscription_state', null);
         initCloudFirestoreSync(null);
       }
       setLoading(false);

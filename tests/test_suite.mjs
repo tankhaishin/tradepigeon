@@ -1,3 +1,4 @@
+import './_strict.mjs';
 import { pairFillsFIFO, INSTRUMENT_MULTIPLIERS, normalizeSymbol, getInstrumentMultiplier } from '../src/utils/fillPairingEngine.js';
 import { getMonthDataFor, buildDynamicMonthData } from '../src/utils/calendarEngine.js';
 import { generateIntelligentSessionDebrief } from '../src/utils/aiDebriefEngine.js';
@@ -93,11 +94,11 @@ const duplicateAccounts = [
   { id: 'acc_1', accountNumber: 'PA-101', name: 'Funded 50K #1', broker: 'Tradovate' },
   { id: 'acc_1', accountNumber: 'PA-101', name: 'Funded 50K #1', broker: 'Tradovate' },
   { id: 'acc_2', accountNumber: 'PA-102', name: 'Evaluation #2', broker: 'Tradovate' },
-  { id: 'acc_3', name: 'NinjaTrader Live Account', broker: 'NinjaTrader' }, // dummy
+  { id: 'acc_3', name: 'NinjaTrader Live Account', broker: 'NinjaTrader' }, // real account name, must be kept
   { id: null, accountNumber: '', name: '' } // invalid
 ];
 const sanitized = sanitizeAccountsList(duplicateAccounts);
-console.assert(sanitized.length === 2, `Expected 2 unique accounts, got ${sanitized.length}`);
+console.assert(sanitized.length === 3, `Expected 3 unique accounts, got ${sanitized.length}`);
 console.assert(sanitized[0].id === 'acc_1', 'First account must be acc_1');
 console.assert(sanitized[1].id === 'acc_2', 'Second account must be acc_2');
 console.log('✓ sanitizeAccountsList eliminates duplicates and dummy accounts');
@@ -1538,3 +1539,13 @@ console.log('========================================\n');
 
 
 
+
+// Server-side Pro decision (api/_lib/account.js): Stripe first, then 7 days from account creation.
+const { decideEntitlement, TRIAL_MS } = await import('../api/_lib/account.js');
+const t0 = Date.UTC(2026, 9, 1);
+console.assert(decideEntitlement([], t0, t0 + TRIAL_MS - 1).isPro === true, 'Trial active on day 7');
+console.assert(decideEntitlement([], t0, t0 + TRIAL_MS + 1).isPro === false, 'Trial over after 7 days');
+console.assert(decideEntitlement([{ status: 'canceled' }], t0, t0 + TRIAL_MS * 9).isPro === false, 'Canceled sub is not Pro');
+const paid = decideEntitlement([{ status: 'canceled' }, { status: 'active', current_period_end: 2e9, customer: 'cus_1' }], t0, t0 + TRIAL_MS * 9);
+console.assert(paid.isPro === true && paid.source === 'stripe' && paid.proExpiresAt === 2e12, 'Active sub is Pro');
+console.log('✓ Server Pro decision: Stripe subscription or 7-day trial from account creation');
