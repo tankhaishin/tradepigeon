@@ -156,9 +156,9 @@ const FORMATS = [
       // NT8 "Profit" is before commission; "Commission" is the fee.
       const fees = Math.abs(num(r.commission) || 0);
       return buildTrade({
-        account: r.account || ctx.account, symbol: r.instrument.toUpperCase(), side: pos === 'long' ? 'BUY' : 'SELL', qty,
+        account: ctx.account, symbol: r.instrument.toUpperCase(), side: pos === 'long' ? 'BUY' : 'SELL', qty,
         entryMs, exitMs, entryPrice: entry, exitPrice: exit, pnl: profit, fees,
-        brokerTradeId: r['trade number'] ? `${r.account || ctx.account}#${r['trade number']}#${r['entry time']}` : ''
+        brokerTradeId: r['trade number'] ? `${r['trade number']}#${r['entry time']}` : ''
       });
     },
     timestamps: (r) => [r['entry time'], r['exit time']]
@@ -185,7 +185,7 @@ const FORMATS = [
         pnl = (side === 'BUY' ? exit - entry : entry - exit) * qty * mult;
       }
       return buildTrade({
-        account: r.account || ctx.account, symbol: r.symbol.toUpperCase(), side, qty,
+        account: ctx.account, symbol: r.symbol.toUpperCase(), side, qty,
         entryMs, exitMs, entryPrice: entry, exitPrice: exit, pnl, fees: Math.abs(num(r.fees) || 0)
       });
     },
@@ -210,6 +210,11 @@ export function importTradesFile(text, { account, timeZone }) {
       format: null, formatName: null, trades: [], rejected: [],
       error: 'We don\'t recognise this file. Supported: Tradovate Performance export, NinjaTrader 8 Trades export, or the TradePigeon template.'
     };
+  }
+  // Trades always belong to the account the user picked; a file mixing accounts would silently merge them.
+  const fileAccounts = [...new Set(rows.map(({ row }) => (row.account || '').trim()).filter(Boolean))];
+  if (fileAccounts.length > 1) {
+    return { format: fmt.id, formatName: fmt.name, trades: [], rejected: [], error: `This file has trades from ${fileAccounts.length} accounts (${fileAccounts.slice(0, 3).join(', ')}). Export one account at a time.` };
   }
   const order = detectDateOrder(rows.flatMap(({ row }) => fmt.timestamps(row)));
   const ctx = { account, timeZone, order };

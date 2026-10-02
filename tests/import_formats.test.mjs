@@ -41,7 +41,11 @@ const nt = `Trade number,Instrument,Account,Strategy,Market pos.,Qty,Entry price
 2,MNQ 12-26,Sim101,,Long,1,20000.00,19990.00,9/22/2026 1:00:00 PM,9/22/2026 1:05:00 PM,Buy,Sell,($20.00),$37.12,$0.72,$0,$0,$0,1`;
 const n = importTradesFile(nt, { account: 'ignored-uses-file-account', timeZone: NY });
 console.assert(n.format === 'ninjatrader' && n.trades.length === 2 && n.rejected.length === 0, 'detect NT8');
-console.assert(n.trades[0].side === 'SELL' && n.trades[0].contracts === 3 && n.trades[0].pnlNum === 57.84 && n.trades[0].account === 'Sim101', 'NT short, qty 3, net of commission, file account');
+console.assert(n.trades[0].side === 'SELL' && n.trades[0].contracts === 3 && n.trades[0].pnlNum === 57.84 && n.trades[0].account === 'ignored-uses-file-account', 'NT short, qty 3, net of commission, chosen account');
+const cum = n.trades.reduce((x, t) => x + t.pnlNum, 0);
+console.assert(Math.abs(cum - 37.12) < 0.001, `sum of net P&L matches NinjaTrader Cum. net profit (got ${cum})`);
+const mixed = nt.replace('2,MNQ 12-26,Sim101', '2,MNQ 12-26,Sim202');
+console.assert(/2 accounts/.test(importTradesFile(mixed, { account: 'x', timeZone: NY }).error || ''), 'multi-account file rejected with clear message');
 console.assert(n.trades[1].pnlNum === -20.72 && n.trades[1].time === '13:00 ET', 'NT loss net of commission; PM time');
 
 // template
