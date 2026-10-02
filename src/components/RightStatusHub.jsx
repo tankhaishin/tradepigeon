@@ -491,7 +491,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
 
   const [isVacationModalOpen, setIsVacationModalOpen] = useState(false);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
-  const [vacationDurationDays, setVacationDurationDays] = useState(7);
+  const [vacationDurationDays, setVacationDurationDays] = useState(1);
 
   // Initial Default Months Data (Dynamically computed based on current year & month)
   const defaultMonths = (() => {
@@ -843,17 +843,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
               </button>
             </div>
 
-            {/* STREAK REPAIR PROMPT FOR MISSED SESSION */}
-            <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-between text-xs">
-              <span className="font-black text-amber-300 text-[10px]">Missed session</span>
-              <button
-                onClick={handleRepairStreak}
-                className="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] uppercase border border-amber-400 cursor-pointer shadow-sm active:scale-95 transition-all"
-              >
-                Repair Streak ({streakFreezes} Tokens)
-              </button>
-            </div>
-
             {/* Trades List for Past Day */}
             <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
               {sessionTrades.length === 0 ? (
@@ -910,14 +899,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-1.5 [&_button]:whitespace-nowrap">
-                {selectedTradeIds.length >= 2 && (
-                  <button
-                    onClick={handleMergeSelectedTrades}
-                    className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-[#FFC800] text-slate-950 hover:bg-amber-400 border border-amber-500 cursor-pointer transition-all flex items-center gap-1 shadow-sm animate-pulse"
-                  >
-                    <span>Merge ({selectedTradeIds.length})</span>
-                  </button>
-                )}
                 {selectedTradeIds.length >= 1 && (
                   <button
                     onClick={handleDeleteSelectedTrades}
@@ -1469,31 +1450,6 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
               </span>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase block">Select Vacation Freeze Duration:</label>
-              <div className="grid grid-cols-4 gap-1.5">
-                {[3, 7, 14, 30].map((days) => (
-                  <button
-                    key={days}
-                    type="button"
-                    onClick={() => {
-                      soundFx.playSuccess();
-                      setVacationDurationDays(days);
-                      saveStoredData('tradepigeon_vacation_duration', days);
-                      handleApplyVacationRange(days);
-                    }}
-                    className={`py-2 px-2 rounded-xl text-xs font-black transition-all cursor-pointer border-2 ${
-                      vacationDurationDays === days
-                        ? 'bg-[#00F0FF] text-slate-950 border-[#00F0FF] border-b-4 border-b-[#00B3BF] font-black shadow-md'
-                        : 'bg-[#182830] text-slate-200 hover:text-white border-[#20323D] hover:border-[#00F0FF]/50 border-b-4 border-b-[#142127]'
-                    }`}
-                  >
-                    {days}d
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <button
               type="button"
               onClick={() => setTradingStatus('TRADING')}
@@ -1779,39 +1735,13 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 <DuoPalmtreeIcon className="w-7 h-7 text-[#00F0FF]" />
               </div>
               <div>
-                <span className="text-[10px] font-black uppercase text-[#00F0FF] tracking-wider block">DISCIPLINE STREAK FREEZE</span>
-                <h3 className="text-lg font-black text-white leading-tight">Plan Vacation & Rest</h3>
+                <h3 className="text-lg font-black text-white leading-tight">Take a rest day?</h3>
               </div>
             </div>
 
             <p className="text-xs font-bold text-slate-300 leading-relaxed">
-              Freeze your discipline streak while taking time off from live market execution. No streak loss, no drawdown penalty.
+              Not trading today is a good decision too. Your streak stays safe.
             </p>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Select Vacation Duration</label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { days: 1, label: '1 Day Rest' },
-                  { days: 3, label: '3 Days (Long Break)' },
-                  { days: 7, label: '7 Days (1 Week)' },
-                  { days: 14, label: '14 Days (2 Weeks)' },
-                ].map((opt) => (
-                  <button
-                    key={opt.days}
-                    type="button"
-                    onClick={() => setVacationDurationDays(opt.days)}
-                    className={`p-3 rounded-xl text-xs font-black cursor-pointer border-2 transition-all text-left flex flex-col gap-0.5 active:translate-y-0.5 ${
-                      vacationDurationDays === opt.days
-                        ? 'bg-[#00F0FF]/20 border-[#00F0FF] text-[#00F0FF] border-b-4 border-b-[#00B3BF]'
-                        : 'bg-[#142127] border-[#20323D] border-b-4 border-b-[#0E171B] text-slate-300 hover:border-[#00F0FF]/50'
-                    }`}
-                  >
-                    <span>{opt.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
 
             <div className="flex items-center gap-2 pt-1">
               <button
@@ -1824,7 +1754,7 @@ export default function RightStatusHub({ isExpanded = false, onToggleExpand, isM
                 className="duo-btn-blue flex-1 py-3 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg cursor-pointer !bg-[#00F0FF] !text-slate-950 !border-[#00B3BF]"
               >
                 <DuoPalmtreeIcon className="w-4 h-4 text-slate-950" />
-                <span>Activate Freeze ({vacationDurationDays} {vacationDurationDays === 1 ? 'Day' : 'Days'})</span>
+                <span>Rest today</span>
               </button>
             </div>
           </div>

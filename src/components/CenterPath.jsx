@@ -547,7 +547,8 @@ export default function CenterPath() {
 
           {/* 2. DUOLINGO MULTI-DAY CAMPAIGN MAP (30-DAY JOURNEY / 6 UNITS) */}
           <div className="relative py-4 flex flex-col items-center space-y-10 z-10 w-full">
-            {Array.from({ length: 30 }, (_, i) => i + 1).map((dayNum) => {
+            {/* Show only the current unit (5 sessions); overall progress is in the bar below. */}
+            {Array.from({ length: 30 }, (_, i) => i + 1).filter(d => Math.ceil(d / 5) === Math.ceil(Math.min(currentDay, 30) / 5)).map((dayNum) => {
               const isDayCompleted = completedDays.includes(dayNum);
               const isDayActive = dayNum === currentDay;
               const isDayLocked = dayNum > currentDay;

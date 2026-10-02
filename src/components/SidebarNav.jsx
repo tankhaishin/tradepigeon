@@ -184,20 +184,7 @@ export default function SidebarNav({ activeTab, setActiveTab, onToggleLanding, o
 
         {/* Footer Bottom Lock, Legal & Support Trigger */}
         <div className="space-y-2">
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
-            <button
-              onClick={toggleStealthMode}
-              className={`w-full flex items-center justify-center gap-2 p-3 xl:px-3 rounded-2xl border transition-all cursor-pointer shadow-sm text-xs font-black ${
-                isStealthMode
-                  ? 'bg-[#FF6B00]/15 border-[#FF6B00]/40 text-[#FF6B00]'
-                  : 'bg-[#182830] border-[#20323D] text-slate-300 hover:text-white'
-              }`}
-              title={isStealthMode ? 'Stealth Mode Active: Shows PnL in R-Multiples ($1R = your risk limit) to eliminate dollar attachment' : 'Dollar View Active: Shows PnL in USD ($). Click to switch to Stealth Mode (R-Multiples)'}
-            >
-              {isStealthMode ? <EyeOff size={16} className="shrink-0" /> : <Eye size={16} className="shrink-0" />}
-              <span className="hidden xl:inline">{isStealthMode ? 'Stealth' : 'Values'}</span>
-            </button>
-
+          <div className="grid grid-cols-1 gap-2">
             <button
               onClick={toggleSound}
               className={`w-full flex items-center justify-center gap-2 p-3 xl:px-3 rounded-2xl border transition-all cursor-pointer shadow-sm text-xs font-black ${

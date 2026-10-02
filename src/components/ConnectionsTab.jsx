@@ -250,24 +250,6 @@ export default function ConnectionsTab() {
             <span>Help</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              soundFx.playPop();
-              const next = !isStealthMode;
-              setIsStealthMode(next);
-              saveStoredData('tradepigeon_stealth_mode', next);
-            }}
-            className={`p-2 sm:px-3 sm:py-2 rounded-2xl border-2 text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-              isStealthMode
-                ? 'bg-[#FF6B00]/15 border-[#FF6B00] text-[#FF6B00]'
-                : 'bg-[#142127] border-[#20323D] text-slate-400 hover:text-white'
-            }`}
-            title={isStealthMode ? 'Stealth Mode: Values masked in R-multiples' : 'Dollar Mode: Values shown in USD'}
-          >
-            {isStealthMode ? <EyeOff size={15} /> : <Eye size={15} />}
-            <span className="hidden sm:inline">{isStealthMode ? 'Stealth' : 'Values'}</span>
-          </button>
 
           <button
             type="button"
