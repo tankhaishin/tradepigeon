@@ -1,10 +1,10 @@
-# TradePigeon — Duolingo-style trading journal
+# TradePigeon — the trading journal that tracks discipline
 
 > TradePigeon tracks your trading discipline, not just P&L. Each trade gets one of seven labels (Disciplined Win, Disciplined Loss, Disciplined BE, Toxic Win, Toxic BE, Double Failure, Missed Trade), and the app shows what your rule breaks cost you.
 
 ## What it does today
 - Log trades by hand (Free) or import Tradovate Performance and NinjaTrader 8 Trades exports, or a CSV template (Pro).
-- Daily lessons, streak and calendar in a Duolingo-style path.
+- Daily lessons, streak and calendar in a lesson path.
 - AI debrief of your trading day (Pro).
 - Broker auto-sync is coming soon. TradePigeon never places trades and never asks for broker passwords.
 
