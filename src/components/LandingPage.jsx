@@ -25,7 +25,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
 
   // DYNAMIC INTERACTIVE MASCOT REACTIVE STATE (Respectful Trading Companion Tone)
   const mascotQuotes = [
-    { pose: 'welcoming', text: '"Hi! I'm Pigeon. Let's make your trading habits as strong as your setups."' },
+    { pose: 'welcoming', text: "\"Hi! I'm Pigeon. Let's make your trading habits as strong as your setups.\"" },
     { pose: 'celebrating', text: '"Outstanding discipline! Sticking to your plan is how you protect your edge."' },
     { pose: 'shielded', text: '"You respected your stop loss—that is a great trade in my book. Capital preserved!"' },
     { pose: 'anxious', text: '"Patience, my friend. The market always offers another setup. Let\'s wait for yours."' },
