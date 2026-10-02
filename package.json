@@ -7,7 +7,7 @@
     "dev": "vite",
     "server": "node server/index.js",
     "build": "vite build",
-    "test": "node tests/test_suite.mjs && node tests/stress_test.mjs",
+    "test": "node tests/test_suite.mjs && node tests/stress_test.mjs && node tests/trade_store.test.mjs && node tests/import_formats.test.mjs",
     "test:unit": "node tests/test_suite.mjs",
     "test:stress": "node tests/stress_test.mjs",
     "lint": "oxlint",

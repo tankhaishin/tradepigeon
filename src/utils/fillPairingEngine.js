@@ -48,6 +48,24 @@ export const INSTRUMENT_MULTIPLIERS = {
   '6E': 125000,
   'M6E': 12500,
 
+  // Treasuries (per 1.0 point)
+  'ZT': 2000, 'ZF': 1000, 'ZN': 1000, 'TN': 1000, 'ZB': 1000, 'UB': 1000,
+
+  // FX
+  '6B': 62500, 'M6B': 6250, '6J': 12500000, '6A': 100000, 'M6A': 10000, '6C': 100000, '6S': 125000,
+
+  // Crypto
+  'BTC': 5, 'MBT': 0.1, 'ETH': 50, 'MET': 0.1,
+
+  // Metals & energy
+  'HG': 25000, 'MHG': 2500, 'PL': 50, 'PA': 100, 'MNG': 1000, 'RB': 42000, 'HO': 42000,
+
+  // Equity index (other)
+  'NKD': 5, 'MNK': 50,
+
+  // Grains (quoted in cents) & livestock
+  'ZC': 50, 'ZS': 50, 'ZW': 50, 'ZL': 600, 'ZM': 100, 'HE': 400, 'LE': 400, 'GF': 500,
+
   // Default fallback multiplier
   'DEFAULT': 1
 };
@@ -81,6 +99,10 @@ export function normalizeSymbol(rawSymbol = '') {
   if (clean.startsWith('NG')) return 'NG';
   if (clean.startsWith('M6E')) return 'M6E';
   if (clean.startsWith('6E')) return '6E';
+
+  // Strip contract month/year (e.g. ZNZ6, M6BZ2026) and use the table when the root is known
+  const root = clean.replace(/[FGHJKMNQUVXZ]\d{1,4}$/, '');
+  if (INSTRUMENT_MULTIPLIERS[root]) return root;
 
   return clean.slice(0, 4) || 'NQ';
 }

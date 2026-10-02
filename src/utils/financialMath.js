@@ -24,8 +24,9 @@ export function parseFinancialNumber(val, fallback = 0) {
     return fallback;
   }
 
-  // Detect negative accounting parenthesis format: ($450.00) or (450.00)
-  const isParenthesisNegative = trimmed.startsWith('(') && trimmed.endsWith(')');
+  // Detect negative accounting parenthesis format: ($450.00), (450.00), $(450.00) (Tradovate)
+  const noCurrency = trimmed.replace(/[$€£\s]/g, '');
+  const isParenthesisNegative = noCurrency.startsWith('(') && noCurrency.endsWith(')');
   
   // Detect standard negative sign: -$450.00 or -450 or $-450
   const isExplicitNegative = /^\s*-\s*[$€£]?|^\s*[$€£]\s*-/.test(trimmed);
