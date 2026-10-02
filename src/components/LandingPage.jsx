@@ -11,7 +11,6 @@ import { DuoDisciplinedWinIcon, DuoDisciplinedLossIcon, DuoDisciplinedBeIcon, Du
 import { soundFx } from '../utils/audioEngine';
 import { saveStoredData, loadStoredData, subscribeToStorageUpdate } from '../utils/storage';
 
-import GoogleAuthButton from './GoogleAuthButton';
 import AuthModal from './AuthModal';
 
 export default function LandingPage({ onGetStarted, onLogin }) {
@@ -26,7 +25,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
 
   // DYNAMIC INTERACTIVE MASCOT REACTIVE STATE (Respectful Trading Companion Tone)
   const mascotQuotes = [
-    { pose: 'welcoming', text: '"Welcome back, my friend! Ready to execute your strategy today?"' },
+    { pose: 'welcoming', text: '"Hi! I'm Pigeon. Let's make your trading habits as strong as your setups."' },
     { pose: 'celebrating', text: '"Outstanding discipline! Sticking to your plan is how you protect your edge."' },
     { pose: 'shielded', text: '"You respected your stop loss—that is a great trade in my book. Capital preserved!"' },
     { pose: 'anxious', text: '"Patience, my friend. The market always offers another setup. Let\'s wait for yours."' },
@@ -106,16 +105,15 @@ export default function LandingPage({ onGetStarted, onLogin }) {
 
         {/* Header CTAs */}
         <div className="flex items-center gap-2.5">
-          <GoogleAuthButton 
-            onOpenAuthModal={() => { setAuthMode('signin'); setIsAuthModalOpen(true); }}
-            onAuthSuccess={(userObj) => {
-              if (userObj && userObj.email) {
-                handleStart(userObj);
-              }
-            }} 
-            className="bg-[#142127] border-2 border-[#20323D] border-b-4 border-b-[#0e171b] text-white font-black text-xs hover:border-[#FF6B00] hover:bg-[#182830] transition-all px-4 py-2.5 rounded-2xl cursor-pointer shadow-md" 
-            buttonText="Sign in with Google" 
-          />
+          {!loggedInUser && (
+            <button
+              type="button"
+              onClick={() => { setAuthMode('signin'); setIsAuthModalOpen(true); }}
+              className="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-slate-300 hover:text-white cursor-pointer"
+            >
+              Log in
+            </button>
+          )}
           {loggedInUser ? (
             <button
               onClick={() => handleStart(loggedInUser)}
@@ -129,8 +127,7 @@ export default function LandingPage({ onGetStarted, onLogin }) {
               onClick={() => handleStripeCheckout()}
               className="duo-btn-orange px-5 py-2.5 text-xs uppercase tracking-wider font-black shadow-lg cursor-pointer flex items-center gap-2"
             >
-              <Duo3dZapBadge className="w-4 h-4" />
-              <span>START FREE</span>
+              <span>GET STARTED</span>
             </button>
           )}
         </div>
@@ -208,11 +205,11 @@ export default function LandingPage({ onGetStarted, onLogin }) {
                 onClick={() => handleStripeCheckout()}
                 className="duo-btn-orange w-full py-4 text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-[0_8px_30px_rgba(255,107,0,0.4)] cursor-pointer"
               >
-                <Duo3dZapBadge className="w-5 h-5" />
-                <span>START FREE</span>
+                <span>GET STARTED</span>
+                <ArrowRight size={18} />
               </button>
             )}
-            {!loggedInUser && <p className="text-xs font-bold text-slate-400 text-center">Includes 7 days of Pro. No card needed.</p>}
+            {!loggedInUser && <p className="text-xs font-bold text-slate-400 text-center">Free forever. Includes 7 days of Pro, no card needed.</p>}
           </div>
 
           {/* Duolingo 3D Tactile Broker Badges */}
